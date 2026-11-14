@@ -11,6 +11,8 @@ import '../../core/network/tmdb_service.dart';
 import '../../shared/models/media_details.dart';
 import '../../shared/providers/continue_watching_provider.dart';
 import '../../shared/providers/watchlist_provider.dart';
+import '../../shared/widgets/horizontal_carousel.dart';
+import '../../shared/widgets/poster_card.dart';
 
 /// Arguments passed to the details route via GoRouter extra.
 class DetailsArgs {
@@ -184,25 +186,74 @@ class _DetailsContent extends ConsumerWidget {
                     const SizedBox(height: AppSpacing.lg),
                     Row(children: [
                       Expanded(child: Builder(builder: (ctx) {
-                        // Find resume progress for movies (s=0,e=0)
                         final cw = ref.watch(continueWatchingProvider);
-                        final key = '${details.type.name}:${details.id}:0x00';
-                        final resume = cw
-                            .where((i) => i.key == key && !i.isFinished)
-                            .cast<ContinueWatchingItem?>()
-                            .firstWhere((_) => true, orElse: () => null);
+                        // For TV: find any unfinished episode for this show
+                        ContinueWatchingItem? tvResume;
+                        if (details.type == MediaType.tv) {
+                          for (final i in cw) {
+                            if (i.type == MediaType.tv &&
+                                i.id == details.id &&
+                                !i.isFinished) {
+                              tvResume = i;
+                              break;
+                            }
+                          }
+                        }
+                        // For movies: s=0,e=0
+                        ContinueWatchingItem? movieResume;
+                        if (details.type == MediaType.movie) {
+                          final key = '${details.type.name}:${details.id}:0x00';
+                          for (final i in cw) {
+                            if (i.key == key && !i.isFinished) {
+                              movieResume = i;
+                              break;
+                            }
+                          }
+                        }
+
+                        final isTv = details.type == MediaType.tv;
+                        final resume = isTv ? tvResume : movieResume;
+                        final label = isTv
+                            ? (resume != null
+                                ? 'Resume S${resume.season}E${resume.episode}'
+                                : 'Episodes')
+                            : (resume != null ? 'Resume' : 'Play');
+                        final icon = isTv && resume == null
+                            ? Icons.format_list_bulleted_rounded
+                            : Icons.play_arrow_rounded;
+
                         return FilledButton.icon(
-                            onPressed: () => context.push('/player',
-                                extra: PlayerArgs(
-                                  details: details,
-                                  resumeAtMs: resume?.positionMs ?? 0,
-                                )),
-                            icon: Icon(
-                                resume != null
-                                    ? Icons.play_arrow_rounded
-                                    : Icons.play_arrow_rounded,
-                                size: 22),
-                            label: Text(resume != null ? 'Resume' : 'Play'));
+                            onPressed: () {
+                              if (isTv && resume != null) {
+                                context.push('/player',
+                                    extra: PlayerArgs(
+                                      details: details,
+                                      season: resume.season,
+                                      episode: resume.episode,
+                                      episodeTitle: resume.episodeTitle,
+                                      resumeAtMs: resume.positionMs,
+                                    ));
+                              } else if (isTv) {
+                                final sorted = [...details.seasons]
+                                  ..sort((a, b) =>
+                                      a.seasonNumber.compareTo(b.seasonNumber));
+                                final firstSeason = sorted.isNotEmpty
+                                    ? sorted.first.seasonNumber
+                                    : 1;
+                                context.push('/episodes',
+                                    extra: EpisodesArgs(
+                                        details: details,
+                                        initialSeason: firstSeason));
+                              } else {
+                                context.push('/player',
+                                    extra: PlayerArgs(
+                                      details: details,
+                                      resumeAtMs: resume?.positionMs ?? 0,
+                                    ));
+                              }
+                            },
+                            icon: Icon(icon, size: 22),
+                            label: Text(label));
                       })),
                       const SizedBox(width: AppSpacing.sm),
                       _IconPill(
@@ -362,6 +413,25 @@ class _DetailsContent extends ConsumerWidget {
             ),
           );
         }, childCount: details.seasons.length)),
+      ],
+
+      // More Like This
+      if (details.similar.isNotEmpty) ...[
+        const SliverToBoxAdapter(child: SizedBox(height: AppSpacing.xl)),
+        SliverToBoxAdapter(
+            child: HorizontalCarousel(
+                title: 'More Like This',
+                itemCount: details.similar.length,
+                height: AppSpacing.posterHeight + 56,
+                itemBuilder: (_, i) {
+                  final s = details.similar[i];
+                  return PosterCard(
+                      imageUrl: s.posterUrlW342,
+                      title: s.title,
+                      metadata: s.year,
+                      onTap: () => context.push(
+                          '/details/${s.type == MediaType.tv ? 'tv' : 'movie'}/${s.id}?poster=${Uri.encodeComponent(s.posterUrlW342)}'));
+                })),
       ],
 
       const SliverToBoxAdapter(child: SizedBox(height: 100)),

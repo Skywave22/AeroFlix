@@ -88,6 +88,40 @@ class Season extends Equatable {
   List<Object?> get props => [id, seasonNumber];
 }
 
+class SimilarTitle extends Equatable {
+  final int id;
+  final String title;
+  final MediaType type;
+  final String? posterPath;
+  final double voteAverage;
+  final String? releaseDate;
+  const SimilarTitle({
+    required this.id,
+    required this.title,
+    required this.type,
+    this.posterPath,
+    this.voteAverage = 0,
+    this.releaseDate,
+  });
+  String get posterUrlW342 =>
+      ApiConstants.posterUrl(posterPath, size: ApiConstants.posterSizeW342);
+  String? get year => (releaseDate != null && releaseDate!.length >= 4)
+      ? releaseDate!.substring(0, 4)
+      : null;
+  String get rating => voteAverage > 0 ? voteAverage.toStringAsFixed(1) : '—';
+  factory SimilarTitle.fromJson(Map<String, dynamic> j, MediaType type) =>
+      SimilarTitle(
+        id: (j['id'] as int?) ?? 0,
+        title: ((j['title'] ?? j['name'] ?? '') as String),
+        type: type,
+        posterPath: j['poster_path'] as String?,
+        voteAverage: ((j['vote_average'] as num?) ?? 0).toDouble(),
+        releaseDate: (j['release_date'] ?? j['first_air_date']) as String?,
+      );
+  @override
+  List<Object?> get props => [id, type];
+}
+
 class VideoTrailer extends Equatable {
   final String id, key, name, site, type;
   final bool official;
@@ -131,6 +165,7 @@ class MediaDetails extends Equatable {
   final List<VideoTrailer> trailers;
   final List<Season> seasons; // empty for movies
   final int numberOfSeasons;
+  final List<SimilarTitle> similar;
   const MediaDetails({
     required this.type,
     required this.id,
@@ -151,6 +186,7 @@ class MediaDetails extends Equatable {
     this.trailers = const [],
     this.seasons = const [],
     this.numberOfSeasons = 0,
+    this.similar = const [],
   });
 
   String get posterUrlW500 => ApiConstants.posterUrl(posterPath);

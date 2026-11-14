@@ -23,6 +23,11 @@ class TmdbService {
   Future<List<TvShow>> getTopRatedTv() => _fetchTv('/tv/top_rated');
   Future<List<Movie>> getHindiMovies() => _fetchMovies('/discover/movie',
       query: {'with_original_language': 'hi', 'sort_by': 'popularity.desc'});
+  Future<List<Movie>> getMoviesByGenre(int genreId) =>
+      _fetchMovies('/discover/movie',
+          query: {'with_genres': '$genreId', 'sort_by': 'popularity.desc'});
+  Future<List<TvShow>> getTvByGenre(int genreId) => _fetchTv('/discover/tv',
+      query: {'with_genres': '$genreId', 'sort_by': 'popularity.desc'});
 
   Future<List<Genre>> getMovieGenres() async {
     final r = await _get('/genre/movie/list');
@@ -122,7 +127,19 @@ class TmdbService {
           .map(VideoTrailer.fromJson)
           .take(1)
           .toList(),
+      similar: _parseSimilar(r, MediaType.movie),
     );
+  }
+
+  List<SimilarTitle> _parseSimilar(Map<String, dynamic> r, MediaType type) {
+    final sim = r['similar'] as Map<String, dynamic>? ?? {};
+    final results = (sim['results'] as List? ?? const [])
+        .cast<Map<String, dynamic>>()
+        .where((m) => (m['poster_path'] as String?) != null)
+        .take(18)
+        .map((m) => SimilarTitle.fromJson(m, type))
+        .toList();
+    return results;
   }
 
   MediaDetails _parseTv(Map<String, dynamic> r) {
@@ -166,6 +183,7 @@ class TmdbService {
           .toList(),
       seasons: seasons,
       numberOfSeasons: (r['number_of_seasons'] as int?) ?? seasons.length,
+      similar: _parseSimilar(r, MediaType.tv),
     );
   }
 
