@@ -9,6 +9,7 @@ import '../../app/theme/app_spacing.dart';
 import '../../app/theme/app_typography.dart';
 import '../../core/network/tmdb_service.dart';
 import '../../shared/models/media_details.dart';
+import '../../shared/providers/continue_watching_provider.dart';
 
 class EpisodesScreen extends ConsumerStatefulWidget {
   final MediaDetails details;
@@ -45,10 +46,63 @@ class _EpisodesScreenState extends ConsumerState<EpisodesScreen> {
     });
   }
 
+  PlayerArgs _buildArgs(List<Episode> eps, int index) {
+    final ep = eps[index];
+    final cw = ref.read(continueWatchingProvider);
+    final resumeItem = cw
+        .where((i) =>
+            i.type == widget.details.type &&
+            i.id == widget.details.id &&
+            i.season == _seasonNum &&
+            i.episode == ep.episodeNumber &&
+            !i.isFinished)
+        .cast<ContinueWatchingItem?>()
+        .firstWhere((_) => true, orElse: () => null);
+    final resumeMs = resumeItem?.positionMs ?? 0;
+
+    PlayerArgs? next;
+    if (index + 1 < eps.length) {
+      final ne = eps[index + 1];
+      next = PlayerArgs(
+        details: widget.details,
+        season: _seasonNum,
+        episode: ne.episodeNumber,
+        episodeTitle: ne.name,
+      );
+    } else {
+      // Next season's first episode, if a later season exists
+      final sortedSeasons = [...widget.details.seasons]
+        ..sort((a, b) => a.seasonNumber.compareTo(b.seasonNumber));
+      final nextSeasonIdx =
+          sortedSeasons.indexWhere((s) => s.seasonNumber > _seasonNum);
+      if (nextSeasonIdx >= 0) {
+        // We don't have episodes loaded for the next season yet;
+        // passing season/episode 1 lets player navigate there and
+        // re-fetch sources. Episode title will be fetched on the next screen.
+        next = PlayerArgs(
+          details: widget.details,
+          season: sortedSeasons[nextSeasonIdx].seasonNumber,
+          episode: 1,
+          episodeTitle: 'Next season',
+        );
+      }
+    }
+
+    return PlayerArgs(
+      details: widget.details,
+      season: _seasonNum,
+      episode: ep.episodeNumber,
+      episodeTitle: ep.name,
+      resumeAtMs: resumeMs,
+      nextEpisode: next,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final sortedSeasons = [...widget.details.seasons]
       ..sort((a, b) => a.seasonNumber.compareTo(b.seasonNumber));
+    final cw = ref.watch(continueWatchingProvider);
     return Scaffold(
       backgroundColor: AppColors.background,
       body: CustomScrollView(slivers: [
@@ -113,13 +167,16 @@ class _EpisodesScreenState extends ConsumerState<EpisodesScreen> {
               return SliverList(
                   delegate: SliverChildBuilderDelegate((c, i) {
                 final ep = eps[i];
+                final itemKey =
+                    '${widget.details.type.name}:${widget.details.id}:${_seasonNum}x${ep.episodeNumber.toString().padLeft(2, '0')}';
+                final resume = cw
+                    .where((x) => x.key == itemKey && !x.isFinished)
+                    .cast<ContinueWatchingItem?>()
+                    .firstWhere((_) => true, orElse: () => null);
+                final progress = resume?.progress ?? 0.0;
                 return InkWell(
-                  onTap: () => context.push('/player',
-                      extra: PlayerArgs(
-                          details: widget.details,
-                          season: _seasonNum,
-                          episode: ep.episodeNumber,
-                          episodeTitle: ep.name)),
+                  onTap: () =>
+                      context.push('/player', extra: _buildArgs(eps, i)),
                   child: Padding(
                     padding: const EdgeInsets.symmetric(
                         horizontal: AppSpacing.horizontalPadding,
@@ -127,28 +184,65 @@ class _EpisodesScreenState extends ConsumerState<EpisodesScreen> {
                     child: Row(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          ClipRRect(
-                              borderRadius: AppRadii.smRadius,
-                              child: SizedBox(
-                                width: 160,
-                                height: 90,
-                                child: ep.stillUrl.isNotEmpty
-                                    ? CachedNetworkImage(
-                                        imageUrl: ep.stillUrl,
-                                        fit: BoxFit.cover,
-                                        placeholder: (_, __) => Container(
-                                            color: AppColors.surfaceElevated),
-                                        errorWidget: (_, __, ___) => Container(
-                                            color: AppColors.surfaceElevated,
-                                            child: const Icon(Icons.movie,
-                                                color: AppColors.textMuted,
-                                                size: 28)))
-                                    : Container(
-                                        color: AppColors.surfaceElevated,
-                                        child: const Icon(Icons.movie,
-                                            color: AppColors.textMuted,
-                                            size: 28)),
-                              )),
+                          Stack(children: [
+                            ClipRRect(
+                                borderRadius: AppRadii.smRadius,
+                                child: SizedBox(
+                                  width: 160,
+                                  height: 90,
+                                  child: ep.stillUrl.isNotEmpty
+                                      ? CachedNetworkImage(
+                                          imageUrl: ep.stillUrl,
+                                          fit: BoxFit.cover,
+                                          placeholder: (_, __) => Container(
+                                              color: AppColors.surfaceElevated),
+                                          errorWidget: (_, __, ___) =>
+                                              Container(
+                                                  color:
+                                                      AppColors.surfaceElevated,
+                                                  child: const Icon(Icons.movie,
+                                                      color:
+                                                          AppColors.textMuted,
+                                                      size: 28)))
+                                      : Container(
+                                          color: AppColors.surfaceElevated,
+                                          child: const Icon(Icons.movie,
+                                              color: AppColors.textMuted,
+                                              size: 28)),
+                                )),
+                            if (progress > 0)
+                              Positioned(
+                                  left: 0,
+                                  right: 0,
+                                  bottom: 0,
+                                  child: LinearProgressIndicator(
+                                    value: progress,
+                                    minHeight: 3,
+                                    backgroundColor: Colors.black38,
+                                    valueColor:
+                                        const AlwaysStoppedAnimation<Color>(
+                                            AppColors.accent),
+                                  )),
+                            if (progress > 0)
+                              Positioned(
+                                  bottom: 6,
+                                  right: 6,
+                                  child: Container(
+                                      padding: const EdgeInsets.symmetric(
+                                          horizontal: 5, vertical: 2),
+                                      decoration: BoxDecoration(
+                                          color: Colors.black
+                                              .withValues(alpha: 0.7),
+                                          borderRadius:
+                                              BorderRadius.circular(4)),
+                                      child: Text(
+                                        '${(progress * 100).round()}%',
+                                        style: const TextStyle(
+                                            color: Colors.white,
+                                            fontSize: 10,
+                                            fontWeight: FontWeight.w600),
+                                      ))),
+                          ]),
                           const SizedBox(width: AppSpacing.md),
                           Expanded(
                               child: Column(
@@ -182,9 +276,30 @@ class _EpisodesScreenState extends ConsumerState<EpisodesScreen> {
                                               .copyWith(
                                                   color: AppColors
                                                       .textSecondary))),
+                                if (resume != null)
+                                  Padding(
+                                      padding: const EdgeInsets.only(top: 6),
+                                      child: Row(children: [
+                                        const Icon(Icons.history_rounded,
+                                            size: 12, color: AppColors.accent),
+                                        const SizedBox(width: 4),
+                                        Text('Resume',
+                                            style: AppTypography.metadata
+                                                .copyWith(
+                                                    color: AppColors.accent,
+                                                    fontSize: 11,
+                                                    fontWeight:
+                                                        FontWeight.w600)),
+                                      ])),
                               ])),
-                          const Icon(Icons.play_circle_outline_rounded,
-                              color: AppColors.textMuted, size: 28),
+                          Icon(
+                              resume != null
+                                  ? Icons.play_circle_filled_rounded
+                                  : Icons.play_circle_outline_rounded,
+                              color: resume != null
+                                  ? AppColors.accent
+                                  : AppColors.textMuted,
+                              size: 28),
                         ]),
                   ),
                 );

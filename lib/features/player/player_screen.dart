@@ -2,11 +2,14 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:media_kit_video/media_kit_video.dart';
+import '../../app/router.dart';
 import '../../app/theme/app_colors.dart';
 import '../../app/theme/app_typography.dart';
 import '../../shared/models/media_details.dart';
 import '../../shared/models/stream_source.dart';
+import '../../shared/providers/continue_watching_provider.dart';
 import '../../shared/providers/player_controller.dart';
 import '../../shared/providers/stream_providers.dart';
 
@@ -15,6 +18,8 @@ class PlayerScreen extends ConsumerStatefulWidget {
   final int season;
   final int episode;
   final String? episodeTitle;
+  final int resumeAtMs;
+  final PlayerArgs? nextEpisode;
 
   const PlayerScreen({
     super.key,
@@ -22,6 +27,8 @@ class PlayerScreen extends ConsumerStatefulWidget {
     this.season = 0,
     this.episode = 0,
     this.episodeTitle,
+    this.resumeAtMs = 0,
+    this.nextEpisode,
   });
 
   @override
@@ -32,6 +39,8 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
   bool _showControls = true;
   bool _locked = false;
   Timer? _hideTimer;
+  Timer? _progressSaveTimer;
+  Timer? _autoAdvanceTimer;
 
   List<StreamSource> _sources = const [];
   StreamSource? _selected;
@@ -40,7 +49,12 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
   bool _playing = false;
   Duration _position = Duration.zero;
   Duration _duration = Duration.zero;
-  StreamSubscription? _posSub, _durSub, _playSub, _bufSub, _completeSub;
+  bool _seeking = false;
+  bool _completed = false;
+  bool _seekedToResume = false;
+  int _autoAdvanceCountdown = 0;
+
+  StreamSubscription? _posSub, _durSub, _playSub, _completeSub;
 
   @override
   void initState() {
@@ -52,6 +66,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
     ]);
     _scheduleHide();
     _loadSources();
+    _startProgressSaver();
   }
 
   void _scheduleHide() {
@@ -63,10 +78,37 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
     });
   }
 
+  void _startProgressSaver() {
+    _progressSaveTimer?.cancel();
+    _progressSaveTimer = Timer.periodic(const Duration(seconds: 5), (_) {
+      _persistProgress();
+    });
+  }
+
+  void _persistProgress() {
+    if (_duration.inMilliseconds <= 0) return;
+    final posMs = _position.inMilliseconds;
+    final durMs = _duration.inMilliseconds;
+    if (posMs <= 0) return;
+    ref.read(continueWatchingProvider.notifier).saveProgress(
+          type: widget.details.type,
+          id: widget.details.id,
+          title: widget.details.title,
+          posterPath: widget.details.posterPath,
+          backdropPath: widget.details.backdropPath,
+          season: widget.season,
+          episode: widget.episode,
+          episodeTitle: widget.episodeTitle,
+          positionMs: posMs,
+          durationMs: durMs,
+        );
+  }
+
   Future<void> _loadSources() async {
     setState(() {
       _loadingSources = true;
       _error = null;
+      _completed = false;
     });
     try {
       final svc = ref.read(streamServiceProvider);
@@ -101,10 +143,24 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
     _posSub?.cancel();
     _durSub?.cancel();
     _playSub?.cancel();
-    _bufSub?.cancel();
     _completeSub?.cancel();
+    _seekedToResume = false;
     _posSub = ap.player.stream.position.listen((p) {
-      if (mounted) setState(() => _position = p);
+      if (!mounted || _seeking) return;
+      setState(() => _position = p);
+      if (!_seekedToResume &&
+          widget.resumeAtMs > 0 &&
+          p.inMilliseconds < 500 &&
+          _duration.inMilliseconds > 0) {
+        _seekedToResume = true;
+        final target = Duration(
+            milliseconds:
+                widget.resumeAtMs.clamp(0, _duration.inMilliseconds - 2000));
+        if (target > Duration.zero) {
+          ap.player.seek(target);
+          setState(() => _position = target);
+        }
+      }
     });
     _durSub = ap.player.stream.duration.listen((d) {
       if (mounted) setState(() => _duration = d);
@@ -113,18 +169,58 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
       if (mounted) setState(() => _playing = p);
     });
     _completeSub = ap.player.stream.completed.listen((c) {
-      if (c && mounted) setState(() => _playing = false);
+      if (c && mounted) {
+        setState(() {
+          _playing = false;
+          _completed = true;
+          _position = _duration;
+        });
+        _persistProgress();
+        _beginAutoAdvanceCountdown();
+      }
     });
     setState(() => _selected = src);
+  }
+
+  void _beginAutoAdvanceCountdown() {
+    _autoAdvanceTimer?.cancel();
+    if (widget.nextEpisode == null) return;
+    setState(() => _autoAdvanceCountdown = 10);
+    _autoAdvanceTimer = Timer.periodic(const Duration(seconds: 1), (t) {
+      if (!mounted) {
+        t.cancel();
+        return;
+      }
+      setState(() => _autoAdvanceCountdown -= 1);
+      if (_autoAdvanceCountdown <= 1) {
+        t.cancel();
+        _playNext();
+      }
+    });
+  }
+
+  void _cancelAutoAdvance() {
+    _autoAdvanceTimer?.cancel();
+    setState(() => _autoAdvanceCountdown = 0);
+  }
+
+  void _playNext() {
+    _autoAdvanceTimer?.cancel();
+    final next = widget.nextEpisode;
+    if (next == null || !mounted) return;
+    // Replace the current route with the next player
+    context.pushReplacement('/player', extra: next);
   }
 
   @override
   void dispose() {
     _hideTimer?.cancel();
+    _progressSaveTimer?.cancel();
+    _autoAdvanceTimer?.cancel();
+    _persistProgress();
     _posSub?.cancel();
     _durSub?.cancel();
     _playSub?.cancel();
-    _bufSub?.cancel();
     _completeSub?.cancel();
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
     SystemChrome.setPreferredOrientations(DeviceOrientation.values);
@@ -135,6 +231,11 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
     final ap = ref.read(activePlayerProvider);
     if (ap == null) return;
     ap.player.playOrPause();
+    if (_completed && widget.nextEpisode != null) {
+      _playNext();
+      return;
+    }
+    _cancelAutoAdvance();
     _scheduleHide();
   }
 
@@ -145,6 +246,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
     if (t < Duration.zero) t = Duration.zero;
     if (t > _duration) t = _duration;
     ap.player.seek(t);
+    _cancelAutoAdvance();
     _scheduleHide();
   }
 
@@ -212,6 +314,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
                   dense: true,
                   onTap: () {
                     Navigator.pop(c);
+                    _cancelAutoAdvance();
                     _play(s);
                   },
                   leading: Icon(
@@ -261,7 +364,6 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
         behavior: HitTestBehavior.opaque,
         onTap: _onTap,
         child: Stack(fit: StackFit.expand, children: [
-          // Video surface or backdrop scrim while loading
           Container(color: Colors.black),
           if (hasVideo)
             Positioned.fill(
@@ -305,13 +407,66 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
                         ])
                       : IconButton(
                           icon: Icon(
-                              _playing
-                                  ? Icons.pause_rounded
-                                  : Icons.play_arrow_rounded,
+                              _completed
+                                  ? Icons.replay_rounded
+                                  : _playing
+                                      ? Icons.pause_rounded
+                                      : Icons.play_arrow_rounded,
                               size: 64,
                               color: AppColors.textPrimary
                                   .withValues(alpha: _showControls ? 1 : 0)),
                           onPressed: _showControls ? _togglePlay : null)),
+
+          // Auto-advance overlay
+          if (_completed &&
+              widget.nextEpisode != null &&
+              _autoAdvanceCountdown > 0)
+            Positioned(
+                bottom: 120,
+                right: 24,
+                child: GestureDetector(
+                  onTap: _playNext,
+                  child: Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 14, vertical: 10),
+                      decoration: BoxDecoration(
+                          color: Colors.black.withValues(alpha: 0.75),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                              color: AppColors.accent.withValues(alpha: 0.5))),
+                      child: Row(mainAxisSize: MainAxisSize.min, children: [
+                        const Icon(Icons.skip_next_rounded,
+                            color: AppColors.accent, size: 22),
+                        const SizedBox(width: 8),
+                        Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text('Next up',
+                                  style: AppTypography.metadata.copyWith(
+                                      color: AppColors.textMuted,
+                                      fontSize: 11)),
+                              Text(
+                                  widget.nextEpisode!.episodeTitle ??
+                                      'Next episode',
+                                  style: AppTypography.bodyPrimary.copyWith(
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w600)),
+                              Text('Playing in $_autoAdvanceCountdown…',
+                                  style: AppTypography.metadata.copyWith(
+                                      color: AppColors.accent, fontSize: 11)),
+                            ]),
+                        const SizedBox(width: 12),
+                        TextButton(
+                            onPressed: _cancelAutoAdvance,
+                            style: TextButton.styleFrom(
+                                foregroundColor: AppColors.textMuted,
+                                minimumSize: Size.zero,
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 8, vertical: 4)),
+                            child: const Text('Cancel')),
+                      ])),
+                )),
 
           // Source label
           if (_selected != null && _showControls && !_locked)
@@ -326,6 +481,25 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
                         overflow: TextOverflow.ellipsis,
                         style: AppTypography.metadata.copyWith(
                             color: AppColors.textMuted, fontSize: 11)))),
+
+          // Resume-toast
+          if (widget.resumeAtMs > 5000 && !_seekedToResume && hasVideo)
+            Positioned(
+                top: 90,
+                right: 20,
+                child: SafeArea(
+                    bottom: false,
+                    child: Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 10, vertical: 6),
+                        decoration: BoxDecoration(
+                            color: Colors.black.withValues(alpha: 0.7),
+                            borderRadius: BorderRadius.circular(8)),
+                        child: Text(
+                            'Resuming at ${_fmt(Duration(milliseconds: widget.resumeAtMs))}',
+                            style: AppTypography.metadata.copyWith(
+                                color: AppColors.textSecondary,
+                                fontSize: 11))))),
 
           // Top bar
           AnimatedOpacity(
@@ -346,7 +520,10 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
                           IconButton(
                               icon: const Icon(Icons.arrow_back_ios_new_rounded,
                                   size: 20, color: AppColors.textPrimary),
-                              onPressed: () => Navigator.of(context).pop(),
+                              onPressed: () {
+                                _persistProgress();
+                                Navigator.of(context).pop();
+                              },
                               splashRadius: 20),
                           const SizedBox(width: 4),
                           Expanded(
@@ -402,12 +579,17 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
                                     : (_position.inMilliseconds /
                                             _duration.inMilliseconds)
                                         .clamp(0.0, 1.0),
+                                onChangeStart: (_) => _seeking = true,
                                 onChangeEnd: (v) {
+                                  _seeking = false;
                                   final ap = ref.read(activePlayerProvider);
                                   if (ap != null) ap.player.seek(_duration * v);
+                                  _cancelAutoAdvance();
                                   _scheduleHide();
                                 },
-                                onChanged: (_) {},
+                                onChanged: (v) {
+                                  setState(() => _position = _duration * v);
+                                },
                               )),
                           Padding(
                               padding:
@@ -434,22 +616,31 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
                                 IconButton(
                                     icon: const Icon(
                                         Icons.skip_previous_rounded,
-                                        color: AppColors.textPrimary,
+                                        color: AppColors.textMuted,
                                         size: 28),
-                                    onPressed: () {}),
+                                    onPressed: null),
                                 IconButton(
                                     icon: Icon(
-                                        _playing
-                                            ? Icons.pause_circle_filled_rounded
-                                            : Icons.play_circle_fill_rounded,
+                                        _completed
+                                            ? Icons.replay_circle_filled_rounded
+                                            : _playing
+                                                ? Icons
+                                                    .pause_circle_filled_rounded
+                                                : Icons
+                                                    .play_circle_fill_rounded,
                                         color: AppColors.textPrimary,
                                         size: 48),
                                     onPressed:
                                         _selected != null ? _togglePlay : null),
                                 IconButton(
-                                    icon: const Icon(Icons.skip_next_rounded,
-                                        color: AppColors.textPrimary, size: 28),
-                                    onPressed: () {}),
+                                    icon: Icon(Icons.skip_next_rounded,
+                                        color: widget.nextEpisode != null
+                                            ? AppColors.textPrimary
+                                            : AppColors.textMuted,
+                                        size: 28),
+                                    onPressed: widget.nextEpisode != null
+                                        ? _playNext
+                                        : null),
                                 IconButton(
                                     icon: const Icon(Icons.forward_10_rounded,
                                         color: AppColors.textPrimary, size: 28),
@@ -458,9 +649,9 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
                                 IconButton(
                                     icon: const Icon(
                                         Icons.closed_caption_off_rounded,
-                                        color: AppColors.textPrimary,
+                                        color: AppColors.textMuted,
                                         size: 22),
-                                    onPressed: () {}),
+                                    onPressed: null),
                                 IconButton(
                                     icon: const Icon(
                                         Icons.video_settings_rounded,
@@ -471,12 +662,12 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
                                         : null),
                                 IconButton(
                                     icon: const Icon(Icons.speed_rounded,
-                                        color: AppColors.textPrimary, size: 22),
-                                    onPressed: () {}),
+                                        color: AppColors.textMuted, size: 22),
+                                    onPressed: null),
                                 IconButton(
                                     icon: const Icon(Icons.fit_screen_rounded,
-                                        color: AppColors.textPrimary, size: 22),
-                                    onPressed: () {}),
+                                        color: AppColors.textMuted, size: 22),
+                                    onPressed: null),
                               ]),
                         ])),
                   ))),

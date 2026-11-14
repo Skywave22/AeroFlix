@@ -23,11 +23,16 @@ class PlayerArgs {
   final int season;
   final int episode;
   final String? episodeTitle;
-  const PlayerArgs(
-      {required this.details,
-      this.season = 0,
-      this.episode = 0,
-      this.episodeTitle});
+  final int resumeAtMs;
+  final PlayerArgs? nextEpisode;
+  const PlayerArgs({
+    required this.details,
+    this.season = 0,
+    this.episode = 0,
+    this.episodeTitle,
+    this.resumeAtMs = 0,
+    this.nextEpisode,
+  });
 }
 
 final appRouter =

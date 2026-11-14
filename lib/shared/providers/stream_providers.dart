@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../shared/models/media_details.dart';
 import '../../shared/models/stream_source.dart';
 import 'cinezo_provider.dart';
+import 'screenscape_provider.dart';
 
 /// Abstraction for a streaming source provider. Mirrors the Plugins-TJ
 /// Nuvio scraper contract: given a MediaDetails (+ season/episode for TV),
@@ -13,8 +14,7 @@ abstract class StreamingProvider {
       {int season, int episode});
 }
 
-/// Cinezo (cinezo.gd) — VidNest player API with 6 back-end providers
-/// (Lamda/Zeta/Alfa/Beta/Prime/Gama). Direct HLS/MP4 URLs returned.
+/// Cinezo (cinezo.gd) — VidNest player API with 6 back-end providers.
 class _CinezoProvider implements StreamingProvider {
   @override
   String get id => 'cinezo';
@@ -26,27 +26,22 @@ class _CinezoProvider implements StreamingProvider {
       cinezoGetStreams(details, season: season, episode: episode);
 }
 
-/// Placeholder for providers still being ported.
-class _PlaceholderProvider implements StreamingProvider {
-  final String _id, _name;
-  _PlaceholderProvider(this._id, this._name);
+/// ScreenScape (nxsha.app) — AES-encrypted JSON API returning multi-server
+/// m3u8/mp4 sources.
+class _ScreenScapeProvider implements StreamingProvider {
   @override
-  String get id => _id;
+  String get id => 'screenscape';
   @override
-  String get name => _name;
+  String get name => 'ScreenScape';
   @override
-  Future<List<StreamSource>> getStreams(MediaDetails _,
-          {int season = 0, int episode = 0}) async =>
-      const [];
+  Future<List<StreamSource>> getStreams(MediaDetails details,
+          {int season = 0, int episode = 0}) =>
+      nxshaGetStreams(details, season: season, episode: episode);
 }
 
 final List<StreamingProvider> streamingProviders = [
   _CinezoProvider(),
-  _PlaceholderProvider('screenscape', 'ScreenScape'),
-  // Subsequent phases:
-  // _PlaceholderProvider('cinehd', 'CineHD'),
-  // _PlaceholderProvider('bingr', 'Bingr'),
-  // _PlaceholderProvider('anihype', 'AniHype'),
+  _ScreenScapeProvider(),
 ];
 
 /// Aggregates streams from all enabled providers with a per-provider

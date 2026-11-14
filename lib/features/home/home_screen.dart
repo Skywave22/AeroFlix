@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import '../../app/router.dart';
 import '../../app/theme/app_colors.dart';
 import '../../app/theme/app_spacing.dart';
 import '../../app/theme/app_typography.dart';
@@ -9,12 +10,13 @@ import '../../core/network/tmdb_service.dart';
 import '../../shared/models/media_details.dart';
 import '../../shared/models/movie.dart';
 import '../../shared/models/tv_show.dart';
+import '../../shared/providers/continue_watching_provider.dart';
 import '../../shared/widgets/cinematic_hero_banner.dart';
+import '../../shared/widgets/continue_card.dart';
 import '../../shared/widgets/horizontal_carousel.dart';
 import '../../shared/widgets/poster_card.dart';
 import '../../shared/widgets/section_placeholder.dart';
 import '../../shared/providers/watchlist_provider.dart';
-import '../../app/router.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
@@ -31,6 +33,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     final topRated = ref.watch(topRatedMoviesProvider);
     final nowPlaying = ref.watch(nowPlayingMoviesProvider);
     final hindi = ref.watch(hindiMoviesProvider);
+    final continueList = ref.watch(continueWatchingProvider);
 
     return Scaffold(
         backgroundColor: AppColors.background,
@@ -107,7 +110,24 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   _sliverMovies(trending, 'Trending Now'),
                   const SliverToBoxAdapter(
                       child: SizedBox(height: AppSpacing.lg)),
-                  SliverToBoxAdapter(child: _continueEmpty()),
+                  if (continueList.isNotEmpty)
+                    SliverToBoxAdapter(
+                        child: HorizontalCarousel(
+                            title: 'Continue Watching',
+                            height: 160,
+                            itemCount: continueList.length,
+                            itemBuilder: (_, i) => ContinueCard(
+                                  item: continueList[i],
+                                  onTap: () => _playContinue(continueList[i]),
+                                  onRemove: () => ref
+                                      .read(continueWatchingProvider.notifier)
+                                      .remove(continueList[i].type,
+                                          continueList[i].id,
+                                          season: continueList[i].season,
+                                          episode: continueList[i].episode),
+                                ))),
+                  if (continueList.isEmpty)
+                    SliverToBoxAdapter(child: _continueEmpty()),
                   const SliverToBoxAdapter(
                       child: SizedBox(height: AppSpacing.lg)),
                   _sliverMovies(hindi, 'Hindi Cinema'),
@@ -141,6 +161,25 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               backdropPath: m.backdropPath,
               voteAverage: m.voteAverage,
               releaseDate: m.releaseDate)));
+
+  void _playContinue(ContinueWatchingItem it) {
+    final details = MediaDetails(
+      type: it.type,
+      id: it.id,
+      title: it.title,
+      posterPath: it.posterPath,
+      backdropPath: it.backdropPath,
+    );
+    context.push('/player',
+        extra: PlayerArgs(
+          details: details,
+          season: it.season,
+          episode: it.episode,
+          episodeTitle: it.episodeTitle,
+          resumeAtMs: it.positionMs,
+        ));
+  }
+
   String _meta(Movie m) {
     final p = <String>[];
     if (m.year != null) p.add(m.year!);

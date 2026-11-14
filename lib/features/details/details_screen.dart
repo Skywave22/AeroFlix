@@ -9,6 +9,7 @@ import '../../app/theme/app_spacing.dart';
 import '../../app/theme/app_typography.dart';
 import '../../core/network/tmdb_service.dart';
 import '../../shared/models/media_details.dart';
+import '../../shared/providers/continue_watching_provider.dart';
 import '../../shared/providers/watchlist_provider.dart';
 
 /// Arguments passed to the details route via GoRouter extra.
@@ -182,13 +183,27 @@ class _DetailsContent extends ConsumerWidget {
                     ],
                     const SizedBox(height: AppSpacing.lg),
                     Row(children: [
-                      Expanded(
-                          child: FilledButton.icon(
-                              onPressed: () => context.push('/player',
-                                  extra: PlayerArgs(details: details)),
-                              icon: const Icon(Icons.play_arrow_rounded,
-                                  size: 22),
-                              label: const Text('Play'))),
+                      Expanded(child: Builder(builder: (ctx) {
+                        // Find resume progress for movies (s=0,e=0)
+                        final cw = ref.watch(continueWatchingProvider);
+                        final key = '${details.type.name}:${details.id}:0x00';
+                        final resume = cw
+                            .where((i) => i.key == key && !i.isFinished)
+                            .cast<ContinueWatchingItem?>()
+                            .firstWhere((_) => true, orElse: () => null);
+                        return FilledButton.icon(
+                            onPressed: () => context.push('/player',
+                                extra: PlayerArgs(
+                                  details: details,
+                                  resumeAtMs: resume?.positionMs ?? 0,
+                                )),
+                            icon: Icon(
+                                resume != null
+                                    ? Icons.play_arrow_rounded
+                                    : Icons.play_arrow_rounded,
+                                size: 22),
+                            label: Text(resume != null ? 'Resume' : 'Play'));
+                      })),
                       const SizedBox(width: AppSpacing.sm),
                       _IconPill(
                           icon: inWatchlist
