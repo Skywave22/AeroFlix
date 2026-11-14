@@ -60,6 +60,8 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
   List<mk.SubtitleTrack> _subs = const [];
   mk.SubtitleTrack? _selectedSub; // null = off
   bool _subsLoaded = false;
+  List<mk.AudioTrack> _audios = const [];
+  mk.AudioTrack? _selectedAudio;
 
   static const _rates = [0.5, 0.75, 1.0, 1.25, 1.5, 2.0];
   static const _fits = [BoxFit.contain, BoxFit.cover, BoxFit.fill];
@@ -162,13 +164,15 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
     _tracksSub = ap.player.stream.tracks.listen((t) {
       final subs =
           t.subtitle.where((s) => s.id != 'no' && s.id != 'auto').toList();
+      final audios = t.audio.where((a) => a.id != 'auto').toList();
       if (!mounted) return;
       setState(() {
         _subs = subs;
+        _audios = audios;
         if (!_subsLoaded) {
           _subsLoaded = true;
-          // Default off; keep first track selectable via CC button
           _selectedSub = null;
+          _selectedAudio = audios.isNotEmpty ? audios.first : null;
         }
       });
     });
@@ -425,6 +429,57 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
       return '$title${lang.isNotEmpty ? ' ($lang)' : ''}';
     }
     return lang.isNotEmpty ? lang : 'Subtitle ${s.id}';
+  }
+
+  String _audioLabel(mk.AudioTrack a) {
+    final title = a.title ?? '';
+    final lang = a.language ?? '';
+    if (lang.isNotEmpty && title.isNotEmpty && title != lang) {
+      return '$lang · $title';
+    }
+    if (lang.isNotEmpty) return lang;
+    if (title.isNotEmpty) return title;
+    return 'Audio ${a.id}';
+  }
+
+  void _openAudioSheet() {
+    showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: AppColors.surface,
+      shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(16))),
+      builder: (_) => SafeArea(
+          child: Column(mainAxisSize: MainAxisSize.min, children: [
+        Padding(
+            padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
+            child: Text('Audio', style: AppTypography.sectionHeading)),
+        for (final a in _audios)
+          ListTile(
+            dense: true,
+            onTap: () {
+              final ap = ref.read(activePlayerProvider);
+              ap?.player.setAudioTrack(a);
+              setState(() => _selectedAudio = a);
+              Navigator.pop(context);
+            },
+            leading: Icon(
+                _selectedAudio?.id == a.id
+                    ? Icons.check_circle_rounded
+                    : Icons.radio_button_unchecked_rounded,
+                color: _selectedAudio?.id == a.id
+                    ? AppColors.accent
+                    : AppColors.textMuted,
+                size: 22),
+            title: Text(_audioLabel(a),
+                style: AppTypography.bodyPrimary.copyWith(
+                    fontSize: 14,
+                    color: _selectedAudio?.id == a.id
+                        ? AppColors.accent
+                        : AppColors.textPrimary)),
+          ),
+        const SizedBox(height: 8),
+      ])),
+    );
   }
 
   void _openSourceSheet() {
@@ -823,6 +878,15 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
                                         size: 22),
                                     onPressed: _subs.isNotEmpty
                                         ? _openCaptionsSheet
+                                        : null),
+                                IconButton(
+                                    icon: Icon(Icons.audiotrack_rounded,
+                                        color: _audios.length > 1
+                                            ? AppColors.textPrimary
+                                            : AppColors.textMuted,
+                                        size: 22),
+                                    onPressed: _audios.length > 1
+                                        ? _openAudioSheet
                                         : null),
                                 IconButton(
                                     icon: const Icon(
