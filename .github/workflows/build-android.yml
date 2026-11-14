@@ -33,6 +33,30 @@ jobs:
           "$SDK_MANAGER" "platforms;android-36" "build-tools;36.0.0" "ndk;27.0.12077973" "cmake;3.22.1"
       - name: Install dependencies
         run: flutter pub get
+      - name: Patch media_kit_video for SDK 36 (add missing onSurfaceDestroyed)
+        run: |
+          # Android SDK 36 added abstract onSurfaceDestroyed() to TextureRegistry.SurfaceProducer.Callback
+          # media_kit_video 2.0.1 doesn't implement it, causing compile errors. Patch the cached source.
+          VO=$(find "$HOME/.pub-cache" -path "*media_kit_video-2.0.1*" -name VideoOutput.java | head -1)
+          echo "Patching: $VO"
+          if ! grep -q "onSurfaceDestroyed" "$VO"; then
+            # Insert the missing method right after onSurfaceCleanup() closing brace, before newGlobalObjectRef
+            python3 -c "
+            import re,sys
+            p=sys.argv[1]
+            s=open(p).read()
+            add='''
+        @Override
+        public void onSurfaceDestroyed() {
+            Log.i(TAG, \"onSurfaceDestroyed\");
+        }
+    '''
+            # Insert before '    private static long newGlobalObjectRef'
+            s=re.sub(r'(\n    private static long newGlobalObjectRef)', add+r'\1', s, count=1)
+            open(p,'w').write(s)
+            print('Patched.')
+            " "$VO"
+          fi
       - name: Verify formatting
         run: dart format --output=none --set-exit-if-changed lib/ test/
       - name: Analyze
@@ -68,6 +92,26 @@ jobs:
           "$SDK_MANAGER" "platforms;android-36" "build-tools;36.0.0" "ndk;27.0.12077973" "cmake;3.22.1"
       - name: Install dependencies
         run: flutter pub get
+      - name: Patch media_kit_video for SDK 36 (add missing onSurfaceDestroyed)
+        run: |
+          VO=$(find "$HOME/.pub-cache" -path "*media_kit_video-2.0.1*" -name VideoOutput.java | head -1)
+          echo "Patching: $VO"
+          if ! grep -q "onSurfaceDestroyed" "$VO"; then
+            python3 -c "
+            import re,sys
+            p=sys.argv[1]
+            s=open(p).read()
+            add='''
+        @Override
+        public void onSurfaceDestroyed() {
+            Log.i(TAG, \"onSurfaceDestroyed\");
+        }
+    '''
+            s=re.sub(r'(\n    private static long newGlobalObjectRef)', add+r'\1', s, count=1)
+            open(p,'w').write(s)
+            print('Patched.')
+            " "$VO"
+          fi
       - name: Build APK (release, unsigned)
         run: flutter build apk --release --no-shrink --no-pub
       - name: Upload release APK
