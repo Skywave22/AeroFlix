@@ -3,10 +3,24 @@ import '../shared/models/media_details.dart';
 import '../features/details/details_screen.dart';
 import '../features/explore/explore_screen.dart';
 import '../features/home/home_screen.dart';
+import '../features/player/player_screen.dart';
 import '../features/profile/profile_screen.dart';
 import '../features/search/search_screen.dart';
 import '../features/watchlist/watchlist_screen.dart';
 import 'app_shell.dart';
+
+/// Arguments pushed to the player route via GoRouter `extra`.
+class PlayerArgs {
+  final MediaDetails details;
+  final int season;
+  final int episode;
+  final String? episodeTitle;
+  const PlayerArgs(
+      {required this.details,
+      this.season = 0,
+      this.episode = 0,
+      this.episodeTitle});
+}
 
 final appRouter =
     GoRouter(initialLocation: '/home', debugLogDiagnostics: false, routes: [
@@ -46,5 +60,15 @@ final appRouter =
         final poster = s.uri.queryParameters['poster'];
         return DetailsScreen(
             args: DetailsArgs(id: id, type: MediaType.tv, posterUrl: poster));
+      }),
+  GoRoute(
+      path: '/player',
+      builder: (c, s) {
+        final args = s.extra as PlayerArgs;
+        return PlayerScreen(
+            details: args.details,
+            season: args.season,
+            episode: args.episode,
+            episodeTitle: args.episodeTitle);
       }),
 ]);

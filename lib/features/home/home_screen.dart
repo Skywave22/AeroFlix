@@ -14,6 +14,7 @@ import '../../shared/widgets/horizontal_carousel.dart';
 import '../../shared/widgets/poster_card.dart';
 import '../../shared/widgets/section_placeholder.dart';
 import '../../shared/providers/watchlist_provider.dart';
+import '../../app/router.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
@@ -85,7 +86,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                                   title: ms.first.title,
                                   metadata: _meta(ms.first),
                                   description: ms.first.overview,
-                                  onPlay: () => _openMovie(ms.first),
+                                  onPlay: () => _playMovie(ms.first),
                                   onDetails: () => _openMovie(ms.first),
                                   onWatchlist: () => ref
                                       .read(watchlistProvider.notifier)
@@ -130,6 +131,16 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       '/details/movie/${m.id}?poster=${Uri.encodeComponent(m.posterUrlW342)}');
   void _openTv(TvShow s) => context.push(
       '/details/tv/${s.id}?poster=${Uri.encodeComponent(s.posterUrlW342)}');
+  void _playMovie(Movie m) => context.push('/player',
+      extra: PlayerArgs(
+          details: MediaDetails(
+              type: MediaType.movie,
+              id: m.id,
+              title: m.title,
+              posterPath: m.posterPath,
+              backdropPath: m.backdropPath,
+              voteAverage: m.voteAverage,
+              releaseDate: m.releaseDate)));
   String _meta(Movie m) {
     final p = <String>[];
     if (m.year != null) p.add(m.year!);
