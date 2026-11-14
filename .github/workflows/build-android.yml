@@ -21,8 +21,16 @@ jobs:
         with: { flutter-version: '3.27.3', channel: 'stable', cache: true }
       - name: Install Android SDK 36 + NDK 27 (required by media_kit)
         run: |
-          yes | sdkmanager --licenses >/dev/null
-          sdkmanager "platforms;android-36" "build-tools;36.0.0" "ndk;27.0.12077973" "cmake;3.22.1"
+          echo "ANDROID_HOME=$ANDROID_HOME"
+          echo "ANDROID_SDK_ROOT=$ANDROID_SDK_ROOT"
+          SDK_MANAGER="$ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager"
+          if [ ! -x "$SDK_MANAGER" ]; then
+            # subosito/flutter-action installs cmdline-tools under a different path
+            SDK_MANAGER=$(find "$ANDROID_SDK_ROOT" -name sdkmanager -type f 2>/dev/null | head -1)
+          fi
+          echo "Using sdkmanager: $SDK_MANAGER"
+          yes | "$SDK_MANAGER" --licenses >/dev/null 2>&1 || true
+          "$SDK_MANAGER" "platforms;android-36" "build-tools;36.0.0" "ndk;27.0.12077973" "cmake;3.22.1"
       - name: Install dependencies
         run: flutter pub get
       - name: Verify formatting
@@ -51,8 +59,13 @@ jobs:
         with: { flutter-version: '3.27.3', channel: 'stable', cache: true }
       - name: Install Android SDK 36 + NDK 27 (required by media_kit)
         run: |
-          yes | sdkmanager --licenses >/dev/null
-          sdkmanager "platforms;android-36" "build-tools;36.0.0" "ndk;27.0.12077973" "cmake;3.22.1"
+          SDK_MANAGER="$ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager"
+          if [ ! -x "$SDK_MANAGER" ]; then
+            SDK_MANAGER=$(find "$ANDROID_SDK_ROOT" -name sdkmanager -type f 2>/dev/null | head -1)
+          fi
+          echo "Using sdkmanager: $SDK_MANAGER"
+          yes | "$SDK_MANAGER" --licenses >/dev/null 2>&1 || true
+          "$SDK_MANAGER" "platforms;android-36" "build-tools;36.0.0" "ndk;27.0.12077973" "cmake;3.22.1"
       - name: Install dependencies
         run: flutter pub get
       - name: Build APK (release, unsigned)
