@@ -28,10 +28,17 @@ jobs:
       - name: Run tests
         run: flutter test --no-pub --timeout 30s
       - name: Build APK (debug)
-        run: flutter build apk --debug --no-pub
+        run: |
+          set -o pipefail
+          flutter build apk --debug --no-pub --verbose 2>&1 | tee build-debug.log
       - name: Upload APK artifact
+        if: always()
         uses: actions/upload-artifact@v4
-        with: { name: aeroflix-debug-apk, path: build/app/outputs/flutter-apk/app-debug.apk, if-no-files-found: error }
+        with: { name: aeroflix-debug-apk, path: build/app/outputs/flutter-apk/app-debug.apk, if-no-files-found: ignore }
+      - name: Upload build log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with: { name: debug-build-log, path: build-debug.log, if-no-files-found: ignore }
 
   build-release:
     name: Build release APK
@@ -48,7 +55,14 @@ jobs:
       - name: Install dependencies
         run: flutter pub get
       - name: Build APK (release, unsigned)
-        run: flutter build apk --release --no-shrink --no-pub
+        run: |
+          set -o pipefail
+          flutter build apk --release --no-shrink --no-pub --verbose 2>&1 | tee build-release.log
       - name: Upload release APK
+        if: always()
         uses: actions/upload-artifact@v4
-        with: { name: aeroflix-release-apk, path: build/app/outputs/flutter-apk/app-release.apk, if-no-files-found: error }
+        with: { name: aeroflix-release-apk, path: build/app/outputs/flutter-apk/app-release.apk, if-no-files-found: ignore }
+      - name: Upload build log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with: { name: release-build-log, path: build-release.log, if-no-files-found: ignore }
