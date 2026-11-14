@@ -1,6 +1,7 @@
 import 'package:go_router/go_router.dart';
 import '../shared/models/media_details.dart';
 import '../features/details/details_screen.dart';
+import '../features/episodes/episodes_screen.dart';
 import '../features/explore/explore_screen.dart';
 import '../features/home/home_screen.dart';
 import '../features/player/player_screen.dart';
@@ -8,6 +9,13 @@ import '../features/profile/profile_screen.dart';
 import '../features/search/search_screen.dart';
 import '../features/watchlist/watchlist_screen.dart';
 import 'app_shell.dart';
+
+/// Arguments pushed to the episodes route via GoRouter `extra`.
+class EpisodesArgs {
+  final MediaDetails details;
+  final int initialSeason;
+  const EpisodesArgs({required this.details, required this.initialSeason});
+}
 
 /// Arguments pushed to the player route via GoRouter `extra`.
 class PlayerArgs {
@@ -70,5 +78,12 @@ final appRouter =
             season: args.season,
             episode: args.episode,
             episodeTitle: args.episodeTitle);
+      }),
+  GoRoute(
+      path: '/episodes',
+      builder: (c, s) {
+        final args = s.extra as EpisodesArgs;
+        return EpisodesScreen(
+            details: args.details, initialSeason: args.initialSeason);
       }),
 ]);

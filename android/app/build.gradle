@@ -7,8 +7,9 @@ plugins {
 
 android {
     namespace = "com.aeroflix.aeroflix"
-    compileSdk = flutter.compileSdkVersion
-    ndkVersion = flutter.ndkVersion
+    // media_kit_video 2.x requires SDK 36 / NDK 27.
+    compileSdk = 36
+    ndkVersion = "27.0.12077973"
 
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17

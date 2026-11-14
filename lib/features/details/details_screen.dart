@@ -293,7 +293,9 @@ class _DetailsContent extends ConsumerWidget {
               borderRadius: AppRadii.mdRadius,
               clipBehavior: Clip.antiAlias,
               child: InkWell(
-                onTap: () {},
+                onTap: () => context.push('/episodes',
+                    extra: EpisodesArgs(
+                        details: details, initialSeason: s.seasonNumber)),
                 child: Padding(
                   padding: const EdgeInsets.all(AppSpacing.md),
                   child: Row(children: [

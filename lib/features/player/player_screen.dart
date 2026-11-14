@@ -1,22 +1,15 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:media_kit_video/media_kit_video.dart';
 import '../../app/theme/app_colors.dart';
 import '../../app/theme/app_typography.dart';
 import '../../shared/models/media_details.dart';
 import '../../shared/models/stream_source.dart';
+import '../../shared/providers/player_controller.dart';
 import '../../shared/providers/stream_providers.dart';
 
-/// Full-screen immersive video player.
-///
-/// Phase 1 progress:
-///   • Fetches real stream URLs from registered providers (Cinezo live).
-///   • Shows a source selector if multiple streams are found; auto-picks
-///     the highest-quality source otherwise.
-///   • Renders full landscape UI with play/pause/seek/±10s/skip/CC/
-///     quality/speed/fullscreen/lock controls, auto-hiding overlay.
-///   • Phase 2: replace backdrop scrim with media_kit Video controller
-///     and bind real playback state (position/duration/buffering).
 class PlayerScreen extends ConsumerStatefulWidget {
   final MediaDetails details;
   final int season;
@@ -37,15 +30,17 @@ class PlayerScreen extends ConsumerStatefulWidget {
 
 class _PlayerScreenState extends ConsumerState<PlayerScreen> {
   bool _showControls = true;
-  bool _playing = false;
   bool _locked = false;
-  double _position = 0;
-  final double _duration = 1;
+  Timer? _hideTimer;
 
   List<StreamSource> _sources = const [];
   StreamSource? _selected;
   bool _loadingSources = true;
   String? _error;
+  bool _playing = false;
+  Duration _position = Duration.zero;
+  Duration _duration = Duration.zero;
+  StreamSubscription? _posSub, _durSub, _playSub, _bufSub, _completeSub;
 
   @override
   void initState() {
@@ -55,7 +50,17 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
       DeviceOrientation.landscapeLeft,
       DeviceOrientation.landscapeRight,
     ]);
+    _scheduleHide();
     _loadSources();
+  }
+
+  void _scheduleHide() {
+    _hideTimer?.cancel();
+    _hideTimer = Timer(const Duration(seconds: 4), () {
+      if (mounted && _playing && !_locked) {
+        setState(() => _showControls = false);
+      }
+    });
   }
 
   Future<void> _loadSources() async {
@@ -71,15 +76,16 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
       if (list.isEmpty) {
         setState(() {
           _loadingSources = false;
-          _error = 'No streams found from any provider.';
+          _error = 'No streams found.';
         });
         return;
       }
       list.sort((a, b) => _qRank(b.quality).compareTo(_qRank(a.quality)));
+      _sources = list;
+      await _play(list.first);
       setState(() {
-        _sources = list;
-        _selected = list.first;
         _loadingSources = false;
+        _selected = list.first;
       });
     } catch (e) {
       if (!mounted) return;
@@ -90,29 +96,75 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
     }
   }
 
+  Future<void> _play(StreamSource src) async {
+    final ap = await ref.read(activePlayerProvider.notifier).play(src);
+    _posSub?.cancel();
+    _durSub?.cancel();
+    _playSub?.cancel();
+    _bufSub?.cancel();
+    _completeSub?.cancel();
+    _posSub = ap.player.stream.position.listen((p) {
+      if (mounted) setState(() => _position = p);
+    });
+    _durSub = ap.player.stream.duration.listen((d) {
+      if (mounted) setState(() => _duration = d);
+    });
+    _playSub = ap.player.stream.playing.listen((p) {
+      if (mounted) setState(() => _playing = p);
+    });
+    _completeSub = ap.player.stream.completed.listen((c) {
+      if (c && mounted) setState(() => _playing = false);
+    });
+    setState(() => _selected = src);
+  }
+
   @override
   void dispose() {
+    _hideTimer?.cancel();
+    _posSub?.cancel();
+    _durSub?.cancel();
+    _playSub?.cancel();
+    _bufSub?.cancel();
+    _completeSub?.cancel();
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
     SystemChrome.setPreferredOrientations(DeviceOrientation.values);
     super.dispose();
   }
 
-  void _togglePlay() => setState(() => _playing = !_playing);
-  void _toggleControls() => setState(() => _showControls = !_showControls);
+  void _togglePlay() {
+    final ap = ref.read(activePlayerProvider);
+    if (ap == null) return;
+    ap.player.playOrPause();
+    _scheduleHide();
+  }
+
+  void _seekRel(int deltaSec) {
+    final ap = ref.read(activePlayerProvider);
+    if (ap == null) return;
+    var t = _position + Duration(seconds: deltaSec);
+    if (t < Duration.zero) t = Duration.zero;
+    if (t > _duration) t = _duration;
+    ap.player.seek(t);
+    _scheduleHide();
+  }
+
+  void _onTap() {
+    setState(() => _showControls = !_showControls);
+    if (_showControls) _scheduleHide();
+  }
 
   String _label() {
     if (widget.details.type == MediaType.tv && widget.season > 0) {
       final ep = widget.episodeTitle ?? 'Episode ${widget.episode}';
-      return '${widget.details.title}  ·  S${widget.season.toString().padLeft(2, '0')}E${widget.episode.toString().padLeft(2, '0')}  ·  $ep';
+      return '${widget.details.title} · S${widget.season.toString().padLeft(2, '0')}E${widget.episode.toString().padLeft(2, '0')} · $ep';
     }
     return widget.details.title;
   }
 
-  String _fmt(double s) {
-    final d = Duration(seconds: s.toInt());
+  String _fmt(Duration d) {
     final m = d.inMinutes.remainder(60).toString().padLeft(2, '0');
-    final sec = d.inSeconds.remainder(60).toString().padLeft(2, '0');
-    return '${d.inHours > 0 ? '${d.inHours}:' : ''}$m:$sec';
+    final s = d.inSeconds.remainder(60).toString().padLeft(2, '0');
+    return '${d.inHours > 0 ? '${d.inHours}:' : ''}$m:$s';
   }
 
   int _qRank(String? q) => switch (q) {
@@ -137,14 +189,13 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
             Padding(
-                padding: const EdgeInsets.only(
-                    left: 20, top: 16, right: 20, bottom: 8),
+                padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
                 child:
                     Text('Select Source', style: AppTypography.sectionHeading)),
             if (_selected != null)
               Padding(
                   padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
-                  child: Text('Now playing: ${_selected!.name}',
+                  child: Text('Now: ${_selected!.name}',
                       style: AppTypography.metadata
                           .copyWith(color: AppColors.textMuted))),
             Flexible(
@@ -156,25 +207,24 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
                   const Divider(color: AppColors.surfaceElevated, height: 1),
               itemBuilder: (c, i) {
                 final s = _sources[i];
-                final selected = _selected?.url == s.url;
+                final sel = _selected?.url == s.url;
                 return ListTile(
                   dense: true,
                   onTap: () {
-                    setState(() => _selected = s);
                     Navigator.pop(c);
+                    _play(s);
                   },
                   leading: Icon(
-                      selected
+                      sel
                           ? Icons.check_circle_rounded
                           : Icons.radio_button_unchecked_rounded,
-                      color: selected ? AppColors.accent : AppColors.textMuted,
+                      color: sel ? AppColors.accent : AppColors.textMuted,
                       size: 22),
                   title: Text(s.name,
                       style: AppTypography.bodyPrimary.copyWith(
                           fontSize: 13,
-                          color: selected
-                              ? AppColors.accent
-                              : AppColors.textPrimary)),
+                          color:
+                              sel ? AppColors.accent : AppColors.textPrimary)),
                   subtitle: Text(s.url,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
@@ -202,21 +252,30 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final active = ref.watch(activePlayerProvider);
+    final hasVideo = active != null && _selected != null;
+
     return Scaffold(
       backgroundColor: Colors.black,
       body: GestureDetector(
         behavior: HitTestBehavior.opaque,
-        onTap: _toggleControls,
+        onTap: _onTap,
         child: Stack(fit: StackFit.expand, children: [
+          // Video surface or backdrop scrim while loading
           Container(color: Colors.black),
-          if (widget.details.backdropUrlW1280.isNotEmpty)
+          if (hasVideo)
+            Positioned.fill(
+                child:
+                    Video(controller: active.controller, fill: Colors.black)),
+          if ((!hasVideo || _loadingSources) &&
+              widget.details.backdropUrlW1280.isNotEmpty)
             Positioned.fill(
                 child: ColorFiltered(
-              colorFilter: ColorFilter.mode(
-                  Colors.black.withValues(alpha: 0.5), BlendMode.dstOver),
-              child: Image.network(widget.details.backdropUrlW1280,
-                  fit: BoxFit.cover),
-            )),
+                    colorFilter: ColorFilter.mode(
+                        Colors.black.withValues(alpha: hasVideo ? 0.75 : 0.5),
+                        BlendMode.dstOver),
+                    child: Image.network(widget.details.backdropUrlW1280,
+                        fit: BoxFit.cover))),
 
           // Center state
           Center(
@@ -227,7 +286,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
                       const SizedBox(height: 16),
                       Text('Fetching streams…',
                           style: AppTypography.bodyPrimary.copyWith(
-                              color: AppColors.textSecondary, fontSize: 13)),
+                              color: AppColors.textSecondary, fontSize: 13))
                     ])
                   : _error != null
                       ? Column(mainAxisSize: MainAxisSize.min, children: [
@@ -242,7 +301,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
                           const SizedBox(height: 16),
                           FilledButton.tonal(
                               onPressed: _loadSources,
-                              child: const Text('Retry')),
+                              child: const Text('Retry'))
                         ])
                       : IconButton(
                           icon: Icon(
@@ -254,7 +313,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
                                   .withValues(alpha: _showControls ? 1 : 0)),
                           onPressed: _showControls ? _togglePlay : null)),
 
-          // Source label (top-left under back button)
+          // Source label
           if (_selected != null && _showControls && !_locked)
             Positioned(
                 top: 60,
@@ -338,10 +397,18 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
                                 thumbColor: AppColors.accent,
                               ),
                               child: Slider(
-                                  value: _position /
-                                      _duration.clamp(0.0001, double.infinity),
-                                  onChanged: (v) => setState(
-                                      () => _position = v * _duration))),
+                                value: _duration.inMilliseconds == 0
+                                    ? 0
+                                    : (_position.inMilliseconds /
+                                            _duration.inMilliseconds)
+                                        .clamp(0.0, 1.0),
+                                onChangeEnd: (v) {
+                                  final ap = ref.read(activePlayerProvider);
+                                  if (ap != null) ap.player.seek(_duration * v);
+                                  _scheduleHide();
+                                },
+                                onChanged: (_) {},
+                              )),
                           Padding(
                               padding:
                                   const EdgeInsets.symmetric(horizontal: 8),
@@ -363,7 +430,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
                                 IconButton(
                                     icon: const Icon(Icons.replay_10_rounded,
                                         color: AppColors.textPrimary, size: 28),
-                                    onPressed: () {}),
+                                    onPressed: () => _seekRel(-10)),
                                 IconButton(
                                     icon: const Icon(
                                         Icons.skip_previous_rounded,
@@ -386,7 +453,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
                                 IconButton(
                                     icon: const Icon(Icons.forward_10_rounded,
                                         color: AppColors.textPrimary, size: 28),
-                                    onPressed: () {}),
+                                    onPressed: () => _seekRel(10)),
                                 const Spacer(),
                                 IconButton(
                                     icon: const Icon(

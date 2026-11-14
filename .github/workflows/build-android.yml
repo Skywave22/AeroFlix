@@ -19,6 +19,10 @@ jobs:
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with: { flutter-version: '3.27.3', channel: 'stable', cache: true }
+      - name: Install Android SDK 36 + NDK 27 (required by media_kit)
+        run: |
+          yes | sdkmanager --licenses >/dev/null
+          sdkmanager "platforms;android-36" "build-tools;36.0.0" "ndk;27.0.12077973" "cmake;3.22.1"
       - name: Install dependencies
         run: flutter pub get
       - name: Verify formatting
@@ -28,17 +32,10 @@ jobs:
       - name: Run tests
         run: flutter test --no-pub --timeout 30s
       - name: Build APK (debug)
-        run: |
-          set -o pipefail
-          flutter build apk --debug --no-pub --verbose 2>&1 | tee build-debug.log
+        run: flutter build apk --debug --no-pub
       - name: Upload APK artifact
-        if: always()
         uses: actions/upload-artifact@v4
-        with: { name: aeroflix-debug-apk, path: build/app/outputs/flutter-apk/app-debug.apk, if-no-files-found: ignore }
-      - name: Upload build log
-        if: always()
-        uses: actions/upload-artifact@v4
-        with: { name: debug-build-log, path: build-debug.log, if-no-files-found: ignore }
+        with: { name: aeroflix-debug-apk, path: build/app/outputs/flutter-apk/app-debug.apk, if-no-files-found: error }
 
   build-release:
     name: Build release APK
@@ -52,17 +49,14 @@ jobs:
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with: { flutter-version: '3.27.3', channel: 'stable', cache: true }
+      - name: Install Android SDK 36 + NDK 27 (required by media_kit)
+        run: |
+          yes | sdkmanager --licenses >/dev/null
+          sdkmanager "platforms;android-36" "build-tools;36.0.0" "ndk;27.0.12077973" "cmake;3.22.1"
       - name: Install dependencies
         run: flutter pub get
       - name: Build APK (release, unsigned)
-        run: |
-          set -o pipefail
-          flutter build apk --release --no-shrink --no-pub --verbose 2>&1 | tee build-release.log
+        run: flutter build apk --release --no-shrink --no-pub
       - name: Upload release APK
-        if: always()
         uses: actions/upload-artifact@v4
-        with: { name: aeroflix-release-apk, path: build/app/outputs/flutter-apk/app-release.apk, if-no-files-found: ignore }
-      - name: Upload build log
-        if: always()
-        uses: actions/upload-artifact@v4
-        with: { name: release-build-log, path: build-release.log, if-no-files-found: ignore }
+        with: { name: aeroflix-release-apk, path: build/app/outputs/flutter-apk/app-release.apk, if-no-files-found: error }
