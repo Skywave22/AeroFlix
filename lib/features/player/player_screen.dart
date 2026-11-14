@@ -53,6 +53,9 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
   bool _completed = false;
   bool _seekedToResume = false;
   int _autoAdvanceCountdown = 0;
+  double _rate = 1.0;
+
+  static const _rates = [0.5, 0.75, 1.0, 1.25, 1.5, 2.0];
 
   StreamSubscription? _posSub, _durSub, _playSub, _completeSub;
 
@@ -140,6 +143,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
 
   Future<void> _play(StreamSource src) async {
     final ap = await ref.read(activePlayerProvider.notifier).play(src);
+    ap.player.setRate(_rate);
     _posSub?.cancel();
     _durSub?.cancel();
     _playSub?.cancel();
@@ -278,6 +282,45 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
         '360p' => 1,
         _ => 0
       };
+
+  void _openSpeedSheet() {
+    showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: AppColors.surface,
+      shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(16))),
+      builder: (_) => SafeArea(
+          child: Column(mainAxisSize: MainAxisSize.min, children: [
+        Padding(
+            padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
+            child: Text('Playback Speed', style: AppTypography.sectionHeading)),
+        for (final r in _rates)
+          ListTile(
+            dense: true,
+            onTap: () {
+              Navigator.pop(context);
+              final ap = ref.read(activePlayerProvider);
+              if (ap != null) {
+                ap.player.setRate(r);
+                setState(() => _rate = r);
+              }
+            },
+            leading: Icon(
+                _rate == r
+                    ? Icons.check_circle_rounded
+                    : Icons.radio_button_unchecked_rounded,
+                color: _rate == r ? AppColors.accent : AppColors.textMuted,
+                size: 22),
+            title: Text('${r}x',
+                style: AppTypography.bodyPrimary.copyWith(
+                    fontSize: 14,
+                    color:
+                        _rate == r ? AppColors.accent : AppColors.textPrimary)),
+          ),
+        const SizedBox(height: 8),
+      ])),
+    );
+  }
 
   void _openSourceSheet() {
     showModalBottomSheet<void>(
@@ -661,9 +704,12 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
                                         ? _openSourceSheet
                                         : null),
                                 IconButton(
-                                    icon: const Icon(Icons.speed_rounded,
-                                        color: AppColors.textMuted, size: 22),
-                                    onPressed: null),
+                                    icon: Icon(Icons.speed_rounded,
+                                        color: _rate != 1.0
+                                            ? AppColors.accent
+                                            : AppColors.textPrimary,
+                                        size: 22),
+                                    onPressed: _openSpeedSheet),
                                 IconButton(
                                     icon: const Icon(Icons.fit_screen_rounded,
                                         color: AppColors.textMuted, size: 22),
