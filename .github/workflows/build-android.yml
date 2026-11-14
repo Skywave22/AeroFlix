@@ -19,8 +19,6 @@ jobs:
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with: { flutter-version: '3.27.3', channel: 'stable', cache: true }
-      - name: Flutter doctor
-        run: flutter doctor -v
       - name: Install dependencies
         run: flutter pub get
       - name: Verify formatting
@@ -30,17 +28,10 @@ jobs:
       - name: Run tests
         run: flutter test --no-pub --timeout 30s
       - name: Build APK (debug)
-        run: flutter build apk --debug --no-pub --verbose
-        env:
-          GRADLE_OPTS: "-Dorg.gradle.jvmargs=-Xmx4g -XX:MaxMetaspaceSize=1g"
-      - name: Locate APK
-        run: find build/app -name "*.apk" -type f 2>/dev/null
+        run: flutter build apk --debug --no-pub
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
-        with:
-          name: aeroflix-debug-apk
-          path: build/app/outputs/flutter-apk/app-debug.apk
-          if-no-files-found: error
+        with: { name: aeroflix-debug-apk, path: build/app/outputs/flutter-apk/app-debug.apk, if-no-files-found: error }
 
   build-release:
     name: Build release APK
@@ -54,19 +45,10 @@ jobs:
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with: { flutter-version: '3.27.3', channel: 'stable', cache: true }
-      - name: Flutter doctor
-        run: flutter doctor -v
       - name: Install dependencies
         run: flutter pub get
       - name: Build APK (release, unsigned)
-        run: flutter build apk --release --no-shrink --no-pub --verbose
-        env:
-          GRADLE_OPTS: "-Dorg.gradle.jvmargs=-Xmx4g -XX:MaxMetaspaceSize=1g"
-      - name: Locate APK
-        run: find build/app -name "*.apk" -type f 2>/dev/null
+        run: flutter build apk --release --no-shrink --no-pub
       - name: Upload release APK
         uses: actions/upload-artifact@v4
-        with:
-          name: aeroflix-release-apk
-          path: build/app/outputs/flutter-apk/app-release.apk
-          if-no-files-found: error
+        with: { name: aeroflix-release-apk, path: build/app/outputs/flutter-apk/app-release.apk, if-no-files-found: error }
