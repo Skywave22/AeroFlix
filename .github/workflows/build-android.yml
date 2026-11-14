@@ -19,17 +19,18 @@ jobs:
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with: { flutter-version: '3.27.3', channel: 'stable', cache: true }
+      - name: Flutter doctor
+        run: flutter doctor -v
       - name: Install dependencies
         run: flutter pub get
       - name: Verify formatting
         run: dart format --output=none --set-exit-if-changed lib/ test/
       - name: Analyze
-        run: flutter analyze
+        run: flutter analyze --no-pub
       - name: Run tests
-        run: flutter test --timeout 30s
+        run: flutter test --no-pub --timeout 30s
       - name: Build APK (debug)
-        run: flutter build apk --debug
-        working-directory: .
+        run: flutter build apk --debug --no-pub
       - name: Locate APK
         run: find build/app -name "*.apk" -type f 2>/dev/null
       - name: Upload APK artifact
@@ -51,10 +52,12 @@ jobs:
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with: { flutter-version: '3.27.3', channel: 'stable', cache: true }
+      - name: Flutter doctor
+        run: flutter doctor -v
       - name: Install dependencies
         run: flutter pub get
       - name: Build APK (release, unsigned)
-        run: flutter build apk --release --no-shrink
+        run: flutter build apk --release --no-shrink --no-pub
       - name: Locate APK
         run: find build/app -name "*.apk" -type f 2>/dev/null
       - name: Upload release APK
