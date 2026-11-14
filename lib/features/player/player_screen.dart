@@ -1,15 +1,23 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../app/theme/app_colors.dart';
 import '../../app/theme/app_typography.dart';
 import '../../shared/models/media_details.dart';
+import '../../shared/models/stream_source.dart';
+import '../../shared/providers/stream_providers.dart';
 
 /// Full-screen immersive video player.
 ///
-/// Phase 1: UI shell with play/pause, seek, quality, subtitles, lock.
-/// Real playback via media_kit wires in when the stream provider
-/// returns working URLs.
-class PlayerScreen extends StatefulWidget {
+/// Phase 1 progress:
+///   • Fetches real stream URLs from registered providers (Cinezo live).
+///   • Shows a source selector if multiple streams are found; auto-picks
+///     the highest-quality source otherwise.
+///   • Renders full landscape UI with play/pause/seek/±10s/skip/CC/
+///     quality/speed/fullscreen/lock controls, auto-hiding overlay.
+///   • Phase 2: replace backdrop scrim with media_kit Video controller
+///     and bind real playback state (position/duration/buffering).
+class PlayerScreen extends ConsumerStatefulWidget {
   final MediaDetails details;
   final int season;
   final int episode;
@@ -24,16 +32,20 @@ class PlayerScreen extends StatefulWidget {
   });
 
   @override
-  State<PlayerScreen> createState() => _PlayerScreenState();
+  ConsumerState<PlayerScreen> createState() => _PlayerScreenState();
 }
 
-class _PlayerScreenState extends State<PlayerScreen> {
+class _PlayerScreenState extends ConsumerState<PlayerScreen> {
   bool _showControls = true;
   bool _playing = false;
-  bool _loading = true;
   bool _locked = false;
   double _position = 0;
-  double _duration = 1; // replaced with real duration when media_kit is wired
+  final double _duration = 1;
+
+  List<StreamSource> _sources = const [];
+  StreamSource? _selected;
+  bool _loadingSources = true;
+  String? _error;
 
   @override
   void initState() {
@@ -43,10 +55,39 @@ class _PlayerScreenState extends State<PlayerScreen> {
       DeviceOrientation.landscapeLeft,
       DeviceOrientation.landscapeRight,
     ]);
-    // Phase 2: media_kit controller initialization starts here.
-    Future.delayed(const Duration(milliseconds: 600), () {
-      if (mounted) setState(() => _loading = false);
+    _loadSources();
+  }
+
+  Future<void> _loadSources() async {
+    setState(() {
+      _loadingSources = true;
+      _error = null;
     });
+    try {
+      final svc = ref.read(streamServiceProvider);
+      final list = await svc.getAllStreams(widget.details,
+          season: widget.season, episode: widget.episode);
+      if (!mounted) return;
+      if (list.isEmpty) {
+        setState(() {
+          _loadingSources = false;
+          _error = 'No streams found from any provider.';
+        });
+        return;
+      }
+      list.sort((a, b) => _qRank(b.quality).compareTo(_qRank(a.quality)));
+      setState(() {
+        _sources = list;
+        _selected = list.first;
+        _loadingSources = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _loadingSources = false;
+        _error = 'Failed to load streams: $e';
+      });
+    }
   }
 
   @override
@@ -74,6 +115,91 @@ class _PlayerScreenState extends State<PlayerScreen> {
     return '${d.inHours > 0 ? '${d.inHours}:' : ''}$m:$sec';
   }
 
+  int _qRank(String? q) => switch (q) {
+        '4K' => 5,
+        '1080p' => 4,
+        '720p' => 3,
+        null => 3,
+        '480p' => 2,
+        '360p' => 1,
+        _ => 0
+      };
+
+  void _openSourceSheet() {
+    showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: AppColors.surface,
+      shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(16))),
+      builder: (_) => SafeArea(
+          child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+            Padding(
+                padding: const EdgeInsets.only(
+                    left: 20, top: 16, right: 20, bottom: 8),
+                child:
+                    Text('Select Source', style: AppTypography.sectionHeading)),
+            if (_selected != null)
+              Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
+                  child: Text('Now playing: ${_selected!.name}',
+                      style: AppTypography.metadata
+                          .copyWith(color: AppColors.textMuted))),
+            Flexible(
+                child: ListView.separated(
+              shrinkWrap: true,
+              padding: const EdgeInsets.only(bottom: 12),
+              itemCount: _sources.length,
+              separatorBuilder: (_, __) =>
+                  const Divider(color: AppColors.surfaceElevated, height: 1),
+              itemBuilder: (c, i) {
+                final s = _sources[i];
+                final selected = _selected?.url == s.url;
+                return ListTile(
+                  dense: true,
+                  onTap: () {
+                    setState(() => _selected = s);
+                    Navigator.pop(c);
+                  },
+                  leading: Icon(
+                      selected
+                          ? Icons.check_circle_rounded
+                          : Icons.radio_button_unchecked_rounded,
+                      color: selected ? AppColors.accent : AppColors.textMuted,
+                      size: 22),
+                  title: Text(s.name,
+                      style: AppTypography.bodyPrimary.copyWith(
+                          fontSize: 13,
+                          color: selected
+                              ? AppColors.accent
+                              : AppColors.textPrimary)),
+                  subtitle: Text(s.url,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: AppTypography.metadata
+                          .copyWith(fontSize: 11, color: AppColors.textMuted)),
+                  trailing: s.quality != null
+                      ? Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 8, vertical: 3),
+                          decoration: BoxDecoration(
+                              color: AppColors.surfaceElevated,
+                              borderRadius: BorderRadius.circular(6)),
+                          child: Text(s.quality!,
+                              style: AppTypography.metadata.copyWith(
+                                  fontSize: 11,
+                                  color: AppColors.accent,
+                                  fontWeight: FontWeight.w600)))
+                      : null,
+                );
+              },
+            )),
+          ])),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -82,7 +208,6 @@ class _PlayerScreenState extends State<PlayerScreen> {
         behavior: HitTestBehavior.opaque,
         onTap: _toggleControls,
         child: Stack(fit: StackFit.expand, children: [
-          // Placeholder video surface — replaced by Video() controller in Phase 2.
           Container(color: Colors.black),
           if (widget.details.backdropUrlW1280.isNotEmpty)
             Positioned.fill(
@@ -93,20 +218,55 @@ class _PlayerScreenState extends State<PlayerScreen> {
                   fit: BoxFit.cover),
             )),
 
-          // Center play/loading indicator
+          // Center state
           Center(
-              child: _loading
-                  ? const CircularProgressIndicator(
-                      color: AppColors.accent, strokeWidth: 2)
-                  : IconButton(
-                      icon: Icon(
-                          _playing
-                              ? Icons.pause_rounded
-                              : Icons.play_arrow_rounded,
-                          size: 64,
-                          color: AppColors.textPrimary
-                              .withValues(alpha: _showControls ? 1 : 0)),
-                      onPressed: _showControls ? _togglePlay : null)),
+              child: _loadingSources
+                  ? Column(mainAxisSize: MainAxisSize.min, children: [
+                      const CircularProgressIndicator(
+                          color: AppColors.accent, strokeWidth: 2),
+                      const SizedBox(height: 16),
+                      Text('Fetching streams…',
+                          style: AppTypography.bodyPrimary.copyWith(
+                              color: AppColors.textSecondary, fontSize: 13)),
+                    ])
+                  : _error != null
+                      ? Column(mainAxisSize: MainAxisSize.min, children: [
+                          const Icon(Icons.error_outline_rounded,
+                              color: AppColors.textMuted, size: 48),
+                          const SizedBox(height: 12),
+                          Text(_error!,
+                              textAlign: TextAlign.center,
+                              style: AppTypography.bodyPrimary.copyWith(
+                                  color: AppColors.textSecondary,
+                                  fontSize: 13)),
+                          const SizedBox(height: 16),
+                          FilledButton.tonal(
+                              onPressed: _loadSources,
+                              child: const Text('Retry')),
+                        ])
+                      : IconButton(
+                          icon: Icon(
+                              _playing
+                                  ? Icons.pause_rounded
+                                  : Icons.play_arrow_rounded,
+                              size: 64,
+                              color: AppColors.textPrimary
+                                  .withValues(alpha: _showControls ? 1 : 0)),
+                          onPressed: _showControls ? _togglePlay : null)),
+
+          // Source label (top-left under back button)
+          if (_selected != null && _showControls && !_locked)
+            Positioned(
+                top: 60,
+                left: 16,
+                right: 80,
+                child: SafeArea(
+                    bottom: false,
+                    child: Text(_selected!.name,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: AppTypography.metadata.copyWith(
+                            color: AppColors.textMuted, fontSize: 11)))),
 
           // Top bar
           AnimatedOpacity(
@@ -166,7 +326,6 @@ class _PlayerScreenState extends State<PlayerScreen> {
                         top: false,
                         child:
                             Column(mainAxisSize: MainAxisSize.min, children: [
-                          // Seek bar
                           SliderTheme(
                               data: SliderThemeData(
                                 trackHeight: 3,
@@ -180,8 +339,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
                               ),
                               child: Slider(
                                   value: _position /
-                                      (_duration == 0 ? 1 : _duration)
-                                          .clamp(0, 1),
+                                      _duration.clamp(0.0001, double.infinity),
                                   onChanged: (v) => setState(
                                       () => _position = v * _duration))),
                           Padding(
@@ -219,7 +377,8 @@ class _PlayerScreenState extends State<PlayerScreen> {
                                             : Icons.play_circle_fill_rounded,
                                         color: AppColors.textPrimary,
                                         size: 48),
-                                    onPressed: _togglePlay),
+                                    onPressed:
+                                        _selected != null ? _togglePlay : null),
                                 IconButton(
                                     icon: const Icon(Icons.skip_next_rounded,
                                         color: AppColors.textPrimary, size: 28),
@@ -236,9 +395,13 @@ class _PlayerScreenState extends State<PlayerScreen> {
                                         size: 22),
                                     onPressed: () {}),
                                 IconButton(
-                                    icon: const Icon(Icons.hd_outlined,
-                                        color: AppColors.textPrimary, size: 22),
-                                    onPressed: () {}),
+                                    icon: const Icon(
+                                        Icons.video_settings_rounded,
+                                        color: AppColors.textPrimary,
+                                        size: 22),
+                                    onPressed: _sources.length > 1
+                                        ? _openSourceSheet
+                                        : null),
                                 IconButton(
                                     icon: const Icon(Icons.speed_rounded,
                                         color: AppColors.textPrimary, size: 22),

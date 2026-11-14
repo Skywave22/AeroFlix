@@ -22,6 +22,27 @@ class StreamSource extends Equatable {
     this.subtitles = const [],
   });
 
+  StreamSource copyWith({
+    String? url,
+    String? name,
+    String? providerId,
+    String? quality,
+    String? language,
+    String? size,
+    Map<String, String>? headers,
+    List<SubtitleTrack>? subtitles,
+  }) =>
+      StreamSource(
+        url: url ?? this.url,
+        name: name ?? this.name,
+        providerId: providerId ?? this.providerId,
+        quality: quality ?? this.quality,
+        language: language ?? this.language,
+        size: size ?? this.size,
+        headers: headers ?? this.headers,
+        subtitles: subtitles ?? this.subtitles,
+      );
+
   @override
   List<Object?> get props => [url, name, quality, language];
 }
