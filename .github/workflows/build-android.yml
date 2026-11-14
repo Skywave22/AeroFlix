@@ -32,32 +32,21 @@ jobs:
           "$SDK_MANAGER" "platforms;android-36" "build-tools;36.0.0" "ndk;27.0.12077973" "cmake;3.22.1"
       - name: Install dependencies
         run: flutter pub get
-      - name: Patch media_kit_video for SDK 36
+      - name: Patch media_kit_video for SDK 36 / Flutter 3.27
+        shell: bash
+        env:
+          PATCH_B64: "aW1wb3J0IHN5cwpwID0gc3lzLmFyZ3ZbMV0KcyA9IG9wZW4ocCkucmVhZCgpCiMgRmx1dHRlciAzLjI3IFN1cmZhY2VQcm9kdWNlci5DYWxsYmFjayBpbnRlcmZhY2U6CiMgICBwdWJsaWMgZGVmYXVsdCB2b2lkIG9uU3VyZmFjZUNyZWF0ZWQoKTsKIyAgIHB1YmxpYyBkZWZhdWx0IHZvaWQgb25TdXJmYWNlQXZhaWxhYmxlKCk7CiMgICBwdWJsaWMgYWJzdHJhY3Qgdm9pZCBvblN1cmZhY2VEZXN0cm95ZWQoKTsKIyBvblN1cmZhY2VDbGVhbnVwIHdhcyByZW1vdmVkIChyZW5hbWVkIHRvIG9uU3VyZmFjZURlc3Ryb3llZCkuCmFzc2VydCAib25TdXJmYWNlQ2xlYW51cCIgaW4gcywgInVueHBlY3RlZCBzb3VyY2UiCnMgPSBzLnJlcGxhY2UoInB1YmxpYyB2b2lkIG9uU3VyZmFjZUNsZWFudXAoKSIsICJwdWJsaWMgdm9pZCBvblN1cmZhY2VEZXN0cm95ZWQoKSIpCnMgPSBzLnJlcGxhY2UoIm9uU3VyZmFjZUNsZWFudXAoKTsiLCAib25TdXJmYWNlRGVzdHJveWVkKCk7IikKcyA9IHMucmVwbGFjZSgiTG9nLmkoVEFHLCBcIm9uU3VyZmFjZUNsZWFudXBcIikiLCAiTG9nLmkoVEFHLCBcIm9uU3VyZmFjZURlc3Ryb3llZFwiKSIpCnMgPSBzLnJlcGxhY2UoInB1YmxpYyBjbGFzcyBWaWRlb091dHB1dCIsICIvKiBQYXRjaGVkRm9yU2RrMzYgKi8gcHVibGljIGNsYXNzIFZpZGVvT3V0cHV0IiwgMSkKb3BlbihwLCAndycpLndyaXRlKHMpCnByaW50KCJQYXRjaGVkIE9LIikK"
         run: |
-          set -e
+          set -euo pipefail
           VO=$(find "$HOME/.pub-cache" -path "*media_kit_video-2.0.1*" -name VideoOutput.java | head -1)
           echo "Patching: $VO"
-          if grep -q "onSurfaceDestroyed" "$VO"; then
+          if grep -q "PatchedForSdk36" "$VO"; then
             echo "Already patched."
-            exit 0
+          else
+            echo "$PATCH_B64" | base64 -d > /tmp/patch.py
+            python3 /tmp/patch.py "$VO"
           fi
-          cat > /tmp/patch.py <<'PYEOF'
-          import re, sys
-          p = sys.argv[1]
-          s = open(p).read()
-          add = '''
-              @Override
-              public void onSurfaceDestroyed() {
-                  Log.i(TAG, "onSurfaceDestroyed");
-              }
-          '''
-          marker = "\n    private static long newGlobalObjectRef"
-          assert marker in s, "marker not found"
-          s = s.replace(marker, add + marker, 1)
-          open(p, 'w').write(s)
-          print("Patched OK")
-          PYEOF
-          python3 /tmp/patch.py "$VO"
+          grep -n "onSurface" "$VO"
       - name: Verify formatting
         run: dart format --output=none --set-exit-if-changed lib/ test/
       - name: Analyze
@@ -93,32 +82,21 @@ jobs:
           "$SDK_MANAGER" "platforms;android-36" "build-tools;36.0.0" "ndk;27.0.12077973" "cmake;3.22.1"
       - name: Install dependencies
         run: flutter pub get
-      - name: Patch media_kit_video for SDK 36
+      - name: Patch media_kit_video for SDK 36 / Flutter 3.27
+        shell: bash
+        env:
+          PATCH_B64: "aW1wb3J0IHN5cwpwID0gc3lzLmFyZ3ZbMV0KcyA9IG9wZW4ocCkucmVhZCgpCmFzc2VydCAib25TdXJmYWNlQ2xlYW51cCIgaW4gcywgInVueHBlY3RlZCBzb3VyY2UiCnMgPSBzLnJlcGxhY2UoInB1YmxpYyB2b2lkIG9uU3VyZmFjZUNsZWFudXAoKSIsICJwdWJsaWMgdm9pZCBvblN1cmZhY2VEZXN0cm95ZWQoKSIpCnMgPSBzLnJlcGxhY2UoIm9uU3VyZmFjZUNsZWFudXAoKTsiLCAib25TdXJmYWNlRGVzdHJveWVkKCk7IikKcyA9IHMucmVwbGFjZSgiTG9nLmkoVEFHLCBcIm9uU3VyZmFjZUNsZWFudXBcIikiLCAiTG9nLmkoVEFHLCBcIm9uU3VyZmFjZURlc3Ryb3llZFwiKSIpCnMgPSBzLnJlcGxhY2UoInB1YmxpYyBjbGFzcyBWaWRlb091dHB1dCIsICIvKiBQYXRjaGVkRm9yU2RrMzYgKi8gcHVibGljIGNsYXNzIFZpZGVvT3V0cHV0IiwgMSkKb3BlbihwLCAndycpLndyaXRlKHMpCnByaW50KCJQYXRjaGVkIE9LIikK"
         run: |
-          set -e
+          set -euo pipefail
           VO=$(find "$HOME/.pub-cache" -path "*media_kit_video-2.0.1*" -name VideoOutput.java | head -1)
           echo "Patching: $VO"
-          if grep -q "onSurfaceDestroyed" "$VO"; then
+          if grep -q "PatchedForSdk36" "$VO"; then
             echo "Already patched."
-            exit 0
+          else
+            echo "$PATCH_B64" | base64 -d > /tmp/patch.py
+            python3 /tmp/patch.py "$VO"
           fi
-          cat > /tmp/patch.py <<'PYEOF'
-          import re, sys
-          p = sys.argv[1]
-          s = open(p).read()
-          add = '''
-              @Override
-              public void onSurfaceDestroyed() {
-                  Log.i(TAG, "onSurfaceDestroyed");
-              }
-          '''
-          marker = "\n    private static long newGlobalObjectRef"
-          assert marker in s, "marker not found"
-          s = s.replace(marker, add + marker, 1)
-          open(p, 'w').write(s)
-          print("Patched OK")
-          PYEOF
-          python3 /tmp/patch.py "$VO"
+          grep -n "onSurface" "$VO"
       - name: Build APK (release, unsigned)
         run: flutter build apk --release --no-shrink --no-pub
       - name: Upload release APK
