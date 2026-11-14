@@ -26,12 +26,18 @@ jobs:
       - name: Analyze
         run: flutter analyze
       - name: Run tests
-        run: flutter test
+        run: flutter test --timeout 30s
       - name: Build APK (debug)
         run: flutter build apk --debug
+        working-directory: .
+      - name: Locate APK
+        run: find build/app -name "*.apk" -type f 2>/dev/null
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
-        with: { name: aeroflix-debug-apk, path: build/app/outputs/flutter-apk/app-debug.apk }
+        with:
+          name: aeroflix-debug-apk
+          path: build/app/outputs/flutter-apk/app-debug.apk
+          if-no-files-found: error
 
   build-release:
     name: Build release APK
@@ -49,6 +55,11 @@ jobs:
         run: flutter pub get
       - name: Build APK (release, unsigned)
         run: flutter build apk --release --no-shrink
+      - name: Locate APK
+        run: find build/app -name "*.apk" -type f 2>/dev/null
       - name: Upload release APK
         uses: actions/upload-artifact@v4
-        with: { name: aeroflix-release-apk, path: build/app/outputs/flutter-apk/app-release.apk }
+        with:
+          name: aeroflix-release-apk
+          path: build/app/outputs/flutter-apk/app-release.apk
+          if-no-files-found: error

@@ -1,11 +1,15 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'app_colors.dart';
 
 class AppTypography {
   AppTypography._();
-  static TextStyle get _base =>
-      GoogleFonts.inter(color: AppColors.textPrimary, letterSpacing: 0);
+  static const String _fontFamily =
+      'Inter'; // bundled asset fallback to platform sans
+  static TextStyle get _base => const TextStyle(
+      fontFamily: _fontFamily,
+      color: AppColors.textPrimary,
+      letterSpacing: 0,
+      fontFamilyFallback: ['Roboto', 'sans-serif']);
   static TextStyle get display =>
       _base.copyWith(fontSize: 32, fontWeight: FontWeight.w700, height: 1.15);
   static TextStyle get screenHeading =>
