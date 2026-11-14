@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:media_kit/media_kit.dart' as mk;
 import 'package:media_kit_video/media_kit_video.dart';
 import '../../app/router.dart';
 import '../../app/theme/app_colors.dart';
@@ -56,12 +57,15 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
   double _rate = 1.0;
   int _fitIndex = 0; // 0=contain, 1=cover, 2=fill
   String? _fitToast;
+  List<mk.SubtitleTrack> _subs = const [];
+  mk.SubtitleTrack? _selectedSub; // null = off
+  bool _subsLoaded = false;
 
   static const _rates = [0.5, 0.75, 1.0, 1.25, 1.5, 2.0];
   static const _fits = [BoxFit.contain, BoxFit.cover, BoxFit.fill];
   static const _fitLabels = ['Fit to screen', 'Fill & crop', 'Stretch'];
 
-  StreamSubscription? _posSub, _durSub, _playSub, _completeSub;
+  StreamSubscription? _posSub, _durSub, _playSub, _completeSub, _tracksSub;
 
   @override
   void initState() {
@@ -152,7 +156,22 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
     _durSub?.cancel();
     _playSub?.cancel();
     _completeSub?.cancel();
+    _tracksSub?.cancel();
     _seekedToResume = false;
+    _subsLoaded = false;
+    _tracksSub = ap.player.stream.tracks.listen((t) {
+      final subs =
+          t.subtitle.where((s) => s.id != 'no' && s.id != 'auto').toList();
+      if (!mounted) return;
+      setState(() {
+        _subs = subs;
+        if (!_subsLoaded) {
+          _subsLoaded = true;
+          // Default off; keep first track selectable via CC button
+          _selectedSub = null;
+        }
+      });
+    });
     _posSub = ap.player.stream.position.listen((p) {
       if (!mounted || _seeking) return;
       setState(() => _position = p);
@@ -230,6 +249,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
     _durSub?.cancel();
     _playSub?.cancel();
     _completeSub?.cancel();
+    _tracksSub?.cancel();
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
     SystemChrome.setPreferredOrientations(DeviceOrientation.values);
     super.dispose();
@@ -334,6 +354,77 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
         const SizedBox(height: 8),
       ])),
     );
+  }
+
+  void _openCaptionsSheet() {
+    showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: AppColors.surface,
+      shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(16))),
+      builder: (_) => SafeArea(
+          child: Column(mainAxisSize: MainAxisSize.min, children: [
+        Padding(
+            padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
+            child: Text('Subtitles', style: AppTypography.sectionHeading)),
+        ListTile(
+          dense: true,
+          onTap: () {
+            final ap = ref.read(activePlayerProvider);
+            ap?.player.setSubtitleTrack(mk.SubtitleTrack.no());
+            setState(() => _selectedSub = null);
+            Navigator.pop(context);
+          },
+          leading: Icon(
+              _selectedSub == null
+                  ? Icons.check_circle_rounded
+                  : Icons.radio_button_unchecked_rounded,
+              color:
+                  _selectedSub == null ? AppColors.accent : AppColors.textMuted,
+              size: 22),
+          title: Text('Off',
+              style: AppTypography.bodyPrimary.copyWith(
+                  fontSize: 14,
+                  color: _selectedSub == null
+                      ? AppColors.accent
+                      : AppColors.textPrimary)),
+        ),
+        for (final s in _subs)
+          ListTile(
+            dense: true,
+            onTap: () {
+              final ap = ref.read(activePlayerProvider);
+              ap?.player.setSubtitleTrack(s);
+              setState(() => _selectedSub = s);
+              Navigator.pop(context);
+            },
+            leading: Icon(
+                _selectedSub?.id == s.id
+                    ? Icons.check_circle_rounded
+                    : Icons.radio_button_unchecked_rounded,
+                color: _selectedSub?.id == s.id
+                    ? AppColors.accent
+                    : AppColors.textMuted,
+                size: 22),
+            title: Text(_subLabel(s),
+                style: AppTypography.bodyPrimary.copyWith(
+                    fontSize: 14,
+                    color: _selectedSub?.id == s.id
+                        ? AppColors.accent
+                        : AppColors.textPrimary)),
+          ),
+        const SizedBox(height: 8),
+      ])),
+    );
+  }
+
+  String _subLabel(mk.SubtitleTrack s) {
+    final title = s.title ?? '';
+    final lang = s.language ?? '';
+    if (title.isNotEmpty && title != lang) {
+      return '$title${lang.isNotEmpty ? ' ($lang)' : ''}';
+    }
+    return lang.isNotEmpty ? lang : 'Subtitle ${s.id}';
   }
 
   void _openSourceSheet() {
@@ -719,11 +810,20 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
                                     onPressed: () => _seekRel(10)),
                                 const Spacer(),
                                 IconButton(
-                                    icon: const Icon(
-                                        Icons.closed_caption_off_rounded,
-                                        color: AppColors.textMuted,
+                                    icon: Icon(
+                                        _selectedSub != null
+                                            ? Icons.closed_caption_rounded
+                                            : Icons.closed_caption_off_rounded,
+                                        color: _selectedSub != null ||
+                                                _subs.isNotEmpty
+                                            ? (_selectedSub != null
+                                                ? AppColors.accent
+                                                : AppColors.textPrimary)
+                                            : AppColors.textMuted,
                                         size: 22),
-                                    onPressed: null),
+                                    onPressed: _subs.isNotEmpty
+                                        ? _openCaptionsSheet
+                                        : null),
                                 IconButton(
                                     icon: const Icon(
                                         Icons.video_settings_rounded,
