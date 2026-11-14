@@ -1,4 +1,6 @@
 import 'package:go_router/go_router.dart';
+import '../shared/models/media_details.dart';
+import '../features/details/details_screen.dart';
 import '../features/explore/explore_screen.dart';
 import '../features/home/home_screen.dart';
 import '../features/profile/profile_screen.dart';
@@ -28,4 +30,21 @@ final appRouter =
           GoRoute(path: '/profile', builder: (c, s) => const ProfileScreen())
         ]),
       ]),
+  GoRoute(
+      path: '/details/movie/:id',
+      builder: (c, s) {
+        final id = int.parse(s.pathParameters['id']!);
+        final poster = s.uri.queryParameters['poster'];
+        return DetailsScreen(
+            args:
+                DetailsArgs(id: id, type: MediaType.movie, posterUrl: poster));
+      }),
+  GoRoute(
+      path: '/details/tv/:id',
+      builder: (c, s) {
+        final id = int.parse(s.pathParameters['id']!);
+        final poster = s.uri.queryParameters['poster'];
+        return DetailsScreen(
+            args: DetailsArgs(id: id, type: MediaType.tv, posterUrl: poster));
+      }),
 ]);

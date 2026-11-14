@@ -2,6 +2,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../errors/failures.dart';
 import '../../shared/models/genre.dart';
+import '../../shared/models/media_details.dart';
 import '../../shared/models/movie.dart';
 import '../../shared/models/tv_show.dart';
 import 'dio_client.dart';
@@ -31,12 +32,25 @@ class TmdbService {
         .toList();
   }
 
-  Future<Map<String, dynamic>> getMovieDetails(int id) => _get('/movie/$id',
-      extraQuery: {'append_to_response': 'credits,videos,similar'});
-  Future<Map<String, dynamic>> getTvDetails(int id) => _get('/tv/$id',
-      extraQuery: {'append_to_response': 'credits,videos,similar'});
-  Future<Map<String, dynamic>> getTvSeason(int id, int s) =>
-      _get('/tv/$id/season/$s');
+  Future<MediaDetails> getMovieDetails(int id) async {
+    final r = await _get('/movie/$id',
+        extraQuery: {'append_to_response': 'credits,videos,similar'});
+    return _parseMovie(r);
+  }
+
+  Future<MediaDetails> getTvDetails(int id) async {
+    final r = await _get('/tv/$id',
+        extraQuery: {'append_to_response': 'credits,videos,similar'});
+    return _parseTv(r);
+  }
+
+  Future<List<Episode>> getEpisodes(int tvId, int seasonNumber) async {
+    final r = await _get('/tv/$tvId/season/$seasonNumber');
+    return (r['episodes'] as List? ?? [])
+        .cast<Map<String, dynamic>>()
+        .map(Episode.fromJson)
+        .toList();
+  }
 
   Future<Map<String, dynamic>> searchMulti(String q, {int page = 1}) async {
     if (q.trim().isEmpty) return {'movies': <Movie>[], 'tv': <TvShow>[]};
@@ -76,6 +90,85 @@ class TmdbService {
         .toList();
   }
 
+  MediaDetails _parseMovie(Map<String, dynamic> r) {
+    final genres = (r['genres'] as List? ?? []).cast<Map<String, dynamic>>();
+    final credits = r['credits'] as Map<String, dynamic>? ?? {};
+    final videos =
+        ((r['videos'] as Map<String, dynamic>? ?? {})['results'] as List? ?? [])
+            .cast<Map<String, dynamic>>();
+    return MediaDetails(
+      type: MediaType.movie,
+      id: r['id'] as int,
+      title: (r['title'] ?? '') as String,
+      tagline: r['tagline'] as String?,
+      overview: r['overview'] as String?,
+      posterPath: r['poster_path'] as String?,
+      backdropPath: r['backdrop_path'] as String?,
+      releaseDate: r['release_date'] as String?,
+      status: r['status'] as String?,
+      originalLanguage: r['original_language'] as String?,
+      voteAverage: ((r['vote_average'] as num?) ?? 0).toDouble(),
+      voteCount: (r['vote_count'] as int?) ?? 0,
+      runtime: (r['runtime'] as int?) ?? 0,
+      genreIds: genres.map((g) => g['id'] as int).toList(),
+      genreNames: genres.map((g) => (g['name'] ?? '') as String).toList(),
+      cast: (credits['cast'] as List? ?? [])
+          .cast<Map<String, dynamic>>()
+          .take(12)
+          .map(CastMember.fromJson)
+          .toList(),
+      trailers: videos
+          .where((v) => v['type'] == 'Trailer' && v['site'] == 'YouTube')
+          .map(VideoTrailer.fromJson)
+          .take(1)
+          .toList(),
+    );
+  }
+
+  MediaDetails _parseTv(Map<String, dynamic> r) {
+    final genres = (r['genres'] as List? ?? []).cast<Map<String, dynamic>>();
+    final credits = r['credits'] as Map<String, dynamic>? ?? {};
+    final videos =
+        ((r['videos'] as Map<String, dynamic>? ?? {})['results'] as List? ?? [])
+            .cast<Map<String, dynamic>>();
+    final rawSeasons =
+        (r['seasons'] as List? ?? []).cast<Map<String, dynamic>>();
+    final seasons = rawSeasons
+        .where((s) => (s['season_number'] as int? ?? 0) > 0)
+        .map(Season.fromJson)
+        .toList();
+    final epRuntime = (r['episode_run_time'] as List? ?? []);
+    return MediaDetails(
+      type: MediaType.tv,
+      id: r['id'] as int,
+      title: (r['name'] ?? '') as String,
+      tagline: r['tagline'] as String?,
+      overview: r['overview'] as String?,
+      posterPath: r['poster_path'] as String?,
+      backdropPath: r['backdrop_path'] as String?,
+      releaseDate: r['first_air_date'] as String?,
+      status: r['status'] as String?,
+      originalLanguage: r['original_language'] as String?,
+      voteAverage: ((r['vote_average'] as num?) ?? 0).toDouble(),
+      voteCount: (r['vote_count'] as int?) ?? 0,
+      runtime: epRuntime.isNotEmpty ? (epRuntime.first as int? ?? 0) : 0,
+      genreIds: genres.map((g) => g['id'] as int).toList(),
+      genreNames: genres.map((g) => (g['name'] ?? '') as String).toList(),
+      cast: (credits['cast'] as List? ?? [])
+          .cast<Map<String, dynamic>>()
+          .take(12)
+          .map(CastMember.fromJson)
+          .toList(),
+      trailers: videos
+          .where((v) => v['type'] == 'Trailer' && v['site'] == 'YouTube')
+          .map(VideoTrailer.fromJson)
+          .take(1)
+          .toList(),
+      seasons: seasons,
+      numberOfSeasons: (r['number_of_seasons'] as int?) ?? seasons.length,
+    );
+  }
+
   Future<Map<String, dynamic>> _get(String path,
       {Map<String, String>? extraQuery}) async {
     try {
@@ -89,7 +182,7 @@ class TmdbService {
       if ({
         DioExceptionType.connectionTimeout,
         DioExceptionType.receiveTimeout,
-        DioExceptionType.sendTimeout,
+        DioExceptionType.sendTimeout
       }.contains(e.type)) {
         throw Failure.timeout(cause: e);
       }
@@ -101,9 +194,7 @@ class TmdbService {
       }
       throw Failure.server(cause: e);
     } catch (e) {
-      if (e is Failure) {
-        rethrow;
-      }
+      if (e is Failure) rethrow;
       throw Failure.parse(cause: e);
     }
   }

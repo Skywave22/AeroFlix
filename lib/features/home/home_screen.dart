@@ -1,15 +1,19 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import '../../app/theme/app_colors.dart';
 import '../../app/theme/app_spacing.dart';
 import '../../app/theme/app_typography.dart';
 import '../../core/network/tmdb_service.dart';
+import '../../shared/models/media_details.dart';
 import '../../shared/models/movie.dart';
+import '../../shared/models/tv_show.dart';
 import '../../shared/widgets/cinematic_hero_banner.dart';
 import '../../shared/widgets/horizontal_carousel.dart';
 import '../../shared/widgets/poster_card.dart';
 import '../../shared/widgets/section_placeholder.dart';
+import '../../shared/providers/watchlist_provider.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
@@ -80,7 +84,15 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                                   backdropUrl: ms.first.backdropUrlW1280,
                                   title: ms.first.title,
                                   metadata: _meta(ms.first),
-                                  description: ms.first.overview),
+                                  description: ms.first.overview,
+                                  onPlay: () => _openMovie(ms.first),
+                                  onDetails: () => _openMovie(ms.first),
+                                  onWatchlist: () => ref
+                                      .read(watchlistProvider.notifier)
+                                      .toggle(MediaType.movie, ms.first.id),
+                                  isInWatchlist: ref.watch(
+                                      isInWatchlistProvider(
+                                          'movie:${ms.first.id}'))),
                           loading: () =>
                               Container(height: 420, color: AppColors.surface)
                                   .animate(onPlay: (c) => c.repeat())
@@ -91,29 +103,33 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                           error: (_, __) => const SizedBox(height: 380))),
                   const SliverToBoxAdapter(
                       child: SizedBox(height: AppSpacing.lg)),
-                  _sliver(trending, 'Trending Now'),
+                  _sliverMovies(trending, 'Trending Now'),
                   const SliverToBoxAdapter(
                       child: SizedBox(height: AppSpacing.lg)),
                   SliverToBoxAdapter(child: _continueEmpty()),
                   const SliverToBoxAdapter(
                       child: SizedBox(height: AppSpacing.lg)),
-                  _sliver(hindi, 'Hindi Cinema'),
+                  _sliverMovies(hindi, 'Hindi Cinema'),
                   const SliverToBoxAdapter(
                       child: SizedBox(height: AppSpacing.lg)),
-                  _sliver(popular, 'Popular Movies'),
+                  _sliverMovies(popular, 'Popular Movies'),
                   const SliverToBoxAdapter(
                       child: SizedBox(height: AppSpacing.lg)),
                   _sliverTv(trendingTv, 'Trending TV Shows'),
                   const SliverToBoxAdapter(
                       child: SizedBox(height: AppSpacing.lg)),
-                  _sliver(topRated, 'Top Rated', rating: true),
+                  _sliverMovies(topRated, 'Top Rated', rating: true),
                   const SliverToBoxAdapter(
                       child: SizedBox(height: AppSpacing.lg)),
-                  _sliver(nowPlaying, 'Now Playing'),
+                  _sliverMovies(nowPlaying, 'Now Playing'),
                   const SliverToBoxAdapter(child: SizedBox(height: 100)),
                 ])));
   }
 
+  void _openMovie(Movie m) => context.push(
+      '/details/movie/${m.id}?poster=${Uri.encodeComponent(m.posterUrlW342)}');
+  void _openTv(TvShow s) => context.push(
+      '/details/tv/${s.id}?poster=${Uri.encodeComponent(s.posterUrlW342)}');
   String _meta(Movie m) {
     final p = <String>[];
     if (m.year != null) p.add(m.year!);
@@ -123,7 +139,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
   String _metaRating(Movie m) => '★ ${m.rating} · ${m.year ?? ""}';
 
-  Widget _sliver(AsyncValue<List<Movie>> prov, String title,
+  Widget _sliverMovies(AsyncValue<List<Movie>> prov, String title,
           {bool rating = false}) =>
       SliverToBoxAdapter(
           child: prov.when(
@@ -134,10 +150,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   itemBuilder: (_, i) => PosterCard(
                       imageUrl: ms[i].posterUrlW342,
                       title: ms[i].title,
-                      metadata: rating ? _metaRating(ms[i]) : ms[i].year)),
+                      metadata: rating ? _metaRating(ms[i]) : ms[i].year,
+                      onTap: () => _openMovie(ms[i]))),
               loading: () => const SectionLoadingPlaceholder(),
               error: (_, __) => const SizedBox.shrink()));
-  Widget _sliverTv(AsyncValue<List<dynamic>> prov, String title) =>
+
+  Widget _sliverTv(AsyncValue<List<TvShow>> prov, String title) =>
       SliverToBoxAdapter(
           child: prov.when(
               data: (shows) => HorizontalCarousel(
@@ -145,9 +163,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   itemCount: shows.length,
                   height: AppSpacing.posterHeight + 56,
                   itemBuilder: (_, i) => PosterCard(
-                      imageUrl: shows[i].posterUrlW342 as String,
-                      title: shows[i].name as String,
-                      metadata: shows[i].year as String?)),
+                      imageUrl: shows[i].posterUrlW342,
+                      title: shows[i].name,
+                      metadata: shows[i].year,
+                      onTap: () => _openTv(shows[i]))),
               loading: () => const SectionLoadingPlaceholder(),
               error: (_, __) => const SizedBox.shrink()));
 
