@@ -4,6 +4,7 @@ import '../features/details/details_screen.dart';
 import '../features/episodes/episodes_screen.dart';
 import '../features/explore/explore_screen.dart';
 import '../features/home/home_screen.dart';
+import '../features/person/person_screen.dart';
 import '../features/player/player_screen.dart';
 import '../features/profile/profile_screen.dart';
 import '../features/search/search_screen.dart';
@@ -90,5 +91,14 @@ final appRouter =
         final args = s.extra as EpisodesArgs;
         return EpisodesScreen(
             details: args.details, initialSeason: args.initialSeason);
+      }),
+  GoRoute(
+      path: '/person/:id',
+      builder: (c, s) {
+        final id = int.parse(s.pathParameters['id']!);
+        final name = s.uri.queryParameters['name'] ?? '';
+        final profile = s.uri.queryParameters['profile'];
+        return PersonScreen(
+            args: PersonArgs(id: id, name: name, profilePath: profile));
       }),
 ]);

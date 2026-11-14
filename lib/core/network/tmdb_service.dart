@@ -4,6 +4,7 @@ import '../errors/failures.dart';
 import '../../shared/models/genre.dart';
 import '../../shared/models/media_details.dart';
 import '../../shared/models/movie.dart';
+import '../../shared/models/person.dart';
 import '../../shared/models/tv_show.dart';
 import 'dio_client.dart';
 
@@ -55,6 +56,33 @@ class TmdbService {
         .cast<Map<String, dynamic>>()
         .map(Episode.fromJson)
         .toList();
+  }
+
+  Future<Map<String, dynamic>> _fetchPersonCredits(int id) =>
+      _get('/person/$id/combined_credits');
+
+  Future<PersonInfo> getPersonInfo(int id) async {
+    final r = await _get('/person/$id');
+    return PersonInfo.fromJson(r);
+  }
+
+  Future<PersonCredits> getPersonCredits(int id) async {
+    final r = await _fetchPersonCredits(id);
+    final movies = <Movie>[];
+    final tv = <TvShow>[];
+    for (final x
+        in (r['cast'] as List? ?? const []).cast<Map<String, dynamic>>()) {
+      final mediaType = x['media_type'] as String?;
+      if (mediaType == 'movie' && (x['poster_path'] != null)) {
+        movies.add(Movie.fromJson(x));
+      } else if (mediaType == 'tv' && (x['poster_path'] != null)) {
+        tv.add(TvShow.fromJson(x));
+      }
+    }
+    movies.sort((a, b) => (b.releaseDate ?? '').compareTo(a.releaseDate ?? ''));
+    tv.sort((a, b) => (b.firstAirDate ?? '').compareTo(a.firstAirDate ?? ''));
+    return PersonCredits(
+        movies: movies.take(20).toList(), tv: tv.take(20).toList());
   }
 
   Future<Map<String, dynamic>> searchMulti(String q, {int page = 1}) async {

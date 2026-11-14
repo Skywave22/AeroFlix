@@ -13,6 +13,7 @@ import '../../shared/providers/continue_watching_provider.dart';
 import '../../shared/providers/watchlist_provider.dart';
 import '../../shared/widgets/horizontal_carousel.dart';
 import '../../shared/widgets/poster_card.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 /// Arguments passed to the details route via GoRouter extra.
 class DetailsArgs {
@@ -276,6 +277,18 @@ class _DetailsContent extends ConsumerWidget {
                           style: AppTypography.body.copyWith(
                               color: AppColors.textPrimary, height: 1.6)),
                     ],
+                    if (details.trailers.isNotEmpty) ...[
+                      const SizedBox(height: AppSpacing.md),
+                      TextButton.icon(
+                          onPressed: () {
+                            final u = details.trailers.first.youtubeUrl;
+                            launchUrl(Uri.parse(u),
+                                mode: LaunchMode.externalApplication);
+                          },
+                          icon: const Icon(Icons.play_circle_outline_rounded,
+                              size: 18),
+                          label: const Text('Watch Trailer')),
+                    ],
                   ]))),
 
       // Cast
@@ -298,43 +311,50 @@ class _DetailsContent extends ConsumerWidget {
                       const SizedBox(width: AppSpacing.md),
                   itemBuilder: (_, i) {
                     final c = details.cast[i];
-                    return SizedBox(
-                        width: 72,
-                        child: Column(children: [
-                          ClipOval(
-                            child: SizedBox(
-                                width: 56,
-                                height: 56,
-                                child: c.profileUrl.isNotEmpty
-                                    ? CachedNetworkImage(
-                                        imageUrl: c.profileUrl,
-                                        fit: BoxFit.cover,
-                                        placeholder: (_, __) =>
-                                            Container(color: AppColors.surface),
-                                        errorWidget: (_, __, ___) => Container(
+                    return GestureDetector(
+                        onTap: () => context.push(
+                            '/person/${c.id}?name=${Uri.encodeComponent(c.name)}&profile=${Uri.encodeComponent(c.profilePath ?? '')}'),
+                        child: SizedBox(
+                            width: 72,
+                            child: Column(children: [
+                              ClipOval(
+                                child: SizedBox(
+                                    width: 56,
+                                    height: 56,
+                                    child: c.profileUrl.isNotEmpty
+                                        ? CachedNetworkImage(
+                                            imageUrl: c.profileUrl,
+                                            fit: BoxFit.cover,
+                                            placeholder: (_, __) => Container(
+                                                color: AppColors.surface),
+                                            errorWidget: (_, __, ___) =>
+                                                Container(
+                                                    color: AppColors.surface,
+                                                    child: const Icon(
+                                                        Icons.person,
+                                                        color:
+                                                            AppColors.textMuted,
+                                                        size: 24)))
+                                        : Container(
                                             color: AppColors.surface,
                                             child: const Icon(Icons.person,
                                                 color: AppColors.textMuted,
-                                                size: 24)))
-                                    : Container(
-                                        color: AppColors.surface,
-                                        child: const Icon(Icons.person,
-                                            color: AppColors.textMuted,
-                                            size: 24))),
-                          ),
-                          const SizedBox(height: AppSpacing.xs),
-                          Text(c.name,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: AppTypography.metadata.copyWith(
-                                  color: AppColors.textPrimary, fontSize: 11)),
-                          if (c.character.isNotEmpty)
-                            Text(c.character,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: AppTypography.metadata
-                                    .copyWith(fontSize: 10)),
-                        ]));
+                                                size: 24))),
+                              ),
+                              const SizedBox(height: AppSpacing.xs),
+                              Text(c.name,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: AppTypography.metadata.copyWith(
+                                      color: AppColors.textPrimary,
+                                      fontSize: 11)),
+                              if (c.character.isNotEmpty)
+                                Text(c.character,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: AppTypography.metadata
+                                        .copyWith(fontSize: 10)),
+                            ])));
                   },
                 ))),
       ],

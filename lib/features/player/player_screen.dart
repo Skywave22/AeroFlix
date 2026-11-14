@@ -54,8 +54,12 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
   bool _seekedToResume = false;
   int _autoAdvanceCountdown = 0;
   double _rate = 1.0;
+  int _fitIndex = 0; // 0=contain, 1=cover, 2=fill
+  String? _fitToast;
 
   static const _rates = [0.5, 0.75, 1.0, 1.25, 1.5, 2.0];
+  static const _fits = [BoxFit.contain, BoxFit.cover, BoxFit.fill];
+  static const _fitLabels = ['Fit to screen', 'Fill & crop', 'Stretch'];
 
   StreamSubscription? _posSub, _durSub, _playSub, _completeSub;
 
@@ -283,6 +287,16 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
         _ => 0
       };
 
+  void _cycleFit() {
+    setState(() {
+      _fitIndex = (_fitIndex + 1) % _fits.length;
+      _fitToast = _fitLabels[_fitIndex];
+    });
+    Future.delayed(const Duration(seconds: 1), () {
+      if (mounted) setState(() => _fitToast = null);
+    });
+  }
+
   void _openSpeedSheet() {
     showModalBottomSheet<void>(
       context: context,
@@ -410,8 +424,10 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
           Container(color: Colors.black),
           if (hasVideo)
             Positioned.fill(
-                child:
-                    Video(controller: active.controller, fill: Colors.black)),
+                child: Video(
+                    controller: active.controller,
+                    fit: _fits[_fitIndex],
+                    fill: Colors.black)),
           if ((!hasVideo || _loadingSources) &&
               widget.details.backdropUrlW1280.isNotEmpty)
             Positioned.fill(
@@ -524,6 +540,19 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
                         overflow: TextOverflow.ellipsis,
                         style: AppTypography.metadata.copyWith(
                             color: AppColors.textMuted, fontSize: 11)))),
+
+          // Fit toast
+          if (_fitToast != null)
+            Center(
+                child: Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                    decoration: BoxDecoration(
+                        color: Colors.black.withValues(alpha: 0.75),
+                        borderRadius: BorderRadius.circular(8)),
+                    child: Text(_fitToast!,
+                        style:
+                            AppTypography.bodyPrimary.copyWith(fontSize: 13)))),
 
           // Resume-toast
           if (widget.resumeAtMs > 5000 && !_seekedToResume && hasVideo)
@@ -711,9 +740,12 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
                                         size: 22),
                                     onPressed: _openSpeedSheet),
                                 IconButton(
-                                    icon: const Icon(Icons.fit_screen_rounded,
-                                        color: AppColors.textMuted, size: 22),
-                                    onPressed: null),
+                                    icon: Icon(Icons.fit_screen_rounded,
+                                        color: _fitIndex != 0
+                                            ? AppColors.accent
+                                            : AppColors.textPrimary,
+                                        size: 22),
+                                    onPressed: _cycleFit),
                               ]),
                         ])),
                   ))),
