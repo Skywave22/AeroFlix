@@ -15,6 +15,7 @@ import '../../app/theme/app_spacing.dart';
 import '../../app/theme/app_typography.dart';
 import '../../core/network/tmdb_service.dart';
 import '../../core/platform/pip_service.dart';
+import '../../core/platform/screen_mode.dart';
 import '../../core/utils/trailer_helper.dart';
 import '../../shared/models/media_details.dart';
 import '../../shared/models/stream_source.dart';
@@ -87,11 +88,10 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
   @override
   void initState() {
     super.initState();
-    SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
-    SystemChrome.setPreferredOrientations([
-      DeviceOrientation.landscapeLeft,
-      DeviceOrientation.landscapeRight,
-    ]);
+    // Belt-and-braces: the router applies the player mode when it lands on
+    // /player, and `apply` is idempotent, so repeating it here is free — but it
+    // guarantees landscape even on the first frame of a cold-start deep link.
+    ScreenModeController.apply(ScreenMode.player);
     // Pull persisted defaults from settings once the widget is mounted.
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final s = ref.read(settingsProvider);
@@ -117,6 +117,10 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
     if (inPip) {
       SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky,
           overlays: []);
+    } else {
+      // Leaving PiP: Android resolves the activity back to its unfocused state
+      // and drops the requested orientation, so ask for landscape again.
+      ScreenModeController.reassert();
     }
   }
 
@@ -329,8 +333,17 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
     pip.setEnabled(false);
     pip.setAutoEnterOnBackground(false);
     WakelockPlus.disable();
-    SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
-    SystemChrome.setPreferredOrientations(DeviceOrientation.values);
+    // Deliberately does NOT set an orientation here. Popping the player moves
+    // the router to a portrait route and the router listener locks portrait —
+    // while `pushReplacement` to the next episode keeps the location at
+    // /player, so no rotation is triggered mid-playback. Forcing portrait here
+    // would (and previously did) fight the incoming player.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      // Safety net for routes without a location change (e.g. a replaced route
+      // disposed after its successor): re-derive the mode from the router.
+      final path = appRouter.routerDelegate.currentConfiguration.uri.path;
+      ScreenModeController.syncForLocation(path);
+    });
     super.dispose();
   }
 
