@@ -10,6 +10,7 @@ import '../../app/theme/app_radii.dart';
 import '../../app/theme/app_spacing.dart';
 import '../../app/theme/app_typography.dart';
 import '../../core/network/tmdb_service.dart';
+import '../../core/utils/trailer_helper.dart';
 import '../../shared/models/media_details.dart';
 import '../../shared/providers/continue_watching_provider.dart';
 import '../../shared/providers/download_provider.dart';
@@ -260,17 +261,33 @@ class _DetailsContent extends ConsumerWidget {
 
                         final isTv = details.type == MediaType.tv;
                         final resume = isTv ? tvResume : movieResume;
-                        final label = isTv
-                            ? (resume != null
-                                ? 'Resume S${resume.season}E${resume.episode}'
-                                : 'Episodes')
-                            : (resume != null ? 'Resume' : 'Play');
-                        final icon = isTv && resume == null
-                            ? Icons.format_list_bulleted_rounded
-                            : Icons.play_arrow_rounded;
+                        final direct = canPlayDirectly(details);
+                        final trailer = trailerUrl(details);
+                        String label;
+                        IconData icon;
+                        if (isTv) {
+                          label = resume != null
+                              ? 'Resume S${resume.season}E${resume.episode}'
+                              : 'Episodes';
+                          icon = resume != null
+                              ? Icons.play_arrow_rounded
+                              : Icons.format_list_bulleted_rounded;
+                        } else if (resume != null) {
+                          label = 'Resume';
+                          icon = Icons.play_arrow_rounded;
+                        } else if (direct) {
+                          label = 'Play';
+                          icon = Icons.play_arrow_rounded;
+                        } else if (trailer != null) {
+                          label = 'Watch Trailer';
+                          icon = Icons.play_circle_outline_rounded;
+                        } else {
+                          label = 'Play';
+                          icon = Icons.play_arrow_rounded;
+                        }
 
                         return FilledButton.icon(
-                            onPressed: () {
+                            onPressed: () async {
                               if (isTv && resume != null) {
                                 context.push('/player',
                                     extra: PlayerArgs(
@@ -291,12 +308,15 @@ class _DetailsContent extends ConsumerWidget {
                                     extra: EpisodesArgs(
                                         details: details,
                                         initialSeason: firstSeason));
-                              } else {
+                              } else if (direct || resume != null) {
                                 context.push('/player',
                                     extra: PlayerArgs(
                                       details: details,
                                       resumeAtMs: resume?.positionMs ?? 0,
                                     ));
+                              } else {
+                                // Fall back to YouTube trailer / TMDB page.
+                                await openTrailer(details);
                               }
                             },
                             icon: Icon(icon, size: 22),

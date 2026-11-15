@@ -14,6 +14,7 @@ import '../../app/theme/app_spacing.dart';
 import '../../app/theme/app_typography.dart';
 import '../../core/network/tmdb_service.dart';
 import '../../core/platform/pip_service.dart';
+import '../../core/utils/trailer_helper.dart';
 import '../../shared/models/media_details.dart';
 import '../../shared/models/stream_source.dart';
 import '../../shared/providers/continue_watching_provider.dart';
@@ -162,7 +163,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
       if (list.isEmpty) {
         setState(() {
           _loadingSources = false;
-          _error = 'No playable sources found for this title. Tap Retry to try again.';
+          _error = 'No in-app stream available for this title. Try the trailer or tap Retry.';
         });
         return;
       }
@@ -765,15 +766,32 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
                           const Icon(Icons.error_outline_rounded,
                               color: AppColors.textMuted, size: 48),
                           const SizedBox(height: 12),
-                          Text(_error!,
-                              textAlign: TextAlign.center,
-                              style: AppTypography.bodyPrimary.copyWith(
-                                  color: AppColors.textSecondary,
-                                  fontSize: 13)),
+                          Padding(
+                              padding:
+                                  const EdgeInsets.symmetric(horizontal: 24),
+                              child: Text(_error!,
+                                  textAlign: TextAlign.center,
+                                  style: AppTypography.bodyPrimary.copyWith(
+                                      color: AppColors.textSecondary,
+                                      fontSize: 13))),
                           const SizedBox(height: 16),
-                          FilledButton.tonal(
-                              onPressed: _loadSources,
-                              child: const Text('Retry'))
+                          Row(mainAxisSize: MainAxisSize.min, children: [
+                            if (trailerUrl(widget.details) != null)
+                              FilledButton.icon(
+                                  onPressed: () async {
+                                    context.pop();
+                                    await openTrailer(widget.details);
+                                  },
+                                  icon: const Icon(
+                                      Icons.play_circle_outline_rounded,
+                                      size: 18),
+                                  label: const Text('Watch Trailer')),
+                            if (trailerUrl(widget.details) != null)
+                              const SizedBox(width: 10),
+                            OutlinedButton(
+                                onPressed: _loadSources,
+                                child: const Text('Retry')),
+                          ])
                         ])
                       : IconButton(
                           icon: Icon(

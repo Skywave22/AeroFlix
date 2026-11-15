@@ -7,10 +7,12 @@ import '../../app/theme/app_colors.dart';
 import '../../app/theme/app_spacing.dart';
 import '../../app/theme/app_typography.dart';
 import '../../core/network/tmdb_service.dart';
+import '../../core/utils/trailer_helper.dart';
 import '../../shared/models/media_details.dart';
 import '../../shared/models/movie.dart';
 import '../../shared/models/tv_show.dart';
 import '../../shared/providers/continue_watching_provider.dart';
+import '../../shared/providers/media_providers.dart';
 import '../../shared/providers/watchlist_provider.dart';
 import '../../shared/widgets/continue_card.dart';
 import '../../shared/widgets/hero_item.dart';
@@ -18,6 +20,23 @@ import '../../shared/widgets/hero_rotator.dart';
 import '../../shared/widgets/horizontal_carousel.dart';
 import '../../shared/widgets/poster_card.dart';
 import '../../shared/widgets/section_placeholder.dart';
+
+// TMDB ids for open-source / public-domain films we can actually play in-app.
+const List<int> _kFreeToWatch = [
+  10378, // Big Buck Bunny
+  7486,  // Sintel
+];
+
+/// Fetches a list of MediaDetails for the given movie ids in parallel.
+final movieDetailsBulkProvider = FutureProvider.family<
+    List<MediaDetails>, List<int>>((ref, ids) async {
+  final svc = ref.watch(tmdbServiceProvider);
+  final futures = ids.map((id) => svc.getMovieDetails(id));
+  return Future.wait(futures);
+});
+
+String _year(String? date) =>
+    (date != null && date.length >= 4) ? date.substring(0, 4) : '';
 
 class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
@@ -94,6 +113,39 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                               : _buildHero(trending, trendingTv)),
                   const SliverToBoxAdapter(
                       child: SizedBox(height: AppSpacing.lg)),
+                  // Free to Watch — open-source / public-domain shorts that
+                  // actually play in-app (fetched live from TMDB so they have
+                  // real posters & metadata).
+                  SliverToBoxAdapter(
+                      child: Consumer(builder: (context, ref, _) {
+                    final freeAsync =
+                        ref.watch(movieDetailsBulkProvider(_kFreeToWatch));
+                    return freeAsync.when(
+                      loading: () => const SizedBox(
+                          height: 200,
+                          child: Center(
+                              child: CircularProgressIndicator(
+                                  strokeWidth: 2))),
+                      error: (_, __) => const SizedBox.shrink(),
+                        data: (items) => HorizontalCarousel(
+                        title: 'Free to Watch',
+                        height: 200,
+                        itemCount: items.length,
+                        itemBuilder: (_, i) {
+                          final it = items[i];
+                          return PosterCard(
+                            imageUrl: it.posterUrlW500,
+                            title: it.title,
+                            metadata: _year(it.releaseDate),
+                            onTap: () => _openMovieId(
+                                it.id, it.posterUrlW342, MediaType.movie),
+                          );
+                        },
+                      ),
+                    );
+                  })),
+                  const SliverToBoxAdapter(
+                      child: SizedBox(height: AppSpacing.lg)),
                   _sliverMovies(trending, 'Trending Now'),
                   const SliverToBoxAdapter(
                       child: SizedBox(height: AppSpacing.lg)),
@@ -136,6 +188,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
   void _openMovie(Movie m) => context.push(
       '/details/movie/${m.id}?poster=${Uri.encodeComponent(m.posterUrlW342)}');
+  void _openMovieId(int id, String posterUrl, MediaType type) => context.push(
+      '/details/${type.name}/$id?poster=${Uri.encodeComponent(posterUrl)}');
   void _openTv(TvShow s) => context.push(
       '/details/tv/${s.id}?poster=${Uri.encodeComponent(s.posterUrlW342)}');
   void _playMovie(Movie m) => context.push('/player',
@@ -176,25 +230,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         final url = Uri.encodeComponent(it.posterUrl);
         context.push('/details/${it.kind}/${it.id}?poster=$url');
       },
-      onPlay: (it) {
-        if (it.kind == 'tv') {
-          _playTv(TvShow(
-              id: it.id,
-              name: it.title,
-              posterPath: it.posterPath,
-              backdropPath: it.backdropPath,
-              overview: it.overview,
-              voteAverage: it.voteAverage));
-        } else {
-          _playMovie(Movie(
-              id: it.id,
-              title: it.title,
-              posterPath: it.posterPath,
-              backdropPath: it.backdropPath,
-              overview: it.overview,
-              voteAverage: it.voteAverage,
-              releaseDate: it.releaseDate));
-        }
+      onPlay: (it) async {
+        // Go through the details screen for all titles so the Play button
+        // can decide: play open-cinema directly, or launch trailer, or show
+        // episode list. The details page fetches full MediaDetails.
+        final url = Uri.encodeComponent(it.posterUrl);
+        context.push('/details/${it.kind}/${it.id}?poster=$url');
       },
       onWatchlist: (it, was) {
         ref
