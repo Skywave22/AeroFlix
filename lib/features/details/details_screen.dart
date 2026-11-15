@@ -109,15 +109,6 @@ class _DetailsScreenState extends ConsumerState<DetailsScreen> {
       );
 }
 
-void _comingSoon(BuildContext context, String feature) {
-  ScaffoldMessenger.of(context)
-    ..hideCurrentSnackBar()
-    ..showSnackBar(SnackBar(
-      content: Text('$feature coming soon'),
-      duration: const Duration(seconds: 2),
-    ));
-}
-
 void _toggleDownload(
     BuildContext context, MediaDetails d, WidgetRef ref) {
   final key = '${d.type.name}:${d.id}';
@@ -151,9 +142,7 @@ void _toggleDownload(
           action: SnackBarAction(
               label: 'View',
               textColor: AppColors.accent,
-              onPressed: () => context.push('/profile')?.then((_) {
-                    // Navigated to profile which has Downloads link.
-                  }))));
+              onPressed: () => context.push('/profile'))));
   }
 }
 
