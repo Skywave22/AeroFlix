@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 import 'package:media_kit/media_kit.dart' as mk;
 import 'package:media_kit_video/media_kit_video.dart';
 import 'package:share_plus/share_plus.dart';
+import 'package:wakelock_plus/wakelock_plus.dart';
 import '../../app/router.dart';
 import '../../app/theme/app_colors.dart';
 import '../../app/theme/app_typography.dart';
@@ -87,6 +88,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
     _scheduleHide();
     _loadSources();
     _startProgressSaver();
+    WakelockPlus.enable();
   }
 
   void _scheduleHide() {
@@ -266,6 +268,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
     _playSub?.cancel();
     _completeSub?.cancel();
     _tracksSub?.cancel();
+    WakelockPlus.disable();
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
     SystemChrome.setPreferredOrientations(DeviceOrientation.values);
     super.dispose();
@@ -792,6 +795,17 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
                         style:
                             AppTypography.bodyPrimary.copyWith(fontSize: 13)))),
 
+          // Next-up card (always visible when nextEpisode available and controls showing)
+          if (widget.nextEpisode != null && _showControls && !_locked &&
+              _autoAdvanceCountdown == 0)
+            Positioned(
+                bottom: 170,
+                left: 16,
+                right: 16,
+                child: _NextUpCard(
+                    episode: widget.nextEpisode!,
+                    onPlay: _playNext)),
+
           // Resume-toast
           if (widget.resumeAtMs > 5000 && !_seekedToResume && hasVideo)
             Positioned(
@@ -969,6 +983,10 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
                                         color: AppColors.textPrimary, size: 22),
                                     onPressed: _shareCurrent),
                                 IconButton(
+                                    icon: const Icon(Icons.picture_in_picture_alt_rounded,
+                                        color: AppColors.textMuted, size: 22),
+                                    onPressed: () => _showToast('Picture-in-Picture coming soon')),
+                                IconButton(
                                     icon: Icon(
                                         _selectedSub != null
                                             ? Icons.closed_caption_rounded
@@ -1020,5 +1038,75 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
         ]),
       ),
     );
+  }
+}
+
+class _NextUpCard extends StatelessWidget {
+  final PlayerArgs episode;
+  final VoidCallback onPlay;
+  const _NextUpCard({required this.episode, required this.onPlay});
+  @override
+  Widget build(BuildContext context) {
+    final title = episode.episodeTitle ?? 'Next episode';
+    return Container(
+        padding: const EdgeInsets.all(10),
+        decoration: BoxDecoration(
+            color: Colors.black.withValues(alpha: 0.78),
+            borderRadius: BorderRadius.circular(12),
+            border:
+                Border.all(color: Colors.white.withValues(alpha: 0.08))),
+        child: Row(children: [
+          Container(
+              width: 74,
+              height: 48,
+              decoration: BoxDecoration(
+                  color: AppColors.surface,
+                  borderRadius: BorderRadius.circular(6)),
+              clipBehavior: Clip.antiAlias,
+              child: (episode.details.backdropUrlW1280.isNotEmpty ||
+                      episode.details.posterPath != null)
+                  ? Image.network(
+                      episode.details.backdropUrlW1280.isNotEmpty
+                          ? episode.details.backdropUrlW1280
+                          : 'https://image.tmdb.org/t/p/w342${episode.details.posterPath}',
+                      fit: BoxFit.cover,
+                      errorBuilder: (_, __, ___) => Container(
+                          color: AppColors.surface,
+                          child: const Icon(Icons.movie_creation_outlined,
+                              color: AppColors.textMuted, size: 20)))
+                  : Container(
+                      color: AppColors.surface,
+                      child: const Icon(Icons.movie_creation_outlined,
+                          color: AppColors.textMuted, size: 20))),
+          const SizedBox(width: 10),
+          Expanded(
+              child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                Text('Next up',
+                    style: AppTypography.metadata.copyWith(
+                        color: AppColors.accent,
+                        fontSize: 10,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: 1.2)),
+                const SizedBox(height: 2),
+                Text(
+                    'S${episode.season.toString().padLeft(2, '0')}E${episode.episode.toString().padLeft(2, '0')} · $title',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: AppTypography.bodyPrimary.copyWith(
+                        fontSize: 13, fontWeight: FontWeight.w600)),
+                Text(episode.details.title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: AppTypography.metadata.copyWith(
+                        color: AppColors.textMuted, fontSize: 11)),
+              ])),
+          IconButton(
+              onPressed: onPlay,
+              icon: const Icon(Icons.play_circle_fill_rounded,
+                  color: AppColors.textPrimary, size: 36),
+              splashRadius: 22),
+        ]));
   }
 }
