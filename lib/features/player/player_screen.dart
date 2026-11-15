@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:media_kit/media_kit.dart' as mk;
 import 'package:media_kit_video/media_kit_video.dart';
+import 'package:share_plus/share_plus.dart';
 import '../../app/router.dart';
 import '../../app/theme/app_colors.dart';
 import '../../app/theme/app_typography.dart';
@@ -319,6 +320,27 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
     Future.delayed(const Duration(seconds: 1), () {
       if (mounted) setState(() => _fitToast = null);
     });
+  }
+
+  void _showToast(String msg) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(SnackBar(
+          content: Text(msg),
+          duration: const Duration(seconds: 2),
+          behavior: SnackBarBehavior.floating));
+  }
+
+  Future<void> _shareCurrent() async {
+    final d = widget.details;
+    final kind = d.type == MediaType.tv ? 'tv' : 'movie';
+    final ep = d.type == MediaType.tv && widget.season > 0
+        ? ' S${widget.season.toString().padLeft(2, "0")}E${widget.episode.toString().padLeft(2, "0")}'
+        : '';
+    final title = '${d.title}$ep';
+    final url = 'https://www.themoviedb.org/$kind/${d.id}';
+    await Share.share('Watch "$title" on AeroFlix\n$url', subject: title);
   }
 
   void _openSpeedSheet() {
@@ -864,6 +886,14 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
                                         color: AppColors.textPrimary, size: 28),
                                     onPressed: () => _seekRel(10)),
                                 const Spacer(),
+                                IconButton(
+                                    icon: const Icon(Icons.download_outlined,
+                                        color: AppColors.textMuted, size: 22),
+                                    onPressed: () => _showToast('Offline downloads coming soon')),
+                                IconButton(
+                                    icon: const Icon(Icons.share_outlined,
+                                        color: AppColors.textPrimary, size: 22),
+                                    onPressed: _shareCurrent),
                                 IconButton(
                                     icon: Icon(
                                         _selectedSub != null

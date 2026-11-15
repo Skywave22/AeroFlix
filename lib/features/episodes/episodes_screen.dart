@@ -287,6 +287,10 @@ class _EpisodesScreenState extends ConsumerState<EpisodesScreen> {
                                                       TextOverflow.ellipsis,
                                                   style: AppTypography
                                                       .cardTitle)),
+                                          if (_isNew(ep.airDate)) ...[
+                                            const SizedBox(width: 6),
+                                            _NewBadge(),
+                                          ],
                                         ]),
                                         if ((ep.airDate != null &&
                                                 ep.airDate!.isNotEmpty) ||
@@ -386,4 +390,30 @@ class _EpisodesScreenState extends ConsumerState<EpisodesScreen> {
               ]),
         ));
   }
+
+  bool _isNew(String? airDate) {
+    if (airDate == null || airDate.length < 10) return false;
+    try {
+      final d = DateTime.parse(airDate.substring(0, 10));
+      return DateTime.now().difference(d).inDays < 30 &&
+          !d.isAfter(DateTime.now());
+    } catch (_) {
+      return false;
+    }
+  }
+}
+
+class _NewBadge extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) => Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      decoration: BoxDecoration(
+          color: AppColors.accent,
+          borderRadius: BorderRadius.circular(4)),
+      child: Text('NEW',
+          style: AppTypography.metadata.copyWith(
+              color: Colors.white,
+              fontSize: 9,
+              fontWeight: FontWeight.w800,
+              letterSpacing: 0.5)));
 }
