@@ -287,7 +287,10 @@ class _EpisodesScreenState extends ConsumerState<EpisodesScreen> {
                                                       TextOverflow.ellipsis,
                                                   style: AppTypography
                                                       .cardTitle)),
-                                          if (_isNew(ep.airDate)) ...[
+                                          if (_isUpcoming(ep.airDate)) ...[
+                                            const SizedBox(width: 6),
+                                            _UpcomingBadge(),
+                                          ] else if (_isNew(ep.airDate)) ...[
                                             const SizedBox(width: 6),
                                             _NewBadge(),
                                           ],
@@ -401,6 +404,16 @@ class _EpisodesScreenState extends ConsumerState<EpisodesScreen> {
       return false;
     }
   }
+
+  bool _isUpcoming(String? airDate) {
+    if (airDate == null || airDate.length < 10) return false;
+    try {
+      final d = DateTime.parse(airDate.substring(0, 10));
+      return d.isAfter(DateTime.now());
+    } catch (_) {
+      return false;
+    }
+  }
 }
 
 class _NewBadge extends StatelessWidget {
@@ -413,6 +426,21 @@ class _NewBadge extends StatelessWidget {
       child: Text('NEW',
           style: AppTypography.metadata.copyWith(
               color: Colors.white,
+              fontSize: 9,
+              fontWeight: FontWeight.w800,
+              letterSpacing: 0.5)));
+}
+
+class _UpcomingBadge extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) => Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      decoration: BoxDecoration(
+          color: AppColors.warning,
+          borderRadius: BorderRadius.circular(4)),
+      child: Text('UPCOMING',
+          style: AppTypography.metadata.copyWith(
+              color: Colors.black,
               fontSize: 9,
               fontWeight: FontWeight.w800,
               letterSpacing: 0.5)));

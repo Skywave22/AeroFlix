@@ -11,12 +11,13 @@ import '../../shared/models/media_details.dart';
 import '../../shared/models/movie.dart';
 import '../../shared/models/tv_show.dart';
 import '../../shared/providers/continue_watching_provider.dart';
+import '../../shared/providers/watchlist_provider.dart';
 import '../../shared/widgets/continue_card.dart';
+import '../../shared/widgets/hero_item.dart';
 import '../../shared/widgets/hero_rotator.dart';
 import '../../shared/widgets/horizontal_carousel.dart';
 import '../../shared/widgets/poster_card.dart';
 import '../../shared/widgets/section_placeholder.dart';
-import '../../shared/providers/watchlist_provider.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
@@ -81,40 +82,16 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                         const SizedBox(width: AppSpacing.xs)
                       ]),
                   SliverToBoxAdapter(
-                      child: trending.when(
-                          data: (ms) => ms.isEmpty
-                              ? const SizedBox.shrink()
-                              : HeroRotator(
-                                  movies: ms,
-                                  metadataOf: _meta,
-                                  onPlay: _playMovie,
-                                  onDetails: _openMovie,
-                                  onWatchlist: (m) {
-                                    final was = ref.read(
-                                        isInWatchlistProvider('movie:${m.id}'));
-                                    ref
-                                        .read(watchlistProvider.notifier)
-                                        .toggle(MediaType.movie, m.id);
-                                    ScaffoldMessenger.of(context)
-                                      ..hideCurrentSnackBar()
-                                      ..showSnackBar(SnackBar(
-                                          content: Text(was
-                                              ? 'Removed ${m.title} from Watchlist'
-                                              : 'Added ${m.title} to Watchlist'),
-                                          duration:
-                                              const Duration(seconds: 2)));
-                                  },
-                                  isInWatchlist: (m) => ref.watch(
-                                      isInWatchlistProvider(
-                                          'movie:${m.id}'))),
-                          loading: () =>
-                              Container(height: 420, color: AppColors.surface)
-                                  .animate(onPlay: (c) => c.repeat())
-                                  .shimmer(
-                                      duration: 1500.ms,
-                                      color: AppColors.surfaceElevated
-                                          .withValues(alpha: 0.3)),
-                          error: (_, __) => const SizedBox(height: 380))),
+                      child: (trending.isLoading || trendingTv.isLoading)
+                          ? Container(height: 420, color: AppColors.surface)
+                              .animate(onPlay: (c) => c.repeat())
+                              .shimmer(
+                                  duration: 1500.ms,
+                                  color: AppColors.surfaceElevated
+                                      .withValues(alpha: 0.3))
+                          : trending.hasError && trendingTv.hasError
+                              ? const SizedBox(height: 380)
+                              : _buildHero(trending, trendingTv)),
                   const SliverToBoxAdapter(
                       child: SizedBox(height: AppSpacing.lg)),
                   _sliverMovies(trending, 'Trending Now'),
@@ -171,6 +148,68 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               backdropPath: m.backdropPath,
               voteAverage: m.voteAverage,
               releaseDate: m.releaseDate)));
+
+  void _playTv(TvShow s) => context.push('/player',
+      extra: PlayerArgs(
+          details: MediaDetails(
+              type: MediaType.tv,
+              id: s.id,
+              title: s.name,
+              posterPath: s.posterPath,
+              backdropPath: s.backdropPath,
+              voteAverage: s.voteAverage)));
+
+  Widget _buildHero(
+      AsyncValue<List<Movie>> movies, AsyncValue<List<TvShow>> tv) {
+    final ms = movies.valueOrNull ?? const <Movie>[];
+    final ts = tv.valueOrNull ?? const <TvShow>[];
+    final hero = <HeroItem>[
+      ...ms.take(5).map(HeroItem.fromMovie),
+      ...ts.take(3).map(HeroItem.fromTv),
+    ]..shuffle();
+    if (hero.isEmpty) return const SizedBox(height: 380);
+    return HeroRotator(
+      items: hero,
+      isInWatchlist: (it) =>
+          ref.watch(isInWatchlistProvider('${it.kind}:${it.id}')),
+      onDetails: (it) {
+        final url = Uri.encodeComponent(it.posterUrl);
+        context.push('/details/${it.kind}/${it.id}?poster=$url');
+      },
+      onPlay: (it) {
+        if (it.kind == 'tv') {
+          _playTv(TvShow(
+              id: it.id,
+              name: it.title,
+              posterPath: it.posterPath,
+              backdropPath: it.backdropPath,
+              overview: it.overview,
+              voteAverage: it.voteAverage));
+        } else {
+          _playMovie(Movie(
+              id: it.id,
+              title: it.title,
+              posterPath: it.posterPath,
+              backdropPath: it.backdropPath,
+              overview: it.overview,
+              voteAverage: it.voteAverage,
+              releaseDate: it.releaseDate));
+        }
+      },
+      onWatchlist: (it, was) {
+        ref
+            .read(watchlistProvider.notifier)
+            .toggle(it.kind == 'tv' ? MediaType.tv : MediaType.movie, it.id);
+        ScaffoldMessenger.of(context)
+          ..hideCurrentSnackBar()
+          ..showSnackBar(SnackBar(
+              content: Text(was
+                  ? 'Removed ${it.title} from Watchlist'
+                  : 'Added ${it.title} to Watchlist'),
+              duration: const Duration(seconds: 2)));
+      },
+    );
+  }
 
   void _playContinue(ContinueWatchingItem it) {
     final details = MediaDetails(

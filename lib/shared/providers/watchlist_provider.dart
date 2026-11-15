@@ -45,6 +45,18 @@ class WatchlistNotifier extends StateNotifier<Set<String>> {
   Future<void> toggleMovie(Movie m) => toggle(MediaType.movie, m.id);
   Future<void> toggleTv(TvShow s) => toggle(MediaType.tv, s.id);
 
+  Future<void> addByKey(String key) async {
+    if (state.contains(key)) return;
+    state = {...state, key};
+    await _save();
+  }
+
+  Future<void> removeByKey(String key) async {
+    if (!state.contains(key)) return;
+    state = {...state}..remove(key);
+    await _save();
+  }
+
   Future<void> clear() async {
     state = const {};
     final prefs = await SharedPreferences.getInstance();

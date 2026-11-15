@@ -13,6 +13,7 @@ import '../../shared/models/media_details.dart';
 import '../../shared/models/stream_source.dart';
 import '../../shared/providers/continue_watching_provider.dart';
 import '../../shared/providers/player_controller.dart';
+import '../../shared/providers/settings_provider.dart';
 import '../../shared/providers/stream_providers.dart';
 
 class PlayerScreen extends ConsumerStatefulWidget {
@@ -78,6 +79,11 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
       DeviceOrientation.landscapeLeft,
       DeviceOrientation.landscapeRight,
     ]);
+    // Pull persisted defaults from settings once the widget is mounted.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final s = ref.read(settingsProvider);
+      setState(() => _rate = s.defaultSpeed);
+    });
     _scheduleHide();
     _loadSources();
     _startProgressSaver();
@@ -172,7 +178,11 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
         _audios = audios;
         if (!_subsLoaded) {
           _subsLoaded = true;
-          _selectedSub = null;
+          final autoSubs = ref.read(settingsProvider).subtitlesOnByDefault;
+          _selectedSub = (autoSubs && subs.isNotEmpty) ? subs.first : null;
+          if (_selectedSub != null) {
+            ap.player.setSubtitleTrack(_selectedSub!);
+          }
           _selectedAudio = audios.isNotEmpty ? audios.first : null;
         }
       });
@@ -217,6 +227,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
   void _beginAutoAdvanceCountdown() {
     _autoAdvanceTimer?.cancel();
     if (widget.nextEpisode == null) return;
+    if (!ref.read(settingsProvider).autoPlayNext) return;
     setState(() => _autoAdvanceCountdown = 10);
     _autoAdvanceTimer = Timer.periodic(const Duration(seconds: 1), (t) {
       if (!mounted) {
