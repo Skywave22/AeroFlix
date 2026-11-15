@@ -103,7 +103,6 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                     const SizedBox(height: AppSpacing.md),
                     TextField(
                         controller: _c,
-                        autofocus: true,
                         style: AppTypography.bodyPrimary,
                         textInputAction: TextInputAction.search,
                         onSubmitted: (v) {

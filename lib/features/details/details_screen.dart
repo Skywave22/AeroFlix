@@ -18,6 +18,7 @@ import '../../shared/providers/download_provider.dart';
 import '../../shared/providers/watchlist_provider.dart';
 import '../../shared/widgets/horizontal_carousel.dart';
 import '../../shared/widgets/poster_card.dart';
+import 'watch_providers_section.dart';
 
 /// Arguments passed to the details route via GoRouter extra.
 class DetailsArgs {
@@ -178,6 +179,7 @@ class _DetailsContent extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final continueList = ref.watch(continueWatchingProvider);
     final genres = details.genreNames.take(3).join('  ·  ');
     final metaParts = <String>[];
     if (details.year != null) metaParts.add(details.year!);
@@ -251,7 +253,7 @@ class _DetailsContent extends ConsumerWidget {
                     const SizedBox(height: AppSpacing.lg),
                     Row(children: [
                       Expanded(child: Builder(builder: (ctx) {
-                        final cw = ref.watch(continueWatchingProvider);
+                        final cw = continueList;
                         // For TV: find any unfinished episode for this show
                         ContinueWatchingItem? tvResume;
                         if (details.type == MediaType.tv) {
@@ -333,7 +335,15 @@ class _DetailsContent extends ConsumerWidget {
                                     ));
                               } else {
                                 // Fall back to YouTube trailer / TMDB page.
-                                await openTrailer(details);
+                                final ok = await openTrailer(details);
+                                if (!ok && context.mounted) {
+                                  ScaffoldMessenger.of(context)
+                                    ..hideCurrentSnackBar()
+                                    ..showSnackBar(const SnackBar(
+                                        content: Text(
+                                            'Couldn\'t open the trailer right now'),
+                                        duration: Duration(seconds: 2)));
+                                }
                               }
                             },
                             icon: Icon(icon, size: 22),
@@ -367,16 +377,30 @@ class _DetailsContent extends ConsumerWidget {
                     if (details.trailers.isNotEmpty) ...[
                       const SizedBox(height: AppSpacing.md),
                       TextButton.icon(
-                          onPressed: () {
+                          onPressed: () async {
                             final u = details.trailers.first.youtubeUrl;
-                            launchUrl(Uri.parse(u),
+                            final ok = await launchUrl(Uri.parse(u),
                                 mode: LaunchMode.externalApplication);
+                            if (!ok && context.mounted) {
+                              ScaffoldMessenger.of(context)
+                                ..hideCurrentSnackBar()
+                                ..showSnackBar(const SnackBar(
+                                    content: Text('Couldn\'t open the trailer'),
+                                    duration: Duration(seconds: 2)));
+                            }
                           },
                           icon: const Icon(Icons.play_circle_outline_rounded,
                               size: 18),
                           label: const Text('Watch Trailer')),
                     ],
                   ]))),
+
+      // Where to Watch (JustWatch via TMDB)
+      SliverToBoxAdapter(
+          child: Padding(
+              padding: const EdgeInsets.only(top: AppSpacing.lg),
+              child:
+                  WatchProvidersSection(type: details.type, id: details.id))),
 
       // Cast
       if (details.cast.isNotEmpty) ...[

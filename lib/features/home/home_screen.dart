@@ -11,6 +11,7 @@ import '../../shared/models/media_details.dart';
 import '../../shared/models/movie.dart';
 import '../../shared/models/tv_show.dart';
 import '../../shared/providers/continue_watching_provider.dart';
+import '../../shared/providers/open_cinema_provider.dart';
 import '../../shared/providers/watchlist_provider.dart';
 import '../../shared/widgets/continue_card.dart';
 import '../../shared/widgets/hero_item.dart';
@@ -95,7 +96,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                       actions: [
                         IconButton(
                             icon: const Icon(Icons.notifications_none_rounded),
-                            onPressed: () {},
+                            onPressed: () => ScaffoldMessenger.of(context)
+                              ..hideCurrentSnackBar()
+                              ..showSnackBar(const SnackBar(
+                                  content: Text(
+                                      'No new notifications — you\'re all caught up'),
+                                  duration: Duration(seconds: 2))),
                             splashRadius: 20),
                         const SizedBox(width: AppSpacing.xs)
                       ]),
@@ -209,10 +215,26 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         final url = Uri.encodeComponent(it.posterUrl);
         context.push('/details/${it.kind}/${it.id}?poster=$url');
       },
-      onPlay: (it) async {
-        // Go through the details screen for all titles so the Play button
-        // can decide: play open-cinema directly, or launch trailer, or show
-        // episode list. The details page fetches full MediaDetails.
+      onPlay: (it) {
+        // If we can actually stream the title in-app, play it directly;
+        // otherwise open the details page (trailer / Where-to-Watch /
+        // episodes all live there).
+        if (it.kind == 'movie' && isOpenCinemaId(it.id)) {
+          context.push('/player',
+              extra: PlayerArgs(
+                  details: MediaDetails(
+                type: MediaType.movie,
+                id: it.id,
+                title: it.title,
+                posterPath: it.posterPath,
+                backdropPath: it.backdropPath,
+                overview: it.overview,
+                releaseDate: it.releaseDate,
+                voteAverage: it.voteAverage,
+                genreIds: it.genreIds,
+              )));
+          return;
+        }
         final url = Uri.encodeComponent(it.posterUrl);
         context.push('/details/${it.kind}/${it.id}?poster=$url');
       },

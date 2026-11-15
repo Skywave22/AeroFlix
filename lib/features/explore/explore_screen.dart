@@ -61,6 +61,7 @@ class _ExploreScreenState extends ConsumerState<ExploreScreen> {
               ref.invalidate(trendingTvProvider);
               ref.invalidate(popularTvProvider);
               ref.invalidate(hindiMoviesProvider);
+              ref.invalidate(hindiTvProvider);
               if (_selGenreId != null && _selGenreId! > 0) {
                 ref.invalidate(_tvMode
                     ? _exploreTvProvider(_selGenreId!)
@@ -141,7 +142,9 @@ class _ExploreScreenState extends ConsumerState<ExploreScreen> {
   Widget _buildContent() {
     if (_selGenreId == null) return _buildDefault();
     if (_selGenreId == -1) {
-      return _sliverGridAsync(ref.watch(hindiMoviesProvider), false);
+      return _sliverGridAsync(
+          _tvMode ? ref.watch(hindiTvProvider) : ref.watch(hindiMoviesProvider),
+          _tvMode);
     }
     final async = _tvMode
         ? ref.watch(_exploreTvProvider(_selGenreId!))

@@ -7,6 +7,8 @@ import '../../shared/models/movie.dart';
 import '../../shared/models/person.dart';
 import '../../shared/models/person_search_result.dart';
 import '../../shared/models/tv_show.dart';
+import '../../shared/models/watch_provider.dart';
+import '../constants/api_constants.dart';
 import 'dio_client.dart';
 
 class TmdbService {
@@ -33,6 +35,8 @@ class TmdbService {
   Future<List<TvShow>> getPopularTv() => _fetchTv('/tv/popular');
   Future<List<TvShow>> getTopRatedTv() => _fetchTv('/tv/top_rated');
   Future<List<Movie>> getHindiMovies() => _fetchMovies('/discover/movie',
+      query: {'with_original_language': 'hi', 'sort_by': 'popularity.desc'});
+  Future<List<TvShow>> getHindiTv() => _fetchTv('/discover/tv',
       query: {'with_original_language': 'hi', 'sort_by': 'popularity.desc'});
   Future<List<Movie>> getMoviesByGenre(int genreId) =>
       _fetchMovies('/discover/movie',
@@ -144,6 +148,55 @@ class TmdbService {
       'page': r['page'] as int? ?? 1,
       'totalPages': r['total_pages'] as int? ?? 1
     };
+  }
+
+  /// Where to legally watch this title. Fetches TMDB's watch/providers
+  /// (JustWatch data) for the default region, falling back to any available
+  /// region (US → IN → GB → first present). Returns null when TMDB has no
+  /// provider data at all for the title.
+  Future<WatchProviders?> getWatchProviders(int id, MediaType type) async {
+    final kind = type == MediaType.movie ? 'movie' : 'tv';
+    final r = await _get('/$kind/$id/watch/providers');
+    final results = r['results'] as Map<String, dynamic>? ?? const {};
+    if (results.isEmpty) return null;
+
+    Map<String, dynamic>? regionData;
+    String region = ApiConstants.defaultRegion;
+    for (final candidate in [
+      ApiConstants.defaultRegion,
+      'IN',
+      'US',
+      'GB',
+      'PK'
+    ]) {
+      final d = results[candidate] as Map<String, dynamic>?;
+      if (d != null) {
+        regionData = d;
+        region = candidate;
+        break;
+      }
+    }
+    if (regionData == null) {
+      final first = results.entries.first;
+      regionData = first.value as Map<String, dynamic>?;
+      region = first.key;
+    }
+    if (regionData == null) return null;
+
+    List<WatchProvider> parseGroup(String key) =>
+        (regionData![key] as List? ?? const [])
+            .cast<Map<String, dynamic>>()
+            .map(WatchProvider.fromJson)
+            .toList();
+
+    final providers = WatchProviders(
+      region: region,
+      flatrate: parseGroup('flatrate'),
+      rent: parseGroup('rent'),
+      buy: parseGroup('buy'),
+      link: regionData['link'] as String?,
+    );
+    return providers.isEmpty ? null : providers;
   }
 
   Future<List<Movie>> _fetchMovies(String p,
@@ -313,3 +366,16 @@ final seasonEpisodesProvider =
   final season = int.tryParse(parts[1]) ?? 1;
   return ref.watch(tmdbServiceProvider).getEpisodes(tvId, season);
 });
+
+/// Watch-providers for a title, keyed 'movie:123' / 'tv:123'.
+final watchProvidersProvider =
+    FutureProvider.family<WatchProviders?, String>((ref, key) async {
+  final parts = key.split(':');
+  final type = parts[0] == 'tv' ? MediaType.tv : MediaType.movie;
+  final id = int.tryParse(parts.length > 1 ? parts[1] : '') ?? 0;
+  return ref.watch(tmdbServiceProvider).getWatchProviders(id, type);
+});
+
+/// Hindi-language TV series (discover, original_language=hi).
+final hindiTvProvider = FutureProvider<List<TvShow>>(
+    (ref) => ref.watch(tmdbServiceProvider).getHindiTv());

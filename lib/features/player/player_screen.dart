@@ -959,6 +959,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
                         bottom: false,
                         child: Row(children: [
                           IconButton(
+                              tooltip: 'Go back',
                               icon: const Icon(Icons.arrow_back_ios_new_rounded,
                                   size: 20, color: AppColors.textPrimary),
                               onPressed: () {
@@ -974,6 +975,8 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
                                   style: AppTypography.bodyPrimary
                                       .copyWith(fontSize: 13))),
                           IconButton(
+                              tooltip:
+                                  _locked ? 'Unlock controls' : 'Lock controls',
                               icon: Icon(
                                   _locked
                                       ? Icons.lock_outline
@@ -1055,6 +1058,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
                               mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                               children: [
                                 IconButton(
+                                    tooltip: 'Back 10 seconds',
                                     icon: const Icon(Icons.replay_10_rounded,
                                         color: AppColors.textPrimary, size: 28),
                                     onPressed: () => _seekRel(-10)),
@@ -1087,11 +1091,13 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
                                         ? _playNext
                                         : null),
                                 IconButton(
+                                    tooltip: 'Forward 10 seconds',
                                     icon: const Icon(Icons.forward_10_rounded,
                                         color: AppColors.textPrimary, size: 28),
                                     onPressed: () => _seekRel(10)),
                                 const Spacer(),
                                 IconButton(
+                                    tooltip: 'Download for offline viewing',
                                     icon: Icon(Icons.download_outlined,
                                         color: _isDownloaded()
                                             ? AppColors.success
@@ -1099,10 +1105,12 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
                                         size: 22),
                                     onPressed: _toggleDownload),
                                 IconButton(
+                                    tooltip: 'Share this title',
                                     icon: const Icon(Icons.share_outlined,
                                         color: AppColors.textPrimary, size: 22),
                                     onPressed: _shareCurrent),
                                 IconButton(
+                                    tooltip: 'Picture in picture',
                                     icon: const Icon(
                                         Icons.picture_in_picture_alt_rounded,
                                         color: AppColors.textPrimary,
@@ -1117,6 +1125,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
                                       }
                                     }),
                                 IconButton(
+                                    tooltip: 'Subtitles',
                                     icon: Icon(
                                         _selectedSub != null
                                             ? Icons.closed_caption_rounded
@@ -1132,6 +1141,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
                                         ? _openCaptionsSheet
                                         : null),
                                 IconButton(
+                                    tooltip: 'Audio track',
                                     icon: Icon(Icons.audiotrack_rounded,
                                         color: _audios.length > 1
                                             ? AppColors.textPrimary
@@ -1141,6 +1151,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
                                         ? _openAudioSheet
                                         : null),
                                 IconButton(
+                                    tooltip: 'Choose source',
                                     icon: const Icon(
                                         Icons.video_settings_rounded,
                                         color: AppColors.textPrimary,
@@ -1149,6 +1160,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
                                         ? _openSourceSheet
                                         : null),
                                 IconButton(
+                                    tooltip: 'Playback speed',
                                     icon: Icon(Icons.speed_rounded,
                                         color: _rate != 1.0
                                             ? AppColors.accent
@@ -1156,6 +1168,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
                                         size: 22),
                                     onPressed: _openSpeedSheet),
                                 IconButton(
+                                    tooltip: 'Resize video',
                                     icon: Icon(Icons.fit_screen_rounded,
                                         color: _fitIndex != 0
                                             ? AppColors.accent

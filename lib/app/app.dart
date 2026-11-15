@@ -6,16 +6,26 @@ import 'theme/app_colors.dart';
 import 'theme/app_theme.dart';
 import 'router.dart';
 
-class AeroFlixApp extends StatelessWidget {
+class AeroFlixApp extends StatefulWidget {
   const AeroFlixApp({super.key});
   @override
-  Widget build(BuildContext context) {
+  State<AeroFlixApp> createState() => _AeroFlixAppState();
+}
+
+class _AeroFlixAppState extends State<AeroFlixApp> {
+  @override
+  void initState() {
+    super.initState();
     SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
       statusBarColor: Colors.transparent,
       statusBarIconBrightness: Brightness.light,
       systemNavigationBarColor: AppColors.background,
       systemNavigationBarIconBrightness: Brightness.light,
     ));
+  }
+
+  @override
+  Widget build(BuildContext context) {
     return ProviderScope(
         child: DeepLinkHandler(
             router: appRouter,
