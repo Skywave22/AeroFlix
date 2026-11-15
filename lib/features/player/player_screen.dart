@@ -343,6 +343,65 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
           behavior: SnackBarBehavior.floating));
   }
 
+  Widget _buildScrubPreview() {
+    final pct = _duration.inMilliseconds == 0
+        ? 0.0
+        : (_position.inMilliseconds / _duration.inMilliseconds)
+            .clamp(0.0, 1.0);
+    return Align(
+        alignment: Alignment(-1.0 + pct * 2.0, 1),
+        child: FractionalTranslation(
+            translation: const Offset(-0.5, 0),
+            child: Container(
+                margin: const EdgeInsets.only(bottom: 12),
+                width: 130,
+                height: 76,
+                decoration: BoxDecoration(
+                    color: AppColors.surface,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(
+                        color: Colors.white.withValues(alpha: 0.1)),
+                    boxShadow: [
+                      BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.5),
+                          blurRadius: 12,
+                          offset: const Offset(0, 4))
+                    ]),
+                clipBehavior: Clip.antiAlias,
+                child: Stack(fit: StackFit.expand, children: [
+                  if (widget.details.backdropUrlW1280.isNotEmpty)
+                    LayoutBuilder(builder: (c, bc) {
+                      // Slide the backdrop horizontally to suggest position.
+                      final shift = (1.0 - pct) * (bc.maxWidth * 2);
+                      return OverflowBox(
+                          minWidth: bc.maxWidth * 2,
+                          maxWidth: bc.maxWidth * 2,
+                          alignment: Alignment.centerLeft,
+                          child: Transform.translate(
+                              offset: Offset(-shift, 0),
+                              child: Image.network(
+                                  widget.details.backdropUrlW1280,
+                                  fit: BoxFit.cover,
+                                  width: bc.maxWidth * 2,
+                                  height: bc.maxHeight)));
+                    }),
+                  Container(
+                      color: Colors.black.withValues(alpha: 0.35)),
+                  Center(
+                      child: Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 8, vertical: 3),
+                          decoration: BoxDecoration(
+                              color: Colors.black.withValues(alpha: 0.6),
+                              borderRadius: BorderRadius.circular(4)),
+                          child: Text(_fmt(_position),
+                              style: AppTypography.metadata.copyWith(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.w700,
+                                  fontSize: 12)))),
+                ]))));
+  }
+
   Future<void> _shareCurrent() async {
     final d = widget.details;
     final kind = d.type == MediaType.tv ? 'tv' : 'movie';
@@ -813,6 +872,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
                         top: false,
                         child:
                             Column(mainAxisSize: MainAxisSize.min, children: [
+                          if (_seeking) _buildScrubPreview(),
                           SliderTheme(
                               data: SliderThemeData(
                                 trackHeight: 3,
@@ -830,9 +890,12 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
                                     : (_position.inMilliseconds /
                                             _duration.inMilliseconds)
                                         .clamp(0.0, 1.0),
-                                onChangeStart: (_) => _seeking = true,
+                                onChangeStart: (_) {
+                                  setState(() => _seeking = true);
+                                  _hideTimer?.cancel();
+                                },
                                 onChangeEnd: (v) {
-                                  _seeking = false;
+                                  setState(() => _seeking = false);
                                   final ap = ref.read(activePlayerProvider);
                                   if (ap != null) ap.player.seek(_duration * v);
                                   _cancelAutoAdvance();
