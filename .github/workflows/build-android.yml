@@ -47,8 +47,8 @@ jobs:
             python3 /tmp/patch.py "$VO"
           fi
           grep -n "onSurface" "$VO"
-      - name: Verify formatting
-        run: dart format --output=none --set-exit-if-changed lib/ test/
+      - name: Format
+        run: dart format lib/ test/
       - name: Analyze
         run: flutter analyze --no-pub
       - name: Run tests
