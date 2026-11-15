@@ -1,15 +1,11 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../app/theme/app_colors.dart';
-import '../../app/theme/app_spacing.dart';
-import '../../app/theme/app_typography.dart';
-import '../providers/watchlist_provider.dart';
 import 'cinematic_hero_banner.dart';
 import 'hero_item.dart';
 
 /// Auto-rotating PageView hero banner, mixing movies and TV shows.
-class HeroRotator extends ConsumerStatefulWidget {
+class HeroRotator extends StatefulWidget {
   final List<HeroItem> items;
   final void Function(HeroItem) onPlay;
   final void Function(HeroItem) onDetails;
@@ -24,10 +20,10 @@ class HeroRotator extends ConsumerStatefulWidget {
     required this.isInWatchlist,
   });
   @override
-  ConsumerState<HeroRotator> createState() => _HeroRotatorState();
+  State<HeroRotator> createState() => _HeroRotatorState();
 }
 
-class _HeroRotatorState extends ConsumerState<HeroRotator> {
+class _HeroRotatorState extends State<HeroRotator> {
   late final PageController _pc;
   Timer? _t;
   bool _paused = false;
@@ -77,8 +73,6 @@ class _HeroRotatorState extends ConsumerState<HeroRotator> {
     }
     return parts.join('  ·  ');
   }
-
-  String _key(HeroItem m) => '${m.kind}:${m.id}';
 
   @override
   Widget build(BuildContext context) {

@@ -229,13 +229,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         ));
   }
 
-  String _meta(Movie m) {
-    final p = <String>[];
-    if (m.year != null) p.add(m.year!);
-    if (m.voteAverage > 0) p.add('★ ${m.rating}');
-    return p.join('  ·  ');
-  }
-
   String _metaRating(Movie m) => '★ ${m.rating} · ${m.year ?? ""}';
 
   Widget _sliverMovies(AsyncValue<List<Movie>> prov, String title,
