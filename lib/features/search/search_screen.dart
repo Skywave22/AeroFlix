@@ -8,7 +8,6 @@ import '../../app/theme/app_radii.dart';
 import '../../app/theme/app_spacing.dart';
 import '../../app/theme/app_typography.dart';
 import '../../core/constants/app_constants.dart';
-import '../../core/constants/api_constants.dart';
 import '../../core/network/tmdb_service.dart';
 import '../../shared/models/movie.dart';
 import '../../shared/models/person_search_result.dart';
