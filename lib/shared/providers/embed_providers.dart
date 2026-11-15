@@ -187,7 +187,7 @@ class _VidSrcStreamResolver extends EmbedResolver {
           options: Options(headers: {'Referer': '$_base/'}));
       final html = r.data.toString();
       // Look for file:"https://...m3u8" or source: "https://..."
-      final m = RegExp(r'(file|source)\s*:\s*["\'](https?://[^"\']+\.m3u8[^"\']*)["\']')
+      final m = RegExp("(file|source)\\s*:\\s*[\"'](https?://[^\"']+\\.m3u8[^\"']*)[\"']")
           .firstMatch(html);
       if (m == null) return const [];
       final m3u = m.group(2)!;
@@ -224,7 +224,7 @@ class _VidSparkResolver extends EmbedResolver {
       final r = await dio.get(url,
           options: Options(headers: {'Referer': '$_base/'}));
       final html = r.data.toString();
-      final m = RegExp(r'file\s*:\s*["\'](https?://[^"\']+\.m3u8[^"\']*)["\']')
+      final m = RegExp("file\\s*:\\s*[\"'](https?://[^\"']+\\.m3u8[^\"']*)[\"']")
           .firstMatch(html);
       if (m == null) return const [];
       return [
