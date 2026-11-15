@@ -11,7 +11,6 @@ import '../../shared/models/media_details.dart';
 import '../../shared/models/movie.dart';
 import '../../shared/models/tv_show.dart';
 import '../../shared/providers/continue_watching_provider.dart';
-import '../../shared/widgets/cinematic_hero_banner.dart';
 import '../../shared/widgets/continue_card.dart';
 import '../../shared/widgets/hero_rotator.dart';
 import '../../shared/widgets/horizontal_carousel.dart';
