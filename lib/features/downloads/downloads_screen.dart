@@ -11,7 +11,7 @@ class DownloadsScreen extends StatelessWidget {
       appBar: AppBar(
         backgroundColor: AppColors.background,
         foregroundColor: AppColors.textPrimary,
-        title: Text('Downloads', style: AppTypography.title),
+        title: Text('Downloads', style: AppTypography.cardTitle),
         elevation: 0,
       ),
       body: Center(
@@ -31,7 +31,7 @@ class DownloadsScreen extends StatelessWidget {
                             color: AppColors.textMuted, size: 48)),
                     const SizedBox(height: AppSpacing.lg),
                     Text('No downloads yet',
-                        style: AppTypography.title.copyWith(fontSize: 18)),
+                        style: AppTypography.cardTitle.copyWith(fontSize: 18)),
                     const SizedBox(height: AppSpacing.xs),
                     Text(
                         'Movies and shows you save for offline viewing will appear here.',

@@ -134,8 +134,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   @override
   Widget build(BuildContext context) {
     final settings = ref.watch(settingsProvider);
-    final wlCount = ref.watch(watchlistNotifierProvider).length;
-    final cwCount = ref.watch(continueWatchingNotifierProvider).length;
+    final wlCount = ref.watch(watchlistProvider).length;
+    final cwCount = ref.watch(continueWatchingProvider).length;
     return Scaffold(
       backgroundColor: AppColors.background,
       body: SafeArea(
@@ -162,7 +162,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                     Text('Welcome to AeroFlix',
-                        style: AppTypography.title
+                        style: AppTypography.cardTitle
                             .copyWith(fontSize: 20, letterSpacing: 0.2)),
                     const SizedBox(height: 2),
                     Text('Premium cinematic streaming',
@@ -310,7 +310,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
               shape:
                   RoundedRectangleBorder(borderRadius: AppRadii.lgRadius),
               title: Text('Reset all data?',
-                  style: AppTypography.title.copyWith(fontSize: 18)),
+                  style: AppTypography.cardTitle.copyWith(fontSize: 18)),
               content: Text(
                   'This will clear your watchlist, continue-watching progress, and settings. Downloads (if any) will remain.',
                   style: AppTypography.bodyPrimary
@@ -329,8 +329,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
               ],
             ));
     if (ok != true) return;
-    await ref.read(watchlistNotifierProvider.notifier).clear();
-    await ref.read(continueWatchingNotifierProvider.notifier).clear();
+    await ref.read(watchlistProvider.notifier).clear();
+    await ref.read(continueWatchingProvider.notifier).clear();
     final p = await SharedPreferences.getInstance();
     await p.clear();
     if (!mounted) return;
@@ -359,7 +359,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
           Padding(
             padding: const EdgeInsets.all(AppSpacing.lg),
             child: Text('Default playback speed',
-                style: AppTypography.title.copyWith(fontSize: 16)),
+                style: AppTypography.cardTitle.copyWith(fontSize: 16)),
           ),
           for (final s in speeds)
             ListTile(
@@ -517,7 +517,7 @@ class _StatTile extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                   Text(value,
-                      style: AppTypography.title.copyWith(
+                      style: AppTypography.cardTitle.copyWith(
                           fontSize: 18, fontWeight: FontWeight.w700)),
                   Text(label,
                       style: AppTypography.metadata.copyWith(
