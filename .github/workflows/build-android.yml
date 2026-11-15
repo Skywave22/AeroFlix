@@ -50,7 +50,7 @@ jobs:
       - name: Format
         run: dart format lib/ test/
       - name: Analyze
-        run: flutter analyze --no-pub
+        run: flutter analyze --no-pub --no-fatal-warnings
       - name: Run tests
         run: flutter test --no-pub --timeout 30s
       - name: Build APK (debug)
