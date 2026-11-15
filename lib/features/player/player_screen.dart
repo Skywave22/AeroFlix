@@ -10,6 +10,7 @@ import 'package:wakelock_plus/wakelock_plus.dart';
 import '../../app/router.dart';
 import '../../app/theme/app_colors.dart';
 import '../../app/theme/app_typography.dart';
+import '../../core/platform/pip_service.dart';
 import '../../shared/models/media_details.dart';
 import '../../shared/models/stream_source.dart';
 import '../../shared/providers/continue_watching_provider.dart';
@@ -89,6 +90,23 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
     _loadSources();
     _startProgressSaver();
     WakelockPlus.enable();
+    final pip = ref.read(pipServiceProvider);
+    pip.setEnabled(true);
+    pip.setAutoEnterOnBackground(true);
+    pip.addListener(_onPipChanged);
+  }
+
+  void _onPipChanged() {
+    if (!mounted) return;
+    final inPip = ref.read(pipServiceProvider).inPip;
+    setState(() {
+      _locked = inPip; // lock controls in PiP
+      _showControls = !inPip;
+    });
+    if (inPip) {
+      SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky,
+          overlays: []);
+    }
   }
 
   void _scheduleHide() {
@@ -268,6 +286,10 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
     _playSub?.cancel();
     _completeSub?.cancel();
     _tracksSub?.cancel();
+    final pip = ref.read(pipServiceProvider);
+    pip.removeListener(_onPipChanged);
+    pip.setEnabled(false);
+    pip.setAutoEnterOnBackground(false);
     WakelockPlus.disable();
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
     SystemChrome.setPreferredOrientations(DeviceOrientation.values);
@@ -984,8 +1006,16 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
                                     onPressed: _shareCurrent),
                                 IconButton(
                                     icon: const Icon(Icons.picture_in_picture_alt_rounded,
-                                        color: AppColors.textMuted, size: 22),
-                                    onPressed: () => _showToast('Picture-in-Picture coming soon')),
+                                        color: AppColors.textPrimary, size: 22),
+                                    onPressed: () async {
+                                      final pip = ref.read(pipServiceProvider);
+                                      final ok = await pip.enterPip();
+                                      if (!ok && mounted) {
+                                        _showToast(pip.supported
+                                            ? 'Background playback is enabled'
+                                            : 'Picture-in-Picture not available on this device');
+                                      }
+                                    }),
                                 IconButton(
                                     icon: Icon(
                                         _selectedSub != null
