@@ -26,9 +26,9 @@ class HeroItem {
   });
 
   String get backdropUrl =>
-      ApiConstants.imageUrl(backdropPath, size: ApiConstants.backdropSizeW1280);
+      ApiConstants.backdropUrl(backdropPath, size: ApiConstants.backdropSizeW1280);
   String get posterUrl =>
-      ApiConstants.imageUrl(posterPath, size: ApiConstants.posterSizeW342);
+      ApiConstants.posterUrl(posterPath, size: ApiConstants.posterSizeW342);
   String get year =>
       (releaseDate != null && releaseDate!.length >= 4)
           ? releaseDate!.substring(0, 4)
