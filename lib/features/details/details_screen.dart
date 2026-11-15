@@ -2,6 +2,8 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:share_plus/share_plus.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../../app/router.dart';
 import '../../app/theme/app_colors.dart';
 import '../../app/theme/app_radii.dart';
@@ -13,7 +15,6 @@ import '../../shared/providers/continue_watching_provider.dart';
 import '../../shared/providers/watchlist_provider.dart';
 import '../../shared/widgets/horizontal_carousel.dart';
 import '../../shared/widgets/poster_card.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 /// Arguments passed to the details route via GoRouter extra.
 class DetailsArgs {
@@ -105,6 +106,22 @@ class _DetailsScreenState extends ConsumerState<DetailsScreen> {
         elevation: 0,
         foregroundColor: AppColors.textPrimary,
       );
+}
+
+void _comingSoon(BuildContext context, String feature) {
+  ScaffoldMessenger.of(context)
+    ..hideCurrentSnackBar()
+    ..showSnackBar(SnackBar(
+      content: Text('$feature coming soon'),
+      duration: const Duration(seconds: 2),
+    ));
+}
+
+Future<void> _shareTitle(MediaDetails d) async {
+  final kind = d.type == MediaType.tv ? 'tv' : 'movie';
+  final text = '${d.title} — watch on AeroFlix';
+  final url = 'https://www.themoviedb.org/$kind/${d.id}';
+  await Share.share('$text\n$url', subject: d.title);
 }
 
 class _DetailsContent extends ConsumerWidget {
@@ -266,9 +283,13 @@ class _DetailsContent extends ConsumerWidget {
                               .read(watchlistProvider.notifier)
                               .toggle(details.type, details.id)),
                       const SizedBox(width: AppSpacing.sm),
-                      _IconPill(icon: Icons.download_outlined, onTap: () {}),
+                      _IconPill(
+                          icon: Icons.download_outlined,
+                          onTap: () => _comingSoon(context, 'Offline downloads')),
                       const SizedBox(width: AppSpacing.sm),
-                      _IconPill(icon: Icons.share_outlined, onTap: () {}),
+                      _IconPill(
+                          icon: Icons.share_outlined,
+                          onTap: () => _shareTitle(details)),
                     ]),
                     if (details.overview != null &&
                         details.overview!.isNotEmpty) ...[

@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -7,8 +8,10 @@ import '../../app/theme/app_radii.dart';
 import '../../app/theme/app_spacing.dart';
 import '../../app/theme/app_typography.dart';
 import '../../core/constants/app_constants.dart';
+import '../../core/constants/api_constants.dart';
 import '../../core/network/tmdb_service.dart';
 import '../../shared/models/movie.dart';
+import '../../shared/models/person_search_result.dart';
 import '../../shared/models/tv_show.dart';
 import '../../shared/widgets/poster_card.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -83,6 +86,8 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
       '/details/movie/${m.id}?poster=${Uri.encodeComponent(m.posterUrlW342)}');
   void _openTv(TvShow s) => context.push(
       '/details/tv/${s.id}?poster=${Uri.encodeComponent(s.posterUrlW342)}');
+  void _openPerson(PersonSearchResult p) => context.push(
+      '/person/${p.id}?name=${Uri.encodeComponent(p.name)}&profile=${Uri.encodeComponent(p.profilePath ?? '')}');
 
   @override
   Widget build(BuildContext context) => Scaffold(
@@ -155,7 +160,10 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
         final movies =
             (data['movies'] as List?)?.cast<Movie>() ?? const <Movie>[];
         final tv = (data['tv'] as List?)?.cast<TvShow>() ?? const <TvShow>[];
-        if (movies.isEmpty && tv.isEmpty) {
+        final people = (data['people'] as List?)
+                ?.cast<PersonSearchResult>() ??
+            const <PersonSearchResult>[];
+        if (movies.isEmpty && tv.isEmpty && people.isEmpty) {
           return Center(
               child: Padding(
                   padding: const EdgeInsets.all(AppSpacing.xl),
@@ -208,6 +216,14 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                           title: tv[i].name,
                           metadata: tv[i].year,
                           onTap: () => _openTv(tv[i])))),
+              const SizedBox(height: AppSpacing.lg),
+            ],
+            if (people.isNotEmpty) ...[
+              Padding(
+                  padding: const EdgeInsets.only(bottom: AppSpacing.sm),
+                  child: Text('People', style: AppTypography.sectionHeading)),
+              for (final p in people.take(10))
+                _PersonResult(p: p, onTap: () => _openPerson(p)),
               const SizedBox(height: 40),
             ],
           ],
@@ -280,4 +296,62 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                 shape: RoundedRectangleBorder(borderRadius: AppRadii.smRadius)),
         ]),
       ]));
+}
+
+class _PersonResult extends StatelessWidget {
+  final PersonSearchResult p;
+  final VoidCallback onTap;
+  const _PersonResult({required this.p, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+        color: Colors.transparent,
+        child: InkWell(
+            onTap: onTap,
+            child: Padding(
+                padding: const EdgeInsets.symmetric(
+                    vertical: AppSpacing.sm),
+                child: Row(children: [
+                  ClipOval(
+                    child: SizedBox(
+                        width: 52,
+                        height: 52,
+                        child: p.profileUrl.isNotEmpty
+                            ? CachedNetworkImage(
+                                imageUrl: p.profileUrl,
+                                fit: BoxFit.cover,
+                                placeholder: (_, __) =>
+                                    Container(color: AppColors.surface),
+                                errorWidget: (_, __, ___) => Container(
+                                    color: AppColors.surface,
+                                    child: const Icon(Icons.person,
+                                        color: AppColors.textMuted,
+                                        size: 24)))
+                            : Container(
+                                color: AppColors.surface,
+                                child: const Icon(Icons.person,
+                                    color: AppColors.textMuted, size: 24))),
+                  ),
+                  const SizedBox(width: AppSpacing.md),
+                  Expanded(
+                      child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                        Text(p.name,
+                            style: AppTypography.cardTitle
+                                .copyWith(fontSize: 14)),
+                        if (p.knownForLabel().isNotEmpty) ...[
+                          const SizedBox(height: 2),
+                          Text(p.knownForLabel(),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: AppTypography.metadata.copyWith(
+                                  color: AppColors.textMuted, fontSize: 12)),
+                        ]
+                      ])),
+                  const Icon(Icons.chevron_right_rounded,
+                      color: AppColors.textMuted, size: 20),
+                ]))));
+  }
 }

@@ -5,6 +5,7 @@ import '../../shared/models/genre.dart';
 import '../../shared/models/media_details.dart';
 import '../../shared/models/movie.dart';
 import '../../shared/models/person.dart';
+import '../../shared/models/person_search_result.dart';
 import '../../shared/models/tv_show.dart';
 import 'dio_client.dart';
 
@@ -86,21 +87,47 @@ class TmdbService {
   }
 
   Future<Map<String, dynamic>> searchMulti(String q, {int page = 1}) async {
-    if (q.trim().isEmpty) return {'movies': <Movie>[], 'tv': <TvShow>[]};
+    if (q.trim().isEmpty) {
+      return {'movies': <Movie>[], 'tv': <TvShow>[], 'people': <PersonSearchResult>[]};
+    }
     final r = await _get('/search/multi',
         extraQuery: {'query': q, 'page': '$page', 'include_adult': 'false'});
     final results = (r['results'] as List).cast<Map<String, dynamic>>();
     final movies = <Movie>[], tv = <TvShow>[];
+    final people = <PersonSearchResult>[];
     for (final x in results) {
-      if (x['media_type'] == 'movie') {
+      final mt = x['media_type'];
+      if (mt == 'movie') {
         movies.add(Movie.fromJson(x));
-      } else if (x['media_type'] == 'tv') {
+      } else if (mt == 'tv') {
         tv.add(TvShow.fromJson(x));
+      } else if (mt == 'person') {
+        final known = (x['known_for'] as List? ?? const [])
+            .cast<Map<String, dynamic>>();
+        final knownMovies = <Movie>[];
+        final knownTv = <TvShow>[];
+        for (final k in known) {
+          if (k['media_type'] == 'movie') {
+            knownMovies.add(Movie.fromJson(k));
+          } else if (k['media_type'] == 'tv') {
+            knownTv.add(TvShow.fromJson(k));
+          }
+        }
+        people.add(PersonSearchResult(
+          id: (x['id'] as int?) ?? 0,
+          name: (x['name'] ?? '') as String,
+          profilePath: x['profile_path'] as String?,
+          knownForDepartment:
+              (x['known_for_department'] ?? '') as String,
+          knownForMovies: knownMovies,
+          knownForTv: knownTv,
+        ));
       }
     }
     return {
       'movies': movies,
       'tv': tv,
+      'people': people,
       'page': r['page'] as int? ?? 1,
       'totalPages': r['total_pages'] as int? ?? 1
     };
