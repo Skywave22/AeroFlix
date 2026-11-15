@@ -13,6 +13,7 @@ import '../../shared/models/tv_show.dart';
 import '../../shared/providers/continue_watching_provider.dart';
 import '../../shared/widgets/cinematic_hero_banner.dart';
 import '../../shared/widgets/continue_card.dart';
+import '../../shared/widgets/hero_rotator.dart';
 import '../../shared/widgets/horizontal_carousel.dart';
 import '../../shared/widgets/poster_card.dart';
 import '../../shared/widgets/section_placeholder.dart';
@@ -84,19 +85,29 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                       child: trending.when(
                           data: (ms) => ms.isEmpty
                               ? const SizedBox.shrink()
-                              : CinematicHeroBanner(
-                                  backdropUrl: ms.first.backdropUrlW1280,
-                                  title: ms.first.title,
-                                  metadata: _meta(ms.first),
-                                  description: ms.first.overview,
-                                  onPlay: () => _playMovie(ms.first),
-                                  onDetails: () => _openMovie(ms.first),
-                                  onWatchlist: () => ref
-                                      .read(watchlistProvider.notifier)
-                                      .toggle(MediaType.movie, ms.first.id),
-                                  isInWatchlist: ref.watch(
+                              : HeroRotator(
+                                  movies: ms,
+                                  metadataOf: _meta,
+                                  onPlay: _playMovie,
+                                  onDetails: _openMovie,
+                                  onWatchlist: (m) {
+                                    final was = ref.read(
+                                        isInWatchlistProvider('movie:${m.id}'));
+                                    ref
+                                        .read(watchlistProvider.notifier)
+                                        .toggle(MediaType.movie, m.id);
+                                    ScaffoldMessenger.of(context)
+                                      ..hideCurrentSnackBar()
+                                      ..showSnackBar(SnackBar(
+                                          content: Text(was
+                                              ? 'Removed ${m.title} from Watchlist'
+                                              : 'Added ${m.title} to Watchlist'),
+                                          duration:
+                                              const Duration(seconds: 2)));
+                                  },
+                                  isInWatchlist: (m) => ref.watch(
                                       isInWatchlistProvider(
-                                          'movie:${ms.first.id}'))),
+                                          'movie:${m.id}'))),
                           loading: () =>
                               Container(height: 420, color: AppColors.surface)
                                   .animate(onPlay: (c) => c.repeat())
