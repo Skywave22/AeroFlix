@@ -7,12 +7,10 @@ import '../../app/theme/app_colors.dart';
 import '../../app/theme/app_spacing.dart';
 import '../../app/theme/app_typography.dart';
 import '../../core/network/tmdb_service.dart';
-import '../../core/utils/trailer_helper.dart';
 import '../../shared/models/media_details.dart';
 import '../../shared/models/movie.dart';
 import '../../shared/models/tv_show.dart';
 import '../../shared/providers/continue_watching_provider.dart';
-import '../../shared/providers/media_providers.dart';
 import '../../shared/providers/watchlist_provider.dart';
 import '../../shared/widgets/continue_card.dart';
 import '../../shared/widgets/hero_item.dart';
@@ -138,7 +136,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                             title: it.title,
                             metadata: _year(it.releaseDate),
                             onTap: () => _openMovieId(
-                                it.id, it.posterUrlW342, MediaType.movie),
+                                it.id, it.posterUrlW500, MediaType.movie),
                           );
                         },
                       ),
@@ -192,26 +190,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       '/details/${type.name}/$id?poster=${Uri.encodeComponent(posterUrl)}');
   void _openTv(TvShow s) => context.push(
       '/details/tv/${s.id}?poster=${Uri.encodeComponent(s.posterUrlW342)}');
-  void _playMovie(Movie m) => context.push('/player',
-      extra: PlayerArgs(
-          details: MediaDetails(
-              type: MediaType.movie,
-              id: m.id,
-              title: m.title,
-              posterPath: m.posterPath,
-              backdropPath: m.backdropPath,
-              voteAverage: m.voteAverage,
-              releaseDate: m.releaseDate)));
-
-  void _playTv(TvShow s) => context.push('/player',
-      extra: PlayerArgs(
-          details: MediaDetails(
-              type: MediaType.tv,
-              id: s.id,
-              title: s.name,
-              posterPath: s.posterPath,
-              backdropPath: s.backdropPath,
-              voteAverage: s.voteAverage)));
 
   Widget _buildHero(
       AsyncValue<List<Movie>> movies, AsyncValue<List<TvShow>> tv) {

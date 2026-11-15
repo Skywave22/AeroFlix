@@ -1,6 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../core/network/stream_dio.dart';
 import '../models/media_details.dart';
 import '../models/stream_source.dart';
 import 'open_cinema_provider.dart';
@@ -46,13 +45,18 @@ final streamSourcesProvider =
   sources.addAll(await openCinemaGetStreams(media));
 
   // Sort best quality first.
-  int rank(String q) => switch (q) {
-        '4k' || '2160p' => 5,
-        '1080p' => 4,
-        '720p' || '' => 3,
-        '480p' => 2,
-        _ => 1,
-      };
-  sources.sort((a, b) => rank(b.quality).compareTo(rank(a.quality)));
+  int rank(String? q) {
+    final s = (q ?? '').toLowerCase();
+    return switch (s) {
+      '4k' || '2160p' => 5,
+      '1080p' => 4,
+      '720p' || '' => 3,
+      '480p' => 2,
+      _ => 1,
+    };
+  }
+
+  sources.sort((a, b) =>
+      rank(b.quality).compareTo(rank(a.quality)));
   return sources;
 });

@@ -342,16 +342,6 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
     return '${d.inHours > 0 ? '${d.inHours}:' : ''}$m:$s';
   }
 
-  int _qRank(String? q) => switch (q) {
-        '4K' => 5,
-        '1080p' => 4,
-        '720p' => 3,
-        null => 3,
-        '480p' => 2,
-        '360p' => 1,
-        _ => 0
-      };
-
   void _cycleFit() {
     setState(() {
       _fitIndex = (_fitIndex + 1) % _fits.length;

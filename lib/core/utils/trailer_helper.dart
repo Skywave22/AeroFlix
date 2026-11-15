@@ -1,6 +1,6 @@
 import 'package:url_launcher/url_launcher.dart';
 import '../../shared/models/media_details.dart';
-import '../providers/open_cinema_provider.dart' show isOpenCinemaId;
+import '../../shared/providers/open_cinema_provider.dart' show isOpenCinemaId;
 
 /// Returns the best available YouTube trailer URL for this title, or null.
 String? trailerUrl(MediaDetails d) {
