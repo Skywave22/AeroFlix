@@ -291,3 +291,12 @@ final hindiMoviesProvider = FutureProvider<List<Movie>>(
     (ref) => ref.watch(tmdbServiceProvider).getHindiMovies());
 final movieGenresProvider = FutureProvider<List<Genre>>(
     (ref) => ref.watch(tmdbServiceProvider).getMovieGenres());
+
+/// Family provider for season episodes. Key is '$tvId:$seasonNumber'.
+final seasonEpisodesProvider =
+    FutureProvider.family<List<Episode>, String>((ref, key) async {
+  final parts = key.split(':');
+  final tvId = int.tryParse(parts[0]) ?? 0;
+  final season = int.tryParse(parts[1]) ?? 1;
+  return ref.watch(tmdbServiceProvider).getEpisodes(tvId, season);
+});

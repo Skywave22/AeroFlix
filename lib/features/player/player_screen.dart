@@ -9,7 +9,10 @@ import 'package:share_plus/share_plus.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
 import '../../app/router.dart';
 import '../../app/theme/app_colors.dart';
+import '../../app/theme/app_radii.dart';
+import '../../app/theme/app_spacing.dart';
 import '../../app/theme/app_typography.dart';
+import '../../core/network/tmdb_service.dart';
 import '../../core/platform/pip_service.dart';
 import '../../shared/models/media_details.dart';
 import '../../shared/models/stream_source.dart';
@@ -1114,6 +1117,44 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
                               ]),
                         ])),
                   ))),
+          // Double-tap seek zones (left = -10s, right = +10s)
+          if (_showControls || !_locked)
+            Positioned.fill(
+                child: Row(children: [
+              Expanded(
+                  child: _DoubleTapZone(
+                      icon: Icons.replay_10_rounded,
+                      onDoubleTap: () => _seekRel(-10))),
+              const Expanded(child: SizedBox()),
+              Expanded(
+                  child: _DoubleTapZone(
+                      icon: Icons.forward_10_rounded,
+                      onDoubleTap: () => _seekRel(10))),
+            ])),
+          // Episode strip (TV only)
+          if (widget.details.type == MediaType.tv &&
+              widget.season > 0 &&
+              _showControls &&
+              !_locked)
+            Positioned(
+                left: 0,
+                right: 0,
+                bottom: 120,
+                child: _EpisodeStrip(
+                    tvId: widget.details.id,
+                    season: widget.season,
+                    currentEpisode: widget.episode,
+                    onTap: (ep) {
+                      if (ep.episodeNumber == widget.episode) return;
+                      _persistProgress();
+                      context.pushReplacement('/player',
+                          extra: PlayerArgs(
+                              details: widget.details,
+                              season: widget.season,
+                              episode: ep.episodeNumber,
+                              episodeTitle: ep.name,
+                              resumeAtMs: 0));
+                    })),
         ]),
       ),
     );
@@ -1187,5 +1228,147 @@ class _NextUpCard extends StatelessWidget {
                   color: AppColors.textPrimary, size: 36),
               splashRadius: 22),
         ]));
+  }
+}
+
+class _DoubleTapZone extends StatefulWidget {
+  final IconData icon;
+  final VoidCallback onDoubleTap;
+  const _DoubleTapZone({required this.icon, required this.onDoubleTap});
+  @override
+  State<_DoubleTapZone> createState() => _DoubleTapZoneState();
+}
+
+class _DoubleTapZoneState extends State<_DoubleTapZone> {
+  bool _flash = false;
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      behavior: HitTestBehavior.translucent,
+      onDoubleTap: () {
+        widget.onDoubleTap();
+        setState(() => _flash = true);
+        Future.delayed(const Duration(milliseconds: 350), () {
+          if (mounted) setState(() => _flash = false);
+        });
+      },
+      child: Center(
+          child: AnimatedOpacity(
+              duration: const Duration(milliseconds: 180),
+              opacity: _flash ? 1 : 0,
+              child: Container(
+                  width: 72,
+                  height: 72,
+                  decoration: BoxDecoration(
+                      color: Colors.black.withValues(alpha: 0.55),
+                      shape: BoxShape.circle),
+                  child: Icon(widget.icon,
+                      color: Colors.white, size: 36)))),
+    );
+  }
+}
+
+class _EpisodeStrip extends ConsumerWidget {
+  final int tvId, season, currentEpisode;
+  final void Function(Episode) onTap;
+  const _EpisodeStrip(
+      {required this.tvId,
+      required this.season,
+      required this.currentEpisode,
+      required this.onTap});
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final async = ref.watch(seasonEpisodesProvider('$tvId:$season'));
+    return async.when(
+        loading: () => const SizedBox(height: 80),
+        error: (_, __) => const SizedBox(height: 80),
+        data: (eps) {
+          if (eps.length < 2) return const SizedBox(height: 80);
+          final controller = ScrollController(
+              initialScrollOffset:
+                  (currentEpisode - 1).clamp(0, eps.length - 1) * 110.0);
+          return SizedBox(
+              height: 92,
+              child: ListView.separated(
+                  controller: controller,
+                  scrollDirection: Axis.horizontal,
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: AppSpacing.horizontalPadding),
+                  physics: const BouncingScrollPhysics(),
+                  itemCount: eps.length,
+                  separatorBuilder: (_, __) =>
+                      const SizedBox(width: AppSpacing.sm),
+                  itemBuilder: (_, i) {
+                    final ep = eps[i];
+                    final active = ep.episodeNumber == currentEpisode;
+                    return _EpisodeThumb(
+                        ep: ep, active: active, onTap: () => onTap(ep));
+                  }));
+        });
+  }
+}
+
+class _EpisodeThumb extends StatelessWidget {
+  final Episode ep;
+  final bool active;
+  final VoidCallback onTap;
+  const _EpisodeThumb(
+      {required this.ep, required this.active, required this.onTap});
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+        onTap: onTap,
+        child: Container(
+            width: 120,
+            decoration: BoxDecoration(
+                borderRadius: AppRadii.smRadius,
+                border: Border.all(
+                    color: active
+                        ? AppColors.accent
+                        : Colors.white.withValues(alpha: 0.08),
+                    width: active ? 2 : 1)),
+            clipBehavior: Clip.antiAlias,
+            child: Stack(fit: StackFit.expand, children: [
+              if (ep.stillUrl.isNotEmpty)
+                Image.network(ep.stillUrl, fit: BoxFit.cover,
+                    errorBuilder: (_, __, ___) => Container(
+                        color: AppColors.surface,
+                        child: const Icon(Icons.videocam,
+                            color: AppColors.textMuted, size: 24)))
+              else
+                Container(color: AppColors.surface),
+              Container(
+                  decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                          begin: Alignment.topCenter,
+                          end: Alignment.bottomCenter,
+                          colors: [
+                    Colors.transparent,
+                    Colors.black.withValues(alpha: 0.85)
+                  ]))),
+              Positioned(
+                  left: 6,
+                  right: 6,
+                  bottom: 4,
+                  child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                            'E${ep.episodeNumber}',
+                            style: AppTypography.metadata.copyWith(
+                                color: active
+                                    ? AppColors.accent
+                                    : AppColors.textSecondary,
+                                fontSize: 10,
+                                fontWeight: FontWeight.w700)),
+                        Text(ep.name,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: AppTypography.metadata.copyWith(
+                                color: Colors.white,
+                                fontSize: 11,
+                                fontWeight: FontWeight.w600)),
+                      ])),
+            ])));
   }
 }
