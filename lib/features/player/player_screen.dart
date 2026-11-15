@@ -14,6 +14,7 @@ import '../../core/platform/pip_service.dart';
 import '../../shared/models/media_details.dart';
 import '../../shared/models/stream_source.dart';
 import '../../shared/providers/continue_watching_provider.dart';
+import '../../shared/providers/download_provider.dart';
 import '../../shared/providers/player_controller.dart';
 import '../../shared/providers/settings_provider.dart';
 import '../../shared/providers/stream_providers.dart';
@@ -356,6 +357,51 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
     Future.delayed(const Duration(seconds: 1), () {
       if (mounted) setState(() => _fitToast = null);
     });
+  }
+
+  String _downloadKey() {
+    if (widget.details.type == MediaType.tv && widget.season > 0) {
+      return 'tv:${widget.details.id}:${widget.season}:${widget.episode}';
+    }
+    return '${widget.details.type.name}:${widget.details.id}';
+  }
+
+  bool _isDownloaded() {
+    final n = ref.read(downloadProvider);
+    final d = n.firstWhere((x) => x.key == _downloadKey(),
+        orElse: () => DownloadItem(
+            key: '', title: '', subtitle: '', posterPath: null, kind: '',
+            mediaId: 0, season: 0, episode: 0,
+            status: DownloadStatus.queued));
+    return d.key.isNotEmpty && d.status == DownloadStatus.completed;
+  }
+
+  void _toggleDownload() {
+    final n = ref.read(downloadProvider.notifier);
+    final key = _downloadKey();
+    final title = widget.episodeTitle?.isNotEmpty == true
+        ? '${widget.details.title} · ${widget.episodeTitle}'
+        : widget.details.title;
+    final subtitle = widget.season > 0
+        ? 'S${widget.season.toString().padLeft(2,'0')}E${widget.episode.toString().padLeft(2,'0')}'
+        : 'Movie';
+    if (n.has(key)) {
+      n.remove(key);
+      _showToast('Removed from downloads');
+      return;
+    }
+    n.enqueue(DownloadItem(
+      key: key,
+      title: title,
+      subtitle: subtitle,
+      posterPath: widget.details.posterPath,
+      kind: widget.details.type.name,
+      mediaId: widget.details.id,
+      season: widget.season,
+      episode: widget.episode,
+      sizeBytes: (420 + (widget.details.id % 5) * 120) * 1024 * 1024,
+    ));
+    _showToast('Downloading $title');
   }
 
   void _showToast(String msg) {
@@ -997,9 +1043,12 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
                                     onPressed: () => _seekRel(10)),
                                 const Spacer(),
                                 IconButton(
-                                    icon: const Icon(Icons.download_outlined,
-                                        color: AppColors.textMuted, size: 22),
-                                    onPressed: () => _showToast('Offline downloads coming soon')),
+                                    icon: Icon(Icons.download_outlined,
+                                        color: _isDownloaded()
+                                            ? AppColors.success
+                                            : AppColors.textPrimary,
+                                        size: 22),
+                                    onPressed: _toggleDownload),
                                 IconButton(
                                     icon: const Icon(Icons.share_outlined,
                                         color: AppColors.textPrimary, size: 22),

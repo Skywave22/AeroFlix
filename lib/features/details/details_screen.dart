@@ -12,6 +12,7 @@ import '../../app/theme/app_typography.dart';
 import '../../core/network/tmdb_service.dart';
 import '../../shared/models/media_details.dart';
 import '../../shared/providers/continue_watching_provider.dart';
+import '../../shared/providers/download_provider.dart';
 import '../../shared/providers/watchlist_provider.dart';
 import '../../shared/widgets/horizontal_carousel.dart';
 import '../../shared/widgets/poster_card.dart';
@@ -115,6 +116,45 @@ void _comingSoon(BuildContext context, String feature) {
       content: Text('$feature coming soon'),
       duration: const Duration(seconds: 2),
     ));
+}
+
+void _toggleDownload(
+    BuildContext context, MediaDetails d, WidgetRef ref) {
+  final key = '${d.type.name}:${d.id}';
+  final n = ref.read(downloadProvider.notifier);
+  if (n.has(key)) {
+    n.remove(key);
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(SnackBar(
+          content: Text('Removed ${d.title} from downloads'),
+          duration: const Duration(seconds: 2)));
+    return;
+  }
+  final added = n.enqueue(DownloadItem(
+    key: key,
+    title: d.title,
+    subtitle: d.type == MediaType.tv ? 'Series · 1 season' : 'Movie',
+    posterPath: d.posterPath,
+    kind: d.type.name,
+    mediaId: d.id,
+    season: 0,
+    episode: 0,
+    sizeBytes: (650 + (d.id % 7) * 180) * 1024 * 1024, // simulated size
+  ));
+  if (added) {
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(SnackBar(
+          content: Text('Downloading ${d.title}'),
+          duration: const Duration(seconds: 2),
+          action: SnackBarAction(
+              label: 'View',
+              textColor: AppColors.accent,
+              onPressed: () => context.push('/profile')?.then((_) {
+                    // Navigated to profile which has Downloads link.
+                  }))));
+  }
 }
 
 Future<void> _shareTitle(MediaDetails d) async {
@@ -285,7 +325,7 @@ class _DetailsContent extends ConsumerWidget {
                       const SizedBox(width: AppSpacing.sm),
                       _IconPill(
                           icon: Icons.download_outlined,
-                          onTap: () => _comingSoon(context, 'Offline downloads')),
+                          onTap: () => _toggleDownload(context, details, ref)),
                       const SizedBox(width: AppSpacing.sm),
                       _IconPill(
                           icon: Icons.share_outlined,
