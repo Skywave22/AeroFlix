@@ -162,11 +162,10 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
       if (list.isEmpty) {
         setState(() {
           _loadingSources = false;
-          _error = 'No streams found.';
+          _error = 'No playable sources found for this title. Tap Retry to try again.';
         });
         return;
       }
-      list.sort((a, b) => _qRank(b.quality).compareTo(_qRank(a.quality)));
       _sources = list;
       await _play(list.first);
       setState(() {
