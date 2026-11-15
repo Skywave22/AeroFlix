@@ -32,8 +32,6 @@ final streamServiceProvider = Provider((ref) => StreamService());
 ///      users can see where a title is legitimately streaming.
 /// ────────────────────────────────────────────────────────────────────────────
 
-final streamDioProvider = Provider((ref) => buildStreamDio());
-
 /// Returns playable direct-stream URLs for a title, sorted best quality first.
 /// Never returns an empty list for open-cinema titles; returns empty list
 /// for everything else so the UI can fall back to trailer / providers.
