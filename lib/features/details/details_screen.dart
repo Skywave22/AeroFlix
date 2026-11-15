@@ -11,6 +11,7 @@ import '../../app/theme/app_spacing.dart';
 import '../../app/theme/app_typography.dart';
 import '../../core/network/tmdb_service.dart';
 import '../../core/utils/trailer_helper.dart';
+import '../../shared/providers/open_cinema_provider.dart';
 import '../../shared/models/media_details.dart';
 import '../../shared/providers/continue_watching_provider.dart';
 import '../../shared/providers/download_provider.dart';
@@ -111,11 +112,12 @@ class _DetailsScreenState extends ConsumerState<DetailsScreen> {
 }
 
 void _toggleDownload(
-    BuildContext context, MediaDetails d, WidgetRef ref) {
+    BuildContext context, MediaDetails d, WidgetRef ref) async {
   final key = '${d.type.name}:${d.id}';
   final n = ref.read(downloadProvider.notifier);
   if (n.has(key)) {
-    n.remove(key);
+    await n.remove(key);
+    if (!context.mounted) return;
     ScaffoldMessenger.of(context)
       ..hideCurrentSnackBar()
       ..showSnackBar(SnackBar(
@@ -123,28 +125,43 @@ void _toggleDownload(
           duration: const Duration(seconds: 2)));
     return;
   }
-  final added = n.enqueue(DownloadItem(
+  // Downloads stream real bytes, so only titles with a known direct-file
+  // source (Open Cinema library, MP4 entries) can be saved offline.
+  final url = d.type == MediaType.movie && openCinemaSupportsDownload(d.id)
+      ? openCinemaStreamUrl(d.id)
+      : null;
+  if (url == null) {
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(SnackBar(
+          content: const Text(
+              'Offline download is only available for titles in the Open Cinema library'),
+          duration: const Duration(seconds: 3)));
+    return;
+  }
+  final added = await n.enqueue(DownloadItem(
     key: key,
     title: d.title,
-    subtitle: d.type == MediaType.tv ? 'Series · 1 season' : 'Movie',
+    subtitle: 'Movie',
     posterPath: d.posterPath,
     kind: d.type.name,
     mediaId: d.id,
     season: 0,
     episode: 0,
-    sizeBytes: (650 + (d.id % 7) * 180) * 1024 * 1024, // simulated size
+    url: url,
   ));
-  if (added) {
-    ScaffoldMessenger.of(context)
-      ..hideCurrentSnackBar()
-      ..showSnackBar(SnackBar(
-          content: Text('Downloading ${d.title}'),
-          duration: const Duration(seconds: 2),
-          action: SnackBarAction(
-              label: 'View',
-              textColor: AppColors.accent,
-              onPressed: () => context.push('/profile'))));
-  }
+  if (!context.mounted) return;
+  ScaffoldMessenger.of(context)
+    ..hideCurrentSnackBar()
+    ..showSnackBar(SnackBar(
+        content: Text(added
+            ? 'Downloading ${d.title}'
+            : '${d.title} is already in your downloads'),
+        duration: const Duration(seconds: 2),
+        action: SnackBarAction(
+            label: 'View',
+            textColor: AppColors.accent,
+            onPressed: () => context.push('/downloads'))));
 }
 
 Future<void> _shareTitle(MediaDetails d) async {

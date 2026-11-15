@@ -5,7 +5,10 @@ import '../../app/theme/app_colors.dart';
 import '../../app/theme/app_radii.dart';
 import '../../app/theme/app_spacing.dart';
 import '../../app/theme/app_typography.dart';
+import 'package:go_router/go_router.dart';
+import '../../app/router.dart';
 import '../../core/constants/api_constants.dart';
+import '../../shared/models/media_details.dart';
 import '../../shared/providers/download_provider.dart';
 
 class DownloadsScreen extends ConsumerWidget {
@@ -41,12 +44,9 @@ class DownloadsScreen extends ConsumerWidget {
   }
 
   Widget _emptyState() => Center(
-          child: Padding(
-              padding:
-                  const EdgeInsets.all(AppSpacing.horizontalPadding),
-              child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
+      child: Padding(
+          padding: const EdgeInsets.all(AppSpacing.horizontalPadding),
+          child: Column(mainAxisSize: MainAxisSize.min, children: [
             Container(
                 width: 100,
                 height: 100,
@@ -62,8 +62,7 @@ class DownloadsScreen extends ConsumerWidget {
             Text(
                 'Tap the download icon on any movie or episode to save it for offline viewing.',
                 textAlign: TextAlign.center,
-                style: AppTypography.body
-                    .copyWith(color: AppColors.textMuted)),
+                style: AppTypography.body.copyWith(color: AppColors.textMuted)),
           ])));
 
   void _confirmClearAll(BuildContext context, WidgetRef ref) {
@@ -80,9 +79,8 @@ class _DownloadRow extends ConsumerWidget {
   const _DownloadRow({required this.item});
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final poster = item.posterPath != null
-        ? ApiConstants.posterUrl(item.posterPath)
-        : '';
+    final poster =
+        item.posterPath != null ? ApiConstants.posterUrl(item.posterPath) : '';
     final isDone = item.status == DownloadStatus.completed;
     final isActive = item.status == DownloadStatus.downloading;
     return Dismissible(
@@ -94,7 +92,8 @@ class _DownloadRow extends ConsumerWidget {
             decoration: BoxDecoration(
                 color: AppColors.error, borderRadius: AppRadii.mdRadius),
             child: const Icon(Icons.delete_outline, color: Colors.white)),
-        onDismissed: (_) => ref.read(downloadProvider.notifier).remove(item.key),
+        onDismissed: (_) =>
+            ref.read(downloadProvider.notifier).remove(item.key),
         child: Container(
             decoration: BoxDecoration(
                 color: AppColors.surface, borderRadius: AppRadii.mdRadius),
@@ -187,11 +186,27 @@ class _DownloadRow extends ConsumerWidget {
             icon: const Icon(Icons.play_arrow_rounded,
                 color: AppColors.accent, size: 26),
             onPressed: () {
-              ScaffoldMessenger.of(context)
-                ..hideCurrentSnackBar()
-                ..showSnackBar(SnackBar(
-                    content: Text('Opening ${item.title}'),
-                    duration: const Duration(seconds: 2)));
+              final fp = item.filePath;
+              if (fp == null) {
+                ScaffoldMessenger.of(context)
+                  ..hideCurrentSnackBar()
+                  ..showSnackBar(const SnackBar(
+                      content: Text('This download is missing its file'),
+                      duration: Duration(seconds: 2)));
+                return;
+              }
+              final details = MediaDetails(
+                type: item.kind == 'tv' ? MediaType.tv : MediaType.movie,
+                id: item.mediaId,
+                title: item.title,
+                posterPath: item.posterPath,
+              );
+              context.push('/player',
+                  extra: PlayerArgs(
+                      details: details,
+                      season: item.season,
+                      episode: item.episode,
+                      localFilePath: fp));
             });
       case DownloadStatus.downloading:
         return IconButton(

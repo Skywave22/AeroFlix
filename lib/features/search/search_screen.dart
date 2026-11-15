@@ -159,8 +159,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
         final movies =
             (data['movies'] as List?)?.cast<Movie>() ?? const <Movie>[];
         final tv = (data['tv'] as List?)?.cast<TvShow>() ?? const <TvShow>[];
-        final people = (data['people'] as List?)
-                ?.cast<PersonSearchResult>() ??
+        final people = (data['people'] as List?)?.cast<PersonSearchResult>() ??
             const <PersonSearchResult>[];
         if (movies.isEmpty && tv.isEmpty && people.isEmpty) {
           return Center(
@@ -286,13 +285,19 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
             'Anime',
             'Bollywood'
           ])
-            Chip(
+            ActionChip(
                 label: Text(t),
                 backgroundColor: AppColors.surface,
                 labelStyle: AppTypography.metadata
                     .copyWith(color: AppColors.textSecondary),
                 side: BorderSide.none,
-                shape: RoundedRectangleBorder(borderRadius: AppRadii.smRadius)),
+                shape: RoundedRectangleBorder(borderRadius: AppRadii.smRadius),
+                onPressed: () {
+                  _c.text = t;
+                  _c.selection = TextSelection.fromPosition(
+                      TextPosition(offset: t.length));
+                  _doSearch(t);
+                }),
         ]),
       ]));
 }
@@ -309,8 +314,7 @@ class _PersonResult extends StatelessWidget {
         child: InkWell(
             onTap: onTap,
             child: Padding(
-                padding: const EdgeInsets.symmetric(
-                    vertical: AppSpacing.sm),
+                padding: const EdgeInsets.symmetric(vertical: AppSpacing.sm),
                 child: Row(children: [
                   ClipOval(
                     child: SizedBox(
@@ -325,8 +329,7 @@ class _PersonResult extends StatelessWidget {
                                 errorWidget: (_, __, ___) => Container(
                                     color: AppColors.surface,
                                     child: const Icon(Icons.person,
-                                        color: AppColors.textMuted,
-                                        size: 24)))
+                                        color: AppColors.textMuted, size: 24)))
                             : Container(
                                 color: AppColors.surface,
                                 child: const Icon(Icons.person,
@@ -338,8 +341,8 @@ class _PersonResult extends StatelessWidget {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                         Text(p.name,
-                            style: AppTypography.cardTitle
-                                .copyWith(fontSize: 14)),
+                            style:
+                                AppTypography.cardTitle.copyWith(fontSize: 14)),
                         if (p.knownForLabel().isNotEmpty) ...[
                           const SizedBox(height: 2),
                           Text(p.knownForLabel(),

@@ -22,12 +22,12 @@ import '../../shared/widgets/section_placeholder.dart';
 // TMDB ids for open-source / public-domain films we can actually play in-app.
 const List<int> _kFreeToWatch = [
   10378, // Big Buck Bunny
-  7486,  // Sintel
+  7486, // Sintel
 ];
 
 /// Fetches a list of MediaDetails for the given movie ids in parallel.
-final movieDetailsBulkProvider = FutureProvider.family<
-    List<MediaDetails>, List<int>>((ref, ids) async {
+final movieDetailsBulkProvider =
+    FutureProvider.family<List<MediaDetails>, List<int>>((ref, ids) async {
   final svc = ref.watch(tmdbServiceProvider);
   final futures = ids.map((id) => svc.getMovieDetails(id));
   return Future.wait(futures);
@@ -52,6 +52,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     final nowPlaying = ref.watch(nowPlayingMoviesProvider);
     final hindi = ref.watch(hindiMoviesProvider);
     final continueList = ref.watch(continueWatchingProvider);
+    final watchlistKeys = ref.watch(watchlistProvider);
 
     return Scaffold(
         backgroundColor: AppColors.background,
@@ -108,7 +109,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                                       .withValues(alpha: 0.3))
                           : trending.hasError && trendingTv.hasError
                               ? const SizedBox(height: 380)
-                              : _buildHero(trending, trendingTv)),
+                              : _buildHero(
+                                  trending, trendingTv, watchlistKeys)),
                   const SliverToBoxAdapter(
                       child: SizedBox(height: AppSpacing.lg)),
                   // Free to Watch — open-source / public-domain shorts that
@@ -122,10 +124,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                       loading: () => const SizedBox(
                           height: 200,
                           child: Center(
-                              child: CircularProgressIndicator(
-                                  strokeWidth: 2))),
+                              child:
+                                  CircularProgressIndicator(strokeWidth: 2))),
                       error: (_, __) => const SizedBox.shrink(),
-                        data: (items) => HorizontalCarousel(
+                      data: (items) => HorizontalCarousel(
                         title: 'Free to Watch',
                         height: 200,
                         itemCount: items.length,
@@ -191,8 +193,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   void _openTv(TvShow s) => context.push(
       '/details/tv/${s.id}?poster=${Uri.encodeComponent(s.posterUrlW342)}');
 
-  Widget _buildHero(
-      AsyncValue<List<Movie>> movies, AsyncValue<List<TvShow>> tv) {
+  Widget _buildHero(AsyncValue<List<Movie>> movies, AsyncValue<List<TvShow>> tv,
+      Set<String> watchlistKeys) {
     final ms = movies.valueOrNull ?? const <Movie>[];
     final ts = tv.valueOrNull ?? const <TvShow>[];
     final hero = <HeroItem>[
@@ -202,8 +204,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     if (hero.isEmpty) return const SizedBox(height: 380);
     return HeroRotator(
       items: hero,
-      isInWatchlist: (it) =>
-          ref.watch(isInWatchlistProvider('${it.kind}:${it.id}')),
+      isInWatchlist: (it) => watchlistKeys.contains('${it.kind}:${it.id}'),
       onDetails: (it) {
         final url = Uri.encodeComponent(it.posterUrl);
         context.push('/details/${it.kind}/${it.id}?poster=$url');

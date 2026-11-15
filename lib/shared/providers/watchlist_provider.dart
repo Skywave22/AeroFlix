@@ -10,20 +10,21 @@ import '../models/tv_show.dart';
 /// when auth is added.
 class WatchlistNotifier extends StateNotifier<Set<String>> {
   WatchlistNotifier() : super(const {}) {
-    _load();
+    // All mutations await this future so a quick toggle right after app
+    // start can never be wiped out by the initial load completing late.
+    _ready = _load();
   }
 
   static const _key = AppConstants.prefWatchlist;
-  bool _loaded = false;
+  late final Future<void> _ready;
 
   Future<void> _load() async {
     final prefs = await SharedPreferences.getInstance();
     state = prefs.getStringList(_key)?.toSet() ?? const {};
-    _loaded = true;
   }
 
   Future<void> _save() async {
-    if (!_loaded) await _load();
+    await _ready;
     final prefs = await SharedPreferences.getInstance();
     await prefs.setStringList(_key, state.toList());
   }
@@ -33,6 +34,7 @@ class WatchlistNotifier extends StateNotifier<Set<String>> {
   bool isTvWatched(int id) => state.contains('tv:$id');
 
   Future<void> toggle(MediaType type, int id) async {
+    await _ready;
     final key = '${type.name}:$id';
     if (state.contains(key)) {
       state = {...state}..remove(key);
@@ -46,18 +48,21 @@ class WatchlistNotifier extends StateNotifier<Set<String>> {
   Future<void> toggleTv(TvShow s) => toggle(MediaType.tv, s.id);
 
   Future<void> addByKey(String key) async {
+    await _ready;
     if (state.contains(key)) return;
     state = {...state, key};
     await _save();
   }
 
   Future<void> removeByKey(String key) async {
+    await _ready;
     if (!state.contains(key)) return;
     state = {...state}..remove(key);
     await _save();
   }
 
   Future<void> clear() async {
+    await _ready;
     state = const {};
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove(_key);

@@ -84,3 +84,13 @@ Future<List<StreamSource>> openCinemaGetStreams(MediaDetails d) async {
 
 /// Returns true if this TMDB id is an open-cinema title we can play directly.
 bool isOpenCinemaId(int id) => _kOpenCinema.containsKey(id);
+
+/// Returns the direct stream URL for an open-cinema title, or null.
+String? openCinemaStreamUrl(int id) => _kOpenCinema[id]?.url;
+
+/// True when the open-cinema entry is a progressive MP4 (HLS-only entries
+/// can't be saved as a single offline file).
+bool openCinemaSupportsDownload(int id) {
+  final url = _kOpenCinema[id]?.url ?? '';
+  return url.endsWith('.mp4') || url.endsWith('.mkv');
+}

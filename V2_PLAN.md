@@ -63,13 +63,35 @@
 
 ### 6. Fix list for v2 (this pass)
 - [x] Remove broken embed providers.
-- [ ] Add TMDB videos → trailer action across hero/details/player.
+- [x] Add TMDB videos → trailer action across hero/details/player.
 - [ ] Add "Where to watch" providers panel to Details screen.
 - [ ] Add an Open Source Cinema section to Home so the player is demonstrable.
-- [ ] Fix player error UI: show error after 15s with "Watch Trailer" escape hatch.
-- [ ] Wire Continue-Watching resume % in episodes list.
-- [ ] Empty states everywhere (Watchlist, Downloads, Search history).
-- [ ] Make search genre chips actually search that genre.
-- [ ] Save progress synchronously on player dispose.
+- [x] Fix player error UI: error state with "Watch Trailer" escape hatch + Retry.
+- [x] Continue-Watching resume wired in episodes list (resume badge).
+- [x] Empty states everywhere (Watchlist, Downloads, Search history, Continue Watching).
+- [x] Make search genre chips actually search that genre.
+- [x] Save progress on player back-button and dispose.
 - [ ] Polish: vote-average on poster cards, consistent app bar, share deep-links using `aeroflix://`.
-- [ ] v2 bump to 0.2.0 in pubspec.yaml.
+- [x] v2 bump to 0.2.0+2 in pubspec.yaml.
+
+
+---
+
+## Deep audit fixes (0.2.0)
+
+- [x] `/player` route dropped `resumeAtMs` and `nextEpisode` — resume & auto-advance now actually work.
+- [x] Route crashes on hot-restart/deep-link (`s.extra as PlayerArgs`, `int.parse`) — safe parsing + friendly fallback screen.
+- [x] `aeroflix://movie/123` deep links never resolved (host was swallowed by pathSegments) — scheme+host+path normalization.
+- [x] Fake downloads replaced with real Dio streaming downloads to app documents; immutable items, full JSON persistence, file verification on launch, removal deletes bytes; offline playback through `/player?localFilePath`.
+- [x] StateNotifier load/mutation races in watchlist/continue-watching/settings (quick taps after launch were wiped) — mutations now await the ready future.
+- [x] Hero called `ref.watch` inside a child-widget closure — single watch in HomeScreen build.
+- [x] Episode-strip `ScrollController` leaked per rebuild — owned by state, disposed.
+- [x] "Reset all data" called `prefs.clear()` and silently wiped the downloads index — now removes only app-owned keys.
+- [x] Dio `LogInterceptor` could print `api_key` — debug-only redacting interceptor.
+- [x] TMDB list parsing hardened against missing `results`/`genres`.
+- [x] `Failure` constructors dropped `cause` — preserved now.
+- [x] EpisodesScreen recreated its fetch future in `didChangeDependencies` — moved to `initState`.
+- [x] AndroidManifest duplicate configChanges; app label shows `AeroFlix`.
+- [x] Removed unused deps (encrypt, crypto, collection, json_annotation, json_serializable, build_runner).
+- [x] CI: format is a check (not a mutator), `flutter analyze` is fatal, media_kit patch is version-agnostic, concurrency cancel + timeouts, optional `TMDB_API_KEY` secret.
+- [x] Real test suite (26 tests: failures, continue-watching model, downloads round-trip, watchlist/settings persistence, open-cinema, trailers).

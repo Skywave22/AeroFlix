@@ -99,11 +99,11 @@ class ContinueWatchingItem {
 class ContinueWatchingNotifier
     extends StateNotifier<List<ContinueWatchingItem>> {
   ContinueWatchingNotifier() : super(const []) {
-    _load();
+    _ready = _load();
   }
 
   static const _key = AppConstants.prefContinueWatching;
-  bool _loaded = false;
+  late final Future<void> _ready;
 
   Future<void> _load() async {
     final prefs = await SharedPreferences.getInstance();
@@ -120,11 +120,10 @@ class ContinueWatchingNotifier
         state = const [];
       }
     }
-    _loaded = true;
   }
 
   Future<void> _save() async {
-    if (!_loaded) await _load();
+    await _ready;
     final prefs = await SharedPreferences.getInstance();
     // Cap at 24 entries
     final list = state.take(24).map((e) => e.toJson()).toList();
@@ -152,6 +151,7 @@ class ContinueWatchingNotifier
     required int positionMs,
     required int durationMs,
   }) async {
+    await _ready;
     final k = ContinueWatchingItem._keyFor(type, id, season, episode);
     final existingIdx = state.indexWhere((i) => i.key == k);
     final now = DateTime.now().millisecondsSinceEpoch;
@@ -195,12 +195,14 @@ class ContinueWatchingNotifier
 
   Future<void> remove(MediaType t, int id,
       {int season = 0, int episode = 0}) async {
+    await _ready;
     final k = ContinueWatchingItem._keyFor(t, id, season, episode);
     state = state.where((i) => i.key != k).toList();
     await _save();
   }
 
   Future<void> clear() async {
+    await _ready;
     state = const [];
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove(_key);

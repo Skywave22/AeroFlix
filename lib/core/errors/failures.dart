@@ -30,9 +30,9 @@ class Failure extends Equatable {
   }
 
   factory Failure.network({Object? cause}) =>
-      const Failure(code: 'NETWORK', message: 'Network error');
+      Failure(code: 'NETWORK', message: 'Network error', cause: cause);
   factory Failure.timeout({Object? cause}) =>
-      const Failure(code: 'TIMEOUT', message: 'Request timed out');
+      Failure(code: 'TIMEOUT', message: 'Request timed out', cause: cause);
   factory Failure.notFound({String? message}) =>
       Failure(code: 'NOT_FOUND', message: message ?? 'Not found');
   factory Failure.noStreams() =>
@@ -40,7 +40,7 @@ class Failure extends Equatable {
   factory Failure.server({String? message, Object? cause}) =>
       Failure(code: 'SERVER', message: message ?? 'Server error', cause: cause);
   factory Failure.parse({Object? cause}) =>
-      const Failure(code: 'PARSE', message: 'Failed to parse response');
+      Failure(code: 'PARSE', message: 'Failed to parse response', cause: cause);
   factory Failure.cancelled() =>
       const Failure(code: 'CANCELLED', message: 'Cancelled');
   factory Failure.siteBlocked({Object? cause}) => Failure(

@@ -54,7 +54,6 @@ final streamSourcesProvider =
     };
   }
 
-  sources.sort((a, b) =>
-      rank(b.quality).compareTo(rank(a.quality)));
+  sources.sort((a, b) => rank(b.quality).compareTo(rank(a.quality)));
   return sources;
 });

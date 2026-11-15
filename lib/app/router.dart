@@ -1,6 +1,8 @@
+import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import '../shared/models/media_details.dart';
 import '../features/details/details_screen.dart';
+import '../features/downloads/downloads_screen.dart';
 import '../features/episodes/episodes_screen.dart';
 import '../features/explore/explore_screen.dart';
 import '../features/home/home_screen.dart';
@@ -26,6 +28,10 @@ class PlayerArgs {
   final String? episodeTitle;
   final int resumeAtMs;
   final PlayerArgs? nextEpisode;
+
+  /// When set, the player opens this local file (a completed download)
+  /// instead of resolving an online stream.
+  final String? localFilePath;
   const PlayerArgs({
     required this.details,
     this.season = 0,
@@ -33,8 +39,38 @@ class PlayerArgs {
     this.episodeTitle,
     this.resumeAtMs = 0,
     this.nextEpisode,
+    this.localFilePath,
   });
 }
+
+/// Shown when a route is reached without valid navigation arguments
+/// (e.g. after a hot restart, since `extra` is not persisted).
+class _RouteFallback extends StatelessWidget {
+  final String message;
+  const _RouteFallback({required this.message});
+
+  @override
+  Widget build(BuildContext context) => Scaffold(
+        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+        body: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(32),
+            child: Column(mainAxisSize: MainAxisSize.min, children: [
+              const Icon(Icons.movie_filter_outlined, size: 48),
+              const SizedBox(height: 16),
+              Text(message, textAlign: TextAlign.center),
+              const SizedBox(height: 16),
+              FilledButton(
+                onPressed: () => context.go('/home'),
+                child: const Text('Go home'),
+              ),
+            ]),
+          ),
+        ),
+      );
+}
+
+int? _parseId(String? raw) => raw == null ? null : int.tryParse(raw);
 
 final appRouter =
     GoRouter(initialLocation: '/home', debugLogDiagnostics: false, routes: [
@@ -61,7 +97,10 @@ final appRouter =
   GoRoute(
       path: '/details/movie/:id',
       builder: (c, s) {
-        final id = int.parse(s.pathParameters['id']!);
+        final id = _parseId(s.pathParameters['id']);
+        if (id == null) {
+          return const _RouteFallback(message: 'That title link is invalid.');
+        }
         final poster = s.uri.queryParameters['poster'];
         return DetailsScreen(
             args:
@@ -70,32 +109,50 @@ final appRouter =
   GoRoute(
       path: '/details/tv/:id',
       builder: (c, s) {
-        final id = int.parse(s.pathParameters['id']!);
+        final id = _parseId(s.pathParameters['id']);
+        if (id == null) {
+          return const _RouteFallback(message: 'That title link is invalid.');
+        }
         final poster = s.uri.queryParameters['poster'];
         return DetailsScreen(
             args: DetailsArgs(id: id, type: MediaType.tv, posterUrl: poster));
       }),
+  GoRoute(path: '/downloads', builder: (c, s) => const DownloadsScreen()),
   GoRoute(
       path: '/player',
       builder: (c, s) {
-        final args = s.extra as PlayerArgs;
+        final args = s.extra;
+        if (args is! PlayerArgs) {
+          return const _RouteFallback(
+              message: 'This player session expired. Pick the title again.');
+        }
         return PlayerScreen(
             details: args.details,
             season: args.season,
             episode: args.episode,
-            episodeTitle: args.episodeTitle);
+            episodeTitle: args.episodeTitle,
+            resumeAtMs: args.resumeAtMs,
+            nextEpisode: args.nextEpisode,
+            localFilePath: args.localFilePath);
       }),
   GoRoute(
       path: '/episodes',
       builder: (c, s) {
-        final args = s.extra as EpisodesArgs;
+        final args = s.extra;
+        if (args is! EpisodesArgs) {
+          return const _RouteFallback(
+              message: 'That episode list could not be opened.');
+        }
         return EpisodesScreen(
             details: args.details, initialSeason: args.initialSeason);
       }),
   GoRoute(
       path: '/person/:id',
       builder: (c, s) {
-        final id = int.parse(s.pathParameters['id']!);
+        final id = _parseId(s.pathParameters['id']);
+        if (id == null) {
+          return const _RouteFallback(message: 'That person link is invalid.');
+        }
         final name = s.uri.queryParameters['name'] ?? '';
         final profile = s.uri.queryParameters['profile'];
         return PersonScreen(

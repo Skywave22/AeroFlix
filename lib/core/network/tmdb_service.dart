@@ -11,12 +11,13 @@ import 'dio_client.dart';
 
 class TmdbService {
   TmdbService(this._dio);
+
   /// Free public-domain / open-source cinema ids we serve directly.
   /// Used by the home "Free to Watch" carousel.
+  // Kept in sync with open_cinema_provider.dart's playable library.
   static const List<int> openCinemaIds = [
     10378, // Big Buck Bunny
-    7486,  // Sintel
-    900001,// HLS test stream (mapped to a fake entry, skip)
+    7486, // Sintel
   ];
 
   final Dio _dio;
@@ -41,7 +42,7 @@ class TmdbService {
 
   Future<List<Genre>> getMovieGenres() async {
     final r = await _get('/genre/movie/list');
-    return (r['genres'] as List)
+    return (r['genres'] as List? ?? const [])
         .cast<Map<String, dynamic>>()
         .map(Genre.fromJson)
         .toList();
@@ -96,11 +97,16 @@ class TmdbService {
 
   Future<Map<String, dynamic>> searchMulti(String q, {int page = 1}) async {
     if (q.trim().isEmpty) {
-      return {'movies': <Movie>[], 'tv': <TvShow>[], 'people': <PersonSearchResult>[]};
+      return {
+        'movies': <Movie>[],
+        'tv': <TvShow>[],
+        'people': <PersonSearchResult>[]
+      };
     }
     final r = await _get('/search/multi',
         extraQuery: {'query': q, 'page': '$page', 'include_adult': 'false'});
-    final results = (r['results'] as List).cast<Map<String, dynamic>>();
+    final results =
+        (r['results'] as List? ?? const []).cast<Map<String, dynamic>>();
     final movies = <Movie>[], tv = <TvShow>[];
     final people = <PersonSearchResult>[];
     for (final x in results) {
@@ -110,8 +116,8 @@ class TmdbService {
       } else if (mt == 'tv') {
         tv.add(TvShow.fromJson(x));
       } else if (mt == 'person') {
-        final known = (x['known_for'] as List? ?? const [])
-            .cast<Map<String, dynamic>>();
+        final known =
+            (x['known_for'] as List? ?? const []).cast<Map<String, dynamic>>();
         final knownMovies = <Movie>[];
         final knownTv = <TvShow>[];
         for (final k in known) {
@@ -125,8 +131,7 @@ class TmdbService {
           id: (x['id'] as int?) ?? 0,
           name: (x['name'] ?? '') as String,
           profilePath: x['profile_path'] as String?,
-          knownForDepartment:
-              (x['known_for_department'] ?? '') as String,
+          knownForDepartment: (x['known_for_department'] ?? '') as String,
           knownForMovies: knownMovies,
           knownForTv: knownTv,
         ));
@@ -144,7 +149,7 @@ class TmdbService {
   Future<List<Movie>> _fetchMovies(String p,
       {Map<String, String>? query}) async {
     final r = await _get(p, extraQuery: query);
-    return (r['results'] as List)
+    return (r['results'] as List? ?? const [])
         .cast<Map<String, dynamic>>()
         .map(Movie.fromJson)
         .toList();
@@ -152,7 +157,7 @@ class TmdbService {
 
   Future<List<TvShow>> _fetchTv(String p, {Map<String, String>? query}) async {
     final r = await _get(p, extraQuery: query);
-    return (r['results'] as List)
+    return (r['results'] as List? ?? const [])
         .cast<Map<String, dynamic>>()
         .map(TvShow.fromJson)
         .toList();

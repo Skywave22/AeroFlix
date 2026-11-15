@@ -25,14 +25,13 @@ class HeroItem {
     this.genreIds = const [],
   });
 
-  String get backdropUrl =>
-      ApiConstants.backdropUrl(backdropPath, size: ApiConstants.backdropSizeW1280);
+  String get backdropUrl => ApiConstants.backdropUrl(backdropPath,
+      size: ApiConstants.backdropSizeW1280);
   String get posterUrl =>
       ApiConstants.posterUrl(posterPath, size: ApiConstants.posterSizeW342);
-  String get year =>
-      (releaseDate != null && releaseDate!.length >= 4)
-          ? releaseDate!.substring(0, 4)
-          : '';
+  String get year => (releaseDate != null && releaseDate!.length >= 4)
+      ? releaseDate!.substring(0, 4)
+      : '';
 
   factory HeroItem.fromMovie(Movie m) => HeroItem(
         id: m.id,

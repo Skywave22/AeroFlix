@@ -25,16 +25,17 @@ class Settings {
         autoPlayNext: autoPlayNext ?? this.autoPlayNext,
         autoplayTrailers: autoplayTrailers ?? this.autoplayTrailers,
         cellularAllowed: cellularAllowed ?? this.cellularAllowed,
-        subtitlesOnByDefault:
-            subtitlesOnByDefault ?? this.subtitlesOnByDefault,
+        subtitlesOnByDefault: subtitlesOnByDefault ?? this.subtitlesOnByDefault,
         defaultSpeed: defaultSpeed ?? this.defaultSpeed,
       );
 }
 
 class SettingsNotifier extends StateNotifier<Settings> {
   SettingsNotifier() : super(const Settings()) {
-    _load();
+    _ready = _load();
   }
+
+  late final Future<void> _ready;
   static const _kAutoPlay = 'settings.autoPlayNext';
   static const _kTrailerAuto = 'settings.autoplayTrailers';
   static const _kCellular = 'settings.cellularAllowed';
@@ -53,35 +54,40 @@ class SettingsNotifier extends StateNotifier<Settings> {
   }
 
   Future<void> setAutoPlayNext(bool v) async {
+    await _ready;
     state = state.copyWith(autoPlayNext: v);
     final p = await SharedPreferences.getInstance();
     await p.setBool(_kAutoPlay, v);
   }
 
   Future<void> setAutoplayTrailers(bool v) async {
+    await _ready;
     state = state.copyWith(autoplayTrailers: v);
     final p = await SharedPreferences.getInstance();
     await p.setBool(_kTrailerAuto, v);
   }
 
   Future<void> setCellularAllowed(bool v) async {
+    await _ready;
     state = state.copyWith(cellularAllowed: v);
     final p = await SharedPreferences.getInstance();
     await p.setBool(_kCellular, v);
   }
 
   Future<void> setSubtitlesOnByDefault(bool v) async {
+    await _ready;
     state = state.copyWith(subtitlesOnByDefault: v);
     final p = await SharedPreferences.getInstance();
     await p.setBool(_kSubs, v);
   }
 
   Future<void> setDefaultSpeed(double v) async {
+    await _ready;
     state = state.copyWith(defaultSpeed: v);
     final p = await SharedPreferences.getInstance();
     await p.setDouble(_kSpeed, v);
   }
 }
 
-final settingsProvider =
-    StateNotifierProvider<SettingsNotifier, Settings>((_) => SettingsNotifier());
+final settingsProvider = StateNotifierProvider<SettingsNotifier, Settings>(
+    (_) => SettingsNotifier());

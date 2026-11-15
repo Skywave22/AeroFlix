@@ -2,15 +2,16 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:go_router/go_router.dart';
 import '../../app/theme/app_colors.dart';
 import '../../app/theme/app_radii.dart';
 import '../../app/theme/app_spacing.dart';
 import '../../app/theme/app_typography.dart';
 import '../../core/cache/image_cache_provider.dart';
+import '../../core/constants/app_constants.dart';
 import '../../shared/providers/continue_watching_provider.dart';
 import '../../shared/providers/settings_provider.dart';
 import '../../shared/providers/watchlist_provider.dart';
-import '../downloads/downloads_screen.dart';
 
 class ProfileScreen extends ConsumerStatefulWidget {
   const ProfileScreen({super.key});
@@ -65,10 +66,10 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                   width: 72,
                   height: 72,
                   decoration: BoxDecoration(
-                      gradient: const LinearGradient(colors: [
-                        AppColors.accent,
-                        Color(0xFF7C5CFF)
-                      ], begin: Alignment.topLeft, end: Alignment.bottomRight),
+                      gradient: const LinearGradient(
+                          colors: [AppColors.accent, Color(0xFF7C5CFF)],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight),
                       borderRadius: BorderRadius.circular(36)),
                   child: const Icon(Icons.play_circle_fill_rounded,
                       color: Colors.white, size: 36)),
@@ -107,8 +108,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
               icon: Icons.download_done_rounded,
               title: 'Downloads',
               subtitle: 'Offline saved content',
-              onTap: () => Navigator.of(context).push(MaterialPageRoute(
-                  builder: (_) => const DownloadsScreen())),
+              onTap: () => context.push('/downloads'),
               trailing: const Icon(Icons.chevron_right_rounded,
                   color: AppColors.textMuted),
             ),
@@ -223,8 +223,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
         context: context,
         builder: (ctx) => AlertDialog(
               backgroundColor: AppColors.surface,
-              shape:
-                  RoundedRectangleBorder(borderRadius: AppRadii.lgRadius),
+              shape: RoundedRectangleBorder(borderRadius: AppRadii.lgRadius),
               title: Text('Reset all data?',
                   style: AppTypography.cardTitle.copyWith(fontSize: 18)),
               content: Text(
@@ -247,8 +246,19 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     if (ok != true) return;
     await ref.read(watchlistProvider.notifier).clear();
     await ref.read(continueWatchingProvider.notifier).clear();
+    // Clear only the keys this app owns — never a blanket prefs.clear(),
+    // which would silently wipe the downloads index too.
     final p = await SharedPreferences.getInstance();
-    await p.clear();
+    final keysToRemove = p.getKeys().where((k) {
+      return k == AppConstants.prefWatchlist ||
+          k == AppConstants.prefContinueWatching ||
+          k == AppConstants.prefRecentSearches ||
+          k == AppConstants.prefPreferredQuality ||
+          k.startsWith('settings.');
+    }).toList();
+    for (final k in keysToRemove) {
+      await p.remove(k);
+    }
     if (!mounted) return;
     ref.invalidate(settingsProvider);
     ScaffoldMessenger.of(context)
@@ -279,14 +289,14 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
           ),
           for (final s in speeds)
             ListTile(
-              title: Text('${s.toStringAsFixed(s.truncateToDouble() == s ? 1 : 2)}×',
+              title: Text(
+                  '${s.toStringAsFixed(s.truncateToDouble() == s ? 1 : 2)}×',
                   style: AppTypography.bodyPrimary.copyWith(
                       color: s == current
                           ? AppColors.accent
                           : AppColors.textPrimary,
-                      fontWeight: s == current
-                          ? FontWeight.w700
-                          : FontWeight.w500)),
+                      fontWeight:
+                          s == current ? FontWeight.w700 : FontWeight.w500)),
               trailing: s == current
                   ? const Icon(Icons.check_rounded, color: AppColors.accent)
                   : null,
@@ -315,11 +325,10 @@ class _SectionHeader extends StatelessWidget {
   const _SectionHeader(this.label);
   @override
   Widget build(BuildContext context) => Padding(
-      padding: const EdgeInsets.only(
-          bottom: AppSpacing.sm, top: AppSpacing.xs),
+      padding: const EdgeInsets.only(bottom: AppSpacing.sm, top: AppSpacing.xs),
       child: Text(label,
-          style:
-              AppTypography.sectionHeading.copyWith(fontSize: 13, letterSpacing: 1.2)));
+          style: AppTypography.sectionHeading
+              .copyWith(fontSize: 13, letterSpacing: 1.2)));
 }
 
 class _ListTile extends StatelessWidget {
@@ -433,11 +442,11 @@ class _StatTile extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                   Text(value,
-                      style: AppTypography.cardTitle.copyWith(
-                          fontSize: 18, fontWeight: FontWeight.w700)),
+                      style: AppTypography.cardTitle
+                          .copyWith(fontSize: 18, fontWeight: FontWeight.w700)),
                   Text(label,
-                      style: AppTypography.metadata.copyWith(
-                          color: AppColors.textMuted, fontSize: 11)),
+                      style: AppTypography.metadata
+                          .copyWith(color: AppColors.textMuted, fontSize: 11)),
                 ]))
           ])));
 }

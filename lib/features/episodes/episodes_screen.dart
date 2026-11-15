@@ -31,11 +31,6 @@ class _EpisodesScreenState extends ConsumerState<EpisodesScreen> {
   void initState() {
     super.initState();
     _seasonNum = widget.initialSeason;
-  }
-
-  @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
     _future = _tmdb.getEpisodes(widget.details.id, _seasonNum);
   }
 
@@ -167,8 +162,7 @@ class _EpisodesScreenState extends ConsumerState<EpisodesScreen> {
                         return const SliverFillRemaining(
                             child: Center(
                                 child: CircularProgressIndicator(
-                                    color: AppColors.accent,
-                                    strokeWidth: 2)));
+                                    color: AppColors.accent, strokeWidth: 2)));
                       }
                       if (snap.hasError || !snap.hasData) {
                         return SliverFillRemaining(
@@ -224,8 +218,8 @@ class _EpisodesScreenState extends ConsumerState<EpisodesScreen> {
                                                                   .textMuted,
                                                               size: 28)))
                                               : Container(
-                                                  color: AppColors
-                                                      .surfaceElevated,
+                                                  color:
+                                                      AppColors.surfaceElevated,
                                                   child: const Icon(Icons.movie,
                                                       color:
                                                           AppColors.textMuted,
@@ -257,8 +251,7 @@ class _EpisodesScreenState extends ConsumerState<EpisodesScreen> {
                                                   color: Colors.black
                                                       .withValues(alpha: 0.7),
                                                   borderRadius:
-                                                      BorderRadius.circular(
-                                                          4)),
+                                                      BorderRadius.circular(4)),
                                               child: Text(
                                                 '${(progress * 100).round()}%',
                                                 style: const TextStyle(
@@ -278,15 +271,14 @@ class _EpisodesScreenState extends ConsumerState<EpisodesScreen> {
                                           Text('${ep.episodeNumber}. ',
                                               style: AppTypography.cardTitle
                                                   .copyWith(
-                                                      color:
-                                                          AppColors.accent)),
+                                                      color: AppColors.accent)),
                                           Expanded(
                                               child: Text(ep.name,
                                                   maxLines: 2,
                                                   overflow:
                                                       TextOverflow.ellipsis,
-                                                  style: AppTypography
-                                                      .cardTitle)),
+                                                  style:
+                                                      AppTypography.cardTitle)),
                                           if (_isUpcoming(ep.airDate)) ...[
                                             const SizedBox(width: 6),
                                             _UpcomingBadge(),
@@ -299,8 +291,8 @@ class _EpisodesScreenState extends ConsumerState<EpisodesScreen> {
                                                 ep.airDate!.isNotEmpty) ||
                                             ep.voteAverage > 0)
                                           Padding(
-                                              padding: const EdgeInsets.only(
-                                                  top: 4),
+                                              padding:
+                                                  const EdgeInsets.only(top: 4),
                                               child: Row(children: [
                                                 if (ep.airDate != null &&
                                                     ep.airDate!.isNotEmpty)
@@ -331,8 +323,7 @@ class _EpisodesScreenState extends ConsumerState<EpisodesScreen> {
                                                     const SizedBox(width: 2),
                                                     Text(
                                                         ep.voteAverage
-                                                            .toStringAsFixed(
-                                                                1),
+                                                            .toStringAsFixed(1),
                                                         style: AppTypography
                                                             .metadata
                                                             .copyWith(
@@ -345,8 +336,8 @@ class _EpisodesScreenState extends ConsumerState<EpisodesScreen> {
                                               ])),
                                         if (ep.overview.isNotEmpty)
                                           Padding(
-                                              padding: const EdgeInsets.only(
-                                                  top: 4),
+                                              padding:
+                                                  const EdgeInsets.only(top: 4),
                                               child: Text(ep.overview,
                                                   maxLines: 2,
                                                   overflow:
@@ -357,10 +348,11 @@ class _EpisodesScreenState extends ConsumerState<EpisodesScreen> {
                                                               .textSecondary))),
                                         if (resume != null)
                                           Padding(
-                                              padding: const EdgeInsets.only(
-                                                  top: 6),
+                                              padding:
+                                                  const EdgeInsets.only(top: 6),
                                               child: Row(children: [
-                                                const Icon(Icons.history_rounded,
+                                                const Icon(
+                                                    Icons.history_rounded,
                                                     size: 12,
                                                     color: AppColors.accent),
                                                 const SizedBox(width: 4),
@@ -421,8 +413,7 @@ class _NewBadge extends StatelessWidget {
   Widget build(BuildContext context) => Container(
       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
       decoration: BoxDecoration(
-          color: AppColors.accent,
-          borderRadius: BorderRadius.circular(4)),
+          color: AppColors.accent, borderRadius: BorderRadius.circular(4)),
       child: Text('NEW',
           style: AppTypography.metadata.copyWith(
               color: Colors.white,
@@ -436,8 +427,7 @@ class _UpcomingBadge extends StatelessWidget {
   Widget build(BuildContext context) => Container(
       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
       decoration: BoxDecoration(
-          color: AppColors.warning,
-          borderRadius: BorderRadius.circular(4)),
+          color: AppColors.warning, borderRadius: BorderRadius.circular(4)),
       child: Text('UPCOMING',
           style: AppTypography.metadata.copyWith(
               color: Colors.black,

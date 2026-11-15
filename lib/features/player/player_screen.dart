@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -19,6 +20,7 @@ import '../../shared/models/media_details.dart';
 import '../../shared/models/stream_source.dart';
 import '../../shared/providers/continue_watching_provider.dart';
 import '../../shared/providers/download_provider.dart';
+import '../../shared/providers/open_cinema_provider.dart';
 import '../../shared/providers/player_controller.dart';
 import '../../shared/providers/settings_provider.dart';
 import '../../shared/providers/stream_providers.dart';
@@ -31,6 +33,9 @@ class PlayerScreen extends ConsumerStatefulWidget {
   final int resumeAtMs;
   final PlayerArgs? nextEpisode;
 
+  /// When set, plays this local file (offline download) instead of a network stream.
+  final String? localFilePath;
+
   const PlayerScreen({
     super.key,
     required this.details,
@@ -39,6 +44,7 @@ class PlayerScreen extends ConsumerStatefulWidget {
     this.episodeTitle,
     this.resumeAtMs = 0,
     this.nextEpisode,
+    this.localFilePath,
   });
 
   @override
@@ -156,6 +162,33 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
       _completed = false;
     });
     try {
+      final localPath = widget.localFilePath;
+      if (localPath != null) {
+        final f = File(localPath);
+        if (!await f.exists()) {
+          if (!mounted) return;
+          setState(() {
+            _loadingSources = false;
+            _error =
+                'The downloaded file is missing. Remove it from Downloads and download it again.';
+          });
+          return;
+        }
+        final src = StreamSource(
+          url: f.path,
+          name: 'Offline · ${widget.details.title}',
+          quality: 'Local',
+          providerId: 'local',
+        );
+        _sources = [src];
+        await _play(src);
+        if (!mounted) return;
+        setState(() {
+          _loadingSources = false;
+          _selected = src;
+        });
+        return;
+      }
       final svc = ref.read(streamServiceProvider);
       final list = await svc.getAllStreams(widget.details,
           season: widget.season, episode: widget.episode);
@@ -163,7 +196,8 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
       if (list.isEmpty) {
         setState(() {
           _loadingSources = false;
-          _error = 'No in-app stream available for this title. Try the trailer or tap Retry.';
+          _error =
+              'No in-app stream available for this title. Try the trailer or tap Retry.';
         });
         return;
       }
@@ -360,13 +394,8 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
   }
 
   bool _isDownloaded() {
-    final n = ref.read(downloadProvider);
-    final d = n.firstWhere((x) => x.key == _downloadKey(),
-        orElse: () => DownloadItem(
-            key: '', title: '', subtitle: '', posterPath: null, kind: '',
-            mediaId: 0, season: 0, episode: 0,
-            status: DownloadStatus.queued));
-    return d.key.isNotEmpty && d.status == DownloadStatus.completed;
+    final d = ref.read(downloadProvider.notifier).byKey(_downloadKey());
+    return d?.status == DownloadStatus.completed;
   }
 
   void _toggleDownload() {
@@ -376,11 +405,22 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
         ? '${widget.details.title} · ${widget.episodeTitle}'
         : widget.details.title;
     final subtitle = widget.season > 0
-        ? 'S${widget.season.toString().padLeft(2,'0')}E${widget.episode.toString().padLeft(2,'0')}'
+        ? 'S${widget.season.toString().padLeft(2, '0')}E${widget.episode.toString().padLeft(2, '0')}'
         : 'Movie';
     if (n.has(key)) {
       n.remove(key);
       _showToast('Removed from downloads');
+      return;
+    }
+    // Downloads stream real bytes, so we can only save titles whose source
+    // URL we actually know (the Open Cinema library, MP4 entries only).
+    final url = widget.details.type == MediaType.movie &&
+            openCinemaSupportsDownload(widget.details.id)
+        ? openCinemaStreamUrl(widget.details.id)
+        : null;
+    if (url == null) {
+      _showToast(
+          'Offline download is only available for titles in the Open Cinema library');
       return;
     }
     n.enqueue(DownloadItem(
@@ -392,7 +432,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
       mediaId: widget.details.id,
       season: widget.season,
       episode: widget.episode,
-      sizeBytes: (420 + (widget.details.id % 5) * 120) * 1024 * 1024,
+      url: url,
     ));
     _showToast('Downloading $title');
   }
@@ -410,8 +450,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
   Widget _buildScrubPreview() {
     final pct = _duration.inMilliseconds == 0
         ? 0.0
-        : (_position.inMilliseconds / _duration.inMilliseconds)
-            .clamp(0.0, 1.0);
+        : (_position.inMilliseconds / _duration.inMilliseconds).clamp(0.0, 1.0);
     return Align(
         alignment: Alignment(-1.0 + pct * 2.0, 1),
         child: FractionalTranslation(
@@ -423,8 +462,8 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
                 decoration: BoxDecoration(
                     color: AppColors.surface,
                     borderRadius: BorderRadius.circular(8),
-                    border: Border.all(
-                        color: Colors.white.withValues(alpha: 0.1)),
+                    border:
+                        Border.all(color: Colors.white.withValues(alpha: 0.1)),
                     boxShadow: [
                       BoxShadow(
                           color: Colors.black.withValues(alpha: 0.5),
@@ -449,8 +488,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
                                   width: bc.maxWidth * 2,
                                   height: bc.maxHeight)));
                     }),
-                  Container(
-                      color: Colors.black.withValues(alpha: 0.35)),
+                  Container(color: Colors.black.withValues(alpha: 0.35)),
                   Center(
                       child: Container(
                           padding: const EdgeInsets.symmetric(
@@ -874,15 +912,16 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
                             AppTypography.bodyPrimary.copyWith(fontSize: 13)))),
 
           // Next-up card (always visible when nextEpisode available and controls showing)
-          if (widget.nextEpisode != null && _showControls && !_locked &&
+          if (widget.nextEpisode != null &&
+              _showControls &&
+              !_locked &&
               _autoAdvanceCountdown == 0)
             Positioned(
                 bottom: 170,
                 left: 16,
                 right: 16,
                 child: _NextUpCard(
-                    episode: widget.nextEpisode!,
-                    onPlay: _playNext)),
+                    episode: widget.nextEpisode!, onPlay: _playNext)),
 
           // Resume-toast
           if (widget.resumeAtMs > 5000 && !_seekedToResume && hasVideo)
@@ -1064,8 +1103,10 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
                                         color: AppColors.textPrimary, size: 22),
                                     onPressed: _shareCurrent),
                                 IconButton(
-                                    icon: const Icon(Icons.picture_in_picture_alt_rounded,
-                                        color: AppColors.textPrimary, size: 22),
+                                    icon: const Icon(
+                                        Icons.picture_in_picture_alt_rounded,
+                                        color: AppColors.textPrimary,
+                                        size: 22),
                                     onPressed: () async {
                                       final pip = ref.read(pipServiceProvider);
                                       final ok = await pip.enterPip();
@@ -1180,8 +1221,7 @@ class _NextUpCard extends StatelessWidget {
         decoration: BoxDecoration(
             color: Colors.black.withValues(alpha: 0.78),
             borderRadius: BorderRadius.circular(12),
-            border:
-                Border.all(color: Colors.white.withValues(alpha: 0.08))),
+            border: Border.all(color: Colors.white.withValues(alpha: 0.08))),
         child: Row(children: [
           Container(
               width: 74,
@@ -1221,13 +1261,13 @@ class _NextUpCard extends StatelessWidget {
                     'S${episode.season.toString().padLeft(2, '0')}E${episode.episode.toString().padLeft(2, '0')} · $title',
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: AppTypography.bodyPrimary.copyWith(
-                        fontSize: 13, fontWeight: FontWeight.w600)),
+                    style: AppTypography.bodyPrimary
+                        .copyWith(fontSize: 13, fontWeight: FontWeight.w600)),
                 Text(episode.details.title,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: AppTypography.metadata.copyWith(
-                        color: AppColors.textMuted, fontSize: 11)),
+                    style: AppTypography.metadata
+                        .copyWith(color: AppColors.textMuted, fontSize: 11)),
               ])),
           IconButton(
               onPressed: onPlay,
@@ -1269,13 +1309,12 @@ class _DoubleTapZoneState extends State<_DoubleTapZone> {
                   decoration: BoxDecoration(
                       color: Colors.black.withValues(alpha: 0.55),
                       shape: BoxShape.circle),
-                  child: Icon(widget.icon,
-                      color: Colors.white, size: 36)))),
+                  child: Icon(widget.icon, color: Colors.white, size: 36)))),
     );
   }
 }
 
-class _EpisodeStrip extends ConsumerWidget {
+class _EpisodeStrip extends ConsumerStatefulWidget {
   final int tvId, season, currentEpisode;
   final void Function(Episode) onTap;
   const _EpisodeStrip(
@@ -1284,16 +1323,30 @@ class _EpisodeStrip extends ConsumerWidget {
       required this.currentEpisode,
       required this.onTap});
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final async = ref.watch(seasonEpisodesProvider('$tvId:$season'));
+  ConsumerState<_EpisodeStrip> createState() => _EpisodeStripState();
+}
+
+class _EpisodeStripState extends ConsumerState<_EpisodeStrip> {
+  ScrollController? _scroll;
+
+  @override
+  void dispose() {
+    _scroll?.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final async =
+        ref.watch(seasonEpisodesProvider('${widget.tvId}:${widget.season}'));
     return async.when(
         loading: () => const SizedBox(height: 80),
         error: (_, __) => const SizedBox(height: 80),
         data: (eps) {
           if (eps.length < 2) return const SizedBox(height: 80);
-          final controller = ScrollController(
+          final controller = _scroll ??= ScrollController(
               initialScrollOffset:
-                  (currentEpisode - 1).clamp(0, eps.length - 1) * 110.0);
+                  (widget.currentEpisode - 1).clamp(0, eps.length - 1) * 110.0);
           return SizedBox(
               height: 92,
               child: ListView.separated(
@@ -1307,9 +1360,9 @@ class _EpisodeStrip extends ConsumerWidget {
                       const SizedBox(width: AppSpacing.sm),
                   itemBuilder: (_, i) {
                     final ep = eps[i];
-                    final active = ep.episodeNumber == currentEpisode;
+                    final active = ep.episodeNumber == widget.currentEpisode;
                     return _EpisodeThumb(
-                        ep: ep, active: active, onTap: () => onTap(ep));
+                        ep: ep, active: active, onTap: () => widget.onTap(ep));
                   }));
         });
   }
@@ -1337,7 +1390,8 @@ class _EpisodeThumb extends StatelessWidget {
             clipBehavior: Clip.antiAlias,
             child: Stack(fit: StackFit.expand, children: [
               if (ep.stillUrl.isNotEmpty)
-                Image.network(ep.stillUrl, fit: BoxFit.cover,
+                Image.network(ep.stillUrl,
+                    fit: BoxFit.cover,
                     errorBuilder: (_, __, ___) => Container(
                         color: AppColors.surface,
                         child: const Icon(Icons.videocam,
@@ -1360,8 +1414,7 @@ class _EpisodeThumb extends StatelessWidget {
                   child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
-                            'E${ep.episodeNumber}',
+                        Text('E${ep.episodeNumber}',
                             style: AppTypography.metadata.copyWith(
                                 color: active
                                     ? AppColors.accent
