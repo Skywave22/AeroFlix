@@ -40,8 +40,10 @@ cached in `<appDocs>/tj_providers/`, and downloads only what changed.
 ## Requirements
 
 - Flutter **3.50.0** (Dart 3.14) — pinned in CI; `quickjs_engine` needs Dart ≥ 3.8
-- Android `minSdk 21`, NDK 27 (native QuickJS + media_kit)
-- JDK 17
+- Gradle **9.5.0**, AGP **9.3.1**, Kotlin **2.4.20** (Flutter 3.50 rejects older ones)
+- `compileSdk 36`, NDK **27** (native QuickJS + media_kit), JDK 17
+- APK size: ~100 MB universal (libmpv + QuickJS for 4 ABIs); use
+  `--split-per-abi` for ~35 MB arm64 builds
 
 ## Build
 
