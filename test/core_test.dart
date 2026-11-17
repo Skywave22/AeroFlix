@@ -2,6 +2,7 @@ import 'package:aeroflix/core/errors/failures.dart';
 import 'package:aeroflix/shared/models/media_details.dart';
 import 'package:aeroflix/shared/models/stream_source.dart';
 import 'package:aeroflix/shared/providers/continue_watching_provider.dart';
+import 'package:aeroflix/shared/providers/stream_providers.dart';
 import 'package:aeroflix/core/utils/trailer_helper.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -212,6 +213,52 @@ void main() {
       expect(s2.url, s.url);
       expect(s2.providerId, s.providerId);
       expect(s2.quality, '1080p');
+    });
+  });
+
+  group('source ordering', () {
+    const hls = StreamSource(
+        url: 'https://cdn.example.com/film/index.m3u8',
+        name: 'Provider · Citadel',
+        providerId: 'p',
+        quality: '720p',
+        language: 'Hindi');
+    const packed = StreamSource(
+        url: 'https://wts.itsnitrox.tech/pitro/abc',
+        name: 'Provider · Nitro - Hindi (1080p)',
+        providerId: 'p',
+        quality: '1080p',
+        language: 'Hindi');
+    const maybe = StreamSource(
+        url: 'https://a.example.com/movies/film.mp4',
+        name: 'Provider · MovOne (1080p) (may not play)',
+        providerId: 'p',
+        quality: '1080p');
+
+    test('adaptive HLS ranks above a packed redirect even at lower quality',
+        () {
+      final list = [packed, hls]..sort(StreamService.compareSources);
+      expect(list.first.url, hls.url);
+    });
+
+    test('links advertised as "may not play" go last', () {
+      final list = [maybe, packed, hls]..sort(StreamService.compareSources);
+      expect(list.last.url, maybe.url);
+    });
+
+    test('quality still breaks ties between comparable links', () {
+      const hd = StreamSource(
+          url: 'https://c.example.com/a/index.m3u8',
+          name: 'Provider · Citadel',
+          providerId: 'p',
+          quality: '1080p');
+      const sd = StreamSource(
+          url: 'https://c.example.com/b/index.m3u8',
+          name: 'Provider · Citadel',
+          providerId: 'p',
+          quality: '480p');
+      final list = [sd, hd]..sort(StreamService.compareSources);
+      expect(list.first.url, hd.url);
     });
   });
 }

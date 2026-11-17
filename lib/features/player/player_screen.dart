@@ -74,6 +74,19 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
   final Map<String, ProviderResolution> _progress = {};
   StreamSubscription<ProviderResolution>? _resolveSub;
   bool _startedPlayback = false;
+
+  /// Sources that failed to open, so retries/failover never pick them again.
+  final Set<String> _deadUrls = {};
+  Timer? _startWatchdog;
+  StreamSubscription<String>? _errorSub;
+  StreamSubscription<bool>? _bufferingSub;
+  bool _buffering = false;
+  bool _failingOver = false;
+  bool _pendingFailover = false;
+  bool _softwareDecode = false;
+  Duration _lastAdvancedPos = Duration.zero;
+  DateTime _lastAdvanceAt = DateTime.now();
+  Timer? _stallTimer;
   bool _playing = false;
   Duration _position = Duration.zero;
   Duration _duration = Duration.zero;
@@ -226,13 +239,18 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
         if (!mounted) return;
         setState(() => _progress[res.providerId] = res);
         if (res.sources.isEmpty) return;
-        final merged = <StreamSource>{..._sources, ...res.sources}.toList();
-        merged.sort((a, b) {
-          final q = _quality(a.quality).compareTo(_quality(b.quality));
-          if (q != 0) return -q;
-          return _hindi(a).compareTo(_hindi(b));
-        });
+        final merged = <StreamSource>{..._sources, ...res.sources}.toList()
+          ..sort(StreamService.compareSources);
         setState(() => _sources = merged);
+        if (_pendingFailover) {
+          final next = merged.firstWhere(
+            (s) => !_deadUrls.contains(s.url),
+            orElse: () => res.sources.first,
+          );
+          _pendingFailover = false;
+          _play(next);
+          return;
+        }
         if (!_startedPlayback) {
           _startedPlayback = true;
           final first = merged.first;
@@ -256,6 +274,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
         if (!mounted) return;
         setState(() {
           _loadingSources = false;
+          _pendingFailover = false;
           if (_sources.isEmpty && _error == null) {
             final failures = _progress.entries
                 .where((e) => !e.value.ok)
@@ -269,19 +288,6 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
       },
     );
   }
-
-  static int _quality(String? q) {
-    final s = (q ?? '').toLowerCase();
-    if (s.contains('4k') || s.contains('2160')) return 5;
-    if (s.contains('1440')) return 4;
-    if (s.contains('1080')) return 3;
-    if (s.contains('720')) return 2;
-    if (s.contains('480')) return 1;
-    return 0;
-  }
-
-  static int _hindi(StreamSource s) =>
-      '${s.language ?? ''} ${s.name}'.toLowerCase().contains('hindi') ? 0 : 1;
 
   /// Loading / failure panel: shows which provider is being scraped and, when
   /// nothing resolves, gives the user something that actually works.
@@ -369,6 +375,17 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
                     icon:
                         const Icon(Icons.play_circle_outline_rounded, size: 18),
                     label: const Text('Watch trailer')),
+              if (_sources.length > 1)
+                OutlinedButton.icon(
+                    onPressed: () {
+                      for (final s in _sources) {
+                        _deadUrls.remove(s.url);
+                      }
+                      _softwareDecode = false;
+                      _openSourceSheet();
+                    },
+                    icon: const Icon(Icons.video_settings_rounded, size: 18),
+                    label: Text('Sources (${_sources.length})')),
               TextButton.icon(
                   onPressed: () => Navigator.of(context).push(MaterialPageRoute(
                       builder: (_) => const ProviderDiagnosticsScreen())),
@@ -424,8 +441,51 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
   }
 
   Future<void> _play(StreamSource src) async {
-    final ap = await ref.read(activePlayerProvider.notifier).play(src);
+    _startWatchdog?.cancel();
+    _errorSub?.cancel();
+    _bufferingSub?.cancel();
+    final ap = await ref
+        .read(activePlayerProvider.notifier)
+        .play(src, softwareDecode: _softwareDecode);
     ap.player.setRate(_rate);
+
+    // A provider link that opens but never produces a frame (403 from the CDN,
+    // expired token, dead mirror) leaves media_kit "buffering" forever. Watch
+    // for that and move to the next source on our own.
+    _lastAdvancedPos = Duration.zero;
+    _lastAdvanceAt = DateTime.now();
+    _stallTimer?.cancel();
+    _stallTimer = Timer.periodic(const Duration(seconds: 4), (_) {
+      if (!mounted) return;
+      final stalledFor = DateTime.now().difference(_lastAdvanceAt);
+      final noProgress = _position == _lastAdvancedPos;
+      if (_playing && !_completed && noProgress && stalledFor.inSeconds >= 14) {
+        _failover(src, 'playback stalled for ${stalledFor.inSeconds}s');
+      }
+    });
+
+    _startWatchdog = Timer(const Duration(seconds: 14), () {
+      if (!mounted || _deadUrls.contains(src.url)) return;
+      if (_duration > Duration.zero || _position > Duration.zero) return;
+      _failover(src, 'did not start');
+    });
+    _errorSub = ap.player.stream.error.listen((message) {
+      if (!mounted || message.isEmpty) return;
+      _failover(src, message);
+    });
+    _bufferingSub = ap.player.stream.buffering.listen((b) {
+      if (!mounted) return;
+      setState(() => _buffering = b);
+      if (!b) return;
+      // Still buffering with nothing played for 25 s on this source? Give up on
+      // it rather than spinning forever.
+      Timer(const Duration(seconds: 25), () {
+        if (!mounted) return;
+        if (_selected?.url != src.url) return;
+        if (_position > Duration.zero) return;
+        _failover(src, 'stalled while buffering');
+      });
+    });
     _posSub?.cancel();
     _durSub?.cancel();
     _playSub?.cancel();
@@ -454,6 +514,11 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
     });
     _posSub = ap.player.stream.position.listen((p) {
       if (!mounted || _seeking) return;
+      if (p > _lastAdvancedPos) {
+        _lastAdvancedPos = p;
+        _lastAdvanceAt = DateTime.now();
+        _startWatchdog?.cancel();
+      }
       setState(() => _position = p);
       if (!_seekedToResume &&
           widget.resumeAtMs > 0 &&
@@ -487,6 +552,66 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
       }
     });
     setState(() => _selected = src);
+  }
+
+  /// Marks [src] dead and moves to the next untried source.
+  ///
+  /// Providers return a dozen links of wildly different quality of service, so
+  /// "this one link doesn't open" must never be a dead end for the user.
+  Future<void> _failover(StreamSource src, String reason) async {
+    if (_failingOver || !mounted) return;
+    if (src.url == widget.localFilePath) {
+      return; // offline playback: no alternatives
+    }
+    _failingOver = true;
+    _deadUrls.add(src.url);
+    // If hardware decoding couldn't produce a frame, the next source gets
+    // decoded on the CPU — otherwise every link would fail the same way.
+    _softwareDecode = true;
+    _startWatchdog?.cancel();
+
+    final next = _sources.firstWhere(
+      (s) => !_deadUrls.contains(s.url),
+      orElse: () => src,
+    );
+    if (next.url == src.url) {
+      if (!mounted) return;
+      if (_loadingSources) {
+        // Providers are still being scraped — hold on for the next batch
+        // instead of declaring failure on the first one that misbehaved.
+        _pendingFailover = true;
+        setState(() {
+          _failingOver = false;
+          _buffering = true;
+          _position = Duration.zero;
+          _duration = Duration.zero;
+        });
+        return;
+      }
+      setState(() {
+        _failingOver = false;
+        _buffering = false;
+        _error = 'Every source failed to play.\n\n'
+            'Last error: $reason\n\nTry again, pick another source from the '
+            'list, or watch the trailer.';
+      });
+      return;
+    }
+
+    if (mounted) {
+      final msg = '${src.name} failed — trying another source';
+      setState(() {
+        _position = Duration.zero;
+        _duration = Duration.zero;
+        _buffering = false;
+      });
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(
+            SnackBar(content: Text(msg), duration: const Duration(seconds: 2)));
+    }
+    await _play(next);
+    _failingOver = false;
   }
 
   void _beginAutoAdvanceCountdown() {
@@ -532,6 +657,10 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
     _completeSub?.cancel();
     _tracksSub?.cancel();
     _resolveSub?.cancel();
+    _startWatchdog?.cancel();
+    _stallTimer?.cancel();
+    _errorSub?.cancel();
+    _bufferingSub?.cancel();
     final pip = ref.read(pipServiceProvider);
     pip.removeListener(_onPipChanged);
     pip.setEnabled(false);
@@ -1003,6 +1132,30 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
                         BlendMode.dstOver),
                     child: Image.network(widget.details.backdropUrlW1280,
                         fit: BoxFit.cover))),
+
+          // Buffering pill (a source that plays but starves)
+          if (hasVideo && _buffering && !_loadingSources && _error == null)
+            Positioned(
+                top: 16,
+                left: 20,
+                child: Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  decoration: BoxDecoration(
+                      color: Colors.black.withValues(alpha: 0.6),
+                      borderRadius: BorderRadius.circular(20)),
+                  child: Row(mainAxisSize: MainAxisSize.min, children: [
+                    const SizedBox(
+                        width: 12,
+                        height: 12,
+                        child: CircularProgressIndicator(
+                            strokeWidth: 1.5, color: Colors.white)),
+                    const SizedBox(width: 8),
+                    Text('Buffering…',
+                        style: AppTypography.metadata
+                            .copyWith(color: Colors.white, fontSize: 11)),
+                  ]),
+                )),
 
           // Center state
           if (!hasVideo || _loadingSources || _error != null)

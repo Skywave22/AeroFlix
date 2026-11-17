@@ -83,7 +83,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                       floating: true,
                       snap: true,
                       elevation: 0,
-                      backgroundColor: Colors.transparent,
+                      scrolledUnderElevation: 0,
+                      surfaceTintColor: Colors.transparent,
+                      // Opaque, not transparent: a floating bar over scrolling
+                      // posters has to occlude them, otherwise the logo and the
+                      // section headings collide.
+                      backgroundColor: AppColors.background,
                       title: Row(children: [
                         Image.asset('assets/images/logo_mark.png',
                             width: 32,

@@ -107,12 +107,35 @@ class StreamService {
         .where((s) => s.url.isNotEmpty)
         .toList();
 
-    sources.sort((a, b) {
-      final hq = _rank(b.quality).compareTo(_rank(a.quality));
-      if (hq != 0) return hq;
-      return _hindiFirst(a).compareTo(_hindiFirst(b));
-    });
+    sources.sort(compareSources);
     return sources;
+  }
+
+  /// Playability-first ordering.
+  ///
+  /// A 4K link that never opens is worthless, so links advertised as
+  /// "(may not play)" or served through a packer redirect are pushed to the
+  /// end, adaptive HLS wins over raw files, and quality/language only break
+  /// ties. The player also auto-advances down this list when a source fails.
+  static int compareSources(StreamSource a, StreamSource b) =>
+      score(b).compareTo(score(a));
+
+  static int score(StreamSource s) {
+    final url = s.url.toLowerCase();
+    final name = s.name.toLowerCase();
+    var score = 0;
+    if (name.contains('may not play')) score -= 100;
+    if (url.contains('pitro') || url.contains('/stream/')) score -= 12;
+    if (url.contains('.m3u8')) {
+      score += 30;
+    } else if (url.contains('.mp4')) {
+      score += 24;
+    } else if (url.contains('.mkv')) {
+      score += 18;
+    }
+    score += _rank(s.quality);
+    if (_hindiFirst(s) == 0) score += 3;
+    return score;
   }
 
   static int _rank(String? q) {
