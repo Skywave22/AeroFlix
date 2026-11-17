@@ -1,6 +1,5 @@
 import 'package:url_launcher/url_launcher.dart';
 import '../../shared/models/media_details.dart';
-import '../../shared/providers/open_cinema_provider.dart' show isOpenCinemaId;
 
 /// Returns the best available YouTube trailer URL for this title, or null.
 String? trailerUrl(MediaDetails d) {
@@ -18,8 +17,9 @@ String? trailerUrl(MediaDetails d) {
   return best?.youtubeUrl;
 }
 
-/// True if we can play this title directly in-app (open-cinema / downloaded).
-bool canPlayDirectly(MediaDetails d) => isOpenCinemaId(d.id);
+/// A trailer is only a *fallback*: real playback always comes from the
+/// TJ-Plugins providers (see StreamService).
+bool hasTrailer(MediaDetails d) => trailerUrl(d) != null;
 
 /// Opens the trailer (if available) or TMDB page as a fallback.
 Future<bool> openTrailer(MediaDetails d) async {

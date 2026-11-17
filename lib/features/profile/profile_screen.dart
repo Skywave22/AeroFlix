@@ -3,15 +3,20 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:go_router/go_router.dart';
+import 'package:share_plus/share_plus.dart';
+import 'package:tj_flutter_providers/tj_providers.dart' show ProvidersScreen;
 import '../../app/theme/app_colors.dart';
 import '../../app/theme/app_radii.dart';
 import '../../app/theme/app_spacing.dart';
 import '../../app/theme/app_typography.dart';
 import '../../core/cache/image_cache_provider.dart';
 import '../../core/constants/app_constants.dart';
+import '../../core/providers/tj_providers_service.dart';
+import '../../shared/models/media_details.dart';
 import '../../shared/providers/continue_watching_provider.dart';
 import '../../shared/providers/settings_provider.dart';
 import '../../shared/providers/watchlist_provider.dart';
+import 'about_sheet.dart';
 
 class ProfileScreen extends ConsumerStatefulWidget {
   const ProfileScreen({super.key});
@@ -62,17 +67,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
               children: [
             // Profile header
             Row(children: [
-              Container(
-                  width: 72,
-                  height: 72,
-                  decoration: BoxDecoration(
-                      gradient: const LinearGradient(
-                          colors: [AppColors.accent, Color(0xFF7C5CFF)],
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight),
-                      borderRadius: BorderRadius.circular(36)),
-                  child: const Icon(Icons.play_circle_fill_rounded,
-                      color: Colors.white, size: 36)),
+              Image.asset('assets/images/logo_mark.png',
+                  width: 72, height: 72, filterQuality: FilterQuality.medium),
               const SizedBox(width: AppSpacing.md),
               Expanded(
                   child: Column(
@@ -115,8 +111,18 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
             _ListTile(
               icon: Icons.history_rounded,
               title: 'Recently watched',
-              subtitle: 'See your viewing history',
-              onTap: () => _comingSoon('Viewing history'),
+              subtitle: cwCount == 0
+                  ? 'Nothing watched yet'
+                  : '$cwCount title${cwCount == 1 ? '' : 's'} in progress',
+              onTap: cwCount == 0 ? null : _showHistory,
+              trailing: const Icon(Icons.chevron_right_rounded,
+                  color: AppColors.textMuted),
+            ),
+            _ListTile(
+              icon: Icons.extension_rounded,
+              title: 'Providers',
+              subtitle: 'Stream sources · check for updates',
+              onTap: _openProviders,
               trailing: const Icon(Icons.chevron_right_rounded,
                   color: AppColors.textMuted),
             ),
@@ -183,15 +189,17 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
               subtitle: '$_version ($_buildNumber)',
             ),
             _ListTile(
-              icon: Icons.star_outline_rounded,
-              title: 'Rate AeroFlix',
-              subtitle: 'Tell us what you think',
-              onTap: () => _comingSoon('App rating'),
+              icon: Icons.ios_share_rounded,
+              title: 'Share AeroFlix',
+              subtitle: 'Send the app to a friend',
+              onTap: _shareApp,
             ),
             _ListTile(
-              icon: Icons.privacy_tip_outlined,
-              title: 'Privacy & terms',
-              onTap: () => _comingSoon('Privacy policy'),
+              icon: Icons.info_outline_rounded,
+              title: 'About, privacy & terms',
+              subtitle: 'What this app does and what it stores',
+              onTap: () => AboutSheet.show(context,
+                  version: _version, build: _buildNumber),
             ),
             const SizedBox(height: 48),
 
@@ -311,12 +319,70 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     }
   }
 
-  void _comingSoon(String feature) {
-    ScaffoldMessenger.of(context)
-      ..hideCurrentSnackBar()
-      ..showSnackBar(SnackBar(
-          content: Text('$feature coming soon'),
-          duration: const Duration(seconds: 2)));
+  void _openProviders() {
+    Navigator.of(context).push(MaterialPageRoute(
+        builder: (_) =>
+            ProvidersScreen(service: ref.read(providerServiceProvider))));
+  }
+
+  Future<void> _shareApp() async {
+    final messenger = ScaffoldMessenger.of(context);
+    await Share.share(
+        'AeroFlix — movies, series and anime with real sources. '
+        'https://github.com/Skywave22/AeroFlix',
+        subject: 'AeroFlix');
+    messenger.hideCurrentSnackBar();
+  }
+
+  /// Real viewing history, built from the continue-watching store.
+  void _showHistory() {
+    final items = [...ref.read(continueWatchingProvider)]
+      ..sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
+    showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: AppColors.surface,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+          borderRadius:
+              BorderRadius.vertical(top: Radius.circular(AppRadii.lg))),
+      builder: (ctx) => DraggableScrollableSheet(
+        expand: false,
+        initialChildSize: 0.75,
+        maxChildSize: 0.95,
+        builder: (ctx, controller) => ListView.builder(
+          controller: controller,
+          padding: const EdgeInsets.all(AppSpacing.horizontalPadding),
+          itemCount: items.length + 1,
+          itemBuilder: (ctx, i) {
+            if (i == 0) {
+              return Padding(
+                padding: const EdgeInsets.only(bottom: AppSpacing.md),
+                child: Text('Recently watched',
+                    style: AppTypography.sectionHeading),
+              );
+            }
+            final it = items[i - 1];
+            final pct = (it.progress * 100).round();
+            return ListTile(
+              contentPadding: EdgeInsets.zero,
+              title: Text(it.title, style: AppTypography.cardTitle),
+              subtitle: Text(
+                it.type == MediaType.tv
+                    ? 'S${it.season.toString().padLeft(2, '0')}E${it.episode.toString().padLeft(2, '0')}'
+                        '${it.episodeTitle != null ? ' · ${it.episodeTitle}' : ''} · $pct% watched'
+                    : '$pct% watched',
+                style: AppTypography.caption,
+              ),
+              trailing: const Icon(Icons.play_arrow_rounded),
+              onTap: () {
+                Navigator.of(ctx).pop();
+                context.push('/details/${it.type.name}/${it.id}');
+              },
+            );
+          },
+        ),
+      ),
+    );
   }
 }
 
@@ -407,7 +473,7 @@ class _SwitchTile extends StatelessWidget {
       subtitle: subtitle,
       trailing: Switch(
         value: value,
-        activeColor: AppColors.accent,
+        activeThumbColor: AppColors.accent,
         inactiveThumbColor: AppColors.textMuted,
         inactiveTrackColor: AppColors.surfaceElevated,
         trackOutlineWidth: const WidgetStatePropertyAll(0),

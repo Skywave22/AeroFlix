@@ -14,14 +14,6 @@ import 'dio_client.dart';
 class TmdbService {
   TmdbService(this._dio);
 
-  /// Free public-domain / open-source cinema ids we serve directly.
-  /// Used by the home "Free to Watch" carousel.
-  // Kept in sync with open_cinema_provider.dart's playable library.
-  static const List<int> openCinemaIds = [
-    10378, // Big Buck Bunny
-    7486, // Sintel
-  ];
-
   final Dio _dio;
 
   Future<List<Movie>> getTrendingMovies({String tw = 'week'}) =>

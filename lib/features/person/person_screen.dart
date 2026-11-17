@@ -143,7 +143,7 @@ class _Content extends StatelessWidget {
                     gradient: LinearGradient(
                         begin: Alignment.topCenter,
                         end: Alignment.bottomCenter,
-                        colors: [Color(0x66090A0D), AppColors.background],
+                        colors: [Color(0x6606070C), AppColors.background],
                         stops: [0.0, 1.0]))),
           ]))),
       SliverToBoxAdapter(

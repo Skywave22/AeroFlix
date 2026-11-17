@@ -10,11 +10,11 @@ import '../../app/theme/app_radii.dart';
 import '../../app/theme/app_spacing.dart';
 import '../../app/theme/app_typography.dart';
 import '../../core/network/tmdb_service.dart';
-import '../../core/utils/trailer_helper.dart';
-import '../../shared/providers/open_cinema_provider.dart';
 import '../../shared/models/media_details.dart';
+import '../../shared/models/stream_source.dart';
 import '../../shared/providers/continue_watching_provider.dart';
 import '../../shared/providers/download_provider.dart';
+import '../../shared/providers/stream_providers.dart';
 import '../../shared/providers/watchlist_provider.dart';
 import '../../shared/widgets/horizontal_carousel.dart';
 import '../../shared/widgets/poster_card.dart';
@@ -126,20 +126,37 @@ void _toggleDownload(
           duration: const Duration(seconds: 2)));
     return;
   }
-  // Downloads stream real bytes, so only titles with a known direct-file
-  // source (Open Cinema library, MP4 entries) can be saved offline.
-  final url = d.type == MediaType.movie && openCinemaSupportsDownload(d.id)
-      ? openCinemaStreamUrl(d.id)
-      : null;
-  if (url == null) {
+  // Offline download needs a single direct file (MP4/MKV). HLS playlists are
+  // not downloadable as one file, so we resolve the providers and take the
+  // first direct-file link they return.
+  ScaffoldMessenger.of(context)
+    ..hideCurrentSnackBar()
+    ..showSnackBar(const SnackBar(
+        content: Text('Looking for a downloadable file…'),
+        duration: Duration(seconds: 2)));
+  StreamSource? direct;
+  try {
+    final sources = await ref.read(streamServiceProvider).getAllStreams(d);
+    for (final s in sources) {
+      final u = s.url.toLowerCase();
+      if (u.contains('.mp4') || u.contains('.mkv')) {
+        direct = s;
+        break;
+      }
+    }
+  } catch (_) {
+    direct = null;
+  }
+  if (direct == null) {
     ScaffoldMessenger.of(context)
       ..hideCurrentSnackBar()
-      ..showSnackBar(SnackBar(
-          content: const Text(
-              'Offline download is only available for titles in the Open Cinema library'),
-          duration: const Duration(seconds: 3)));
+      ..showSnackBar(const SnackBar(
+          content: Text(
+              'No direct MP4/MKV link for this title right now — stream it instead, or try again later.'),
+          duration: Duration(seconds: 4)));
     return;
   }
+  final url = direct.url;
   final added = await n.enqueue(DownloadItem(
     key: key,
     title: d.title,
@@ -226,7 +243,7 @@ class _DetailsContent extends ConsumerWidget {
                   gradient: LinearGradient(
                       begin: Alignment.topCenter,
                       end: Alignment.bottomCenter,
-                      colors: [Color(0x66090A0D), AppColors.background],
+                      colors: [Color(0x6606070C), AppColors.background],
                       stops: [0.0, 1.0]))),
         ])),
       ),
@@ -280,8 +297,6 @@ class _DetailsContent extends ConsumerWidget {
 
                         final isTv = details.type == MediaType.tv;
                         final resume = isTv ? tvResume : movieResume;
-                        final direct = canPlayDirectly(details);
-                        final trailer = trailerUrl(details);
                         String label;
                         IconData icon;
                         if (isTv) {
@@ -294,12 +309,6 @@ class _DetailsContent extends ConsumerWidget {
                         } else if (resume != null) {
                           label = 'Resume';
                           icon = Icons.play_arrow_rounded;
-                        } else if (direct) {
-                          label = 'Play';
-                          icon = Icons.play_arrow_rounded;
-                        } else if (trailer != null) {
-                          label = 'Watch Trailer';
-                          icon = Icons.play_circle_outline_rounded;
                         } else {
                           label = 'Play';
                           icon = Icons.play_arrow_rounded;
@@ -327,23 +336,12 @@ class _DetailsContent extends ConsumerWidget {
                                     extra: EpisodesArgs(
                                         details: details,
                                         initialSeason: firstSeason));
-                              } else if (direct || resume != null) {
+                              } else {
                                 context.push('/player',
                                     extra: PlayerArgs(
                                       details: details,
                                       resumeAtMs: resume?.positionMs ?? 0,
                                     ));
-                              } else {
-                                // Fall back to YouTube trailer / TMDB page.
-                                final ok = await openTrailer(details);
-                                if (!ok && context.mounted) {
-                                  ScaffoldMessenger.of(context)
-                                    ..hideCurrentSnackBar()
-                                    ..showSnackBar(const SnackBar(
-                                        content: Text(
-                                            'Couldn\'t open the trailer right now'),
-                                        duration: Duration(seconds: 2)));
-                                }
                               }
                             },
                             icon: Icon(icon, size: 22),

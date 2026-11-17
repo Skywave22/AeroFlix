@@ -1,0 +1,29 @@
+name: tj_flutter_providers
+description: "Run Plugins-TJ (Nuvio) streaming providers — Cinezo, ScreenScape, Nxsha, AniHype, KatDrama and 20 more — inside a Flutter app, with automatic updates from GitHub."
+version: 1.0.0
+homepage: https://github.com/Skywave22/Plugins-TJ
+
+environment:
+  # quickjs_engine (QuickJS-NG 0.14) requires Dart >= 3.8 / Flutter >= 3.32.
+  sdk: '>=3.8.0 <4.0.0'
+  flutter: '>=3.32.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+  quickjs_engine: ^0.1.7
+  http: ^1.2.0
+  path_provider: ^2.1.0
+  path: ^1.9.0
+  crypto: ^3.0.3
+  pointycastle: ^3.9.1
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+
+flutter:
+  assets:
+    - assets/js/polyfill.js
+    - assets/js/call.js
+    - assets/js/crypto-js.min.js

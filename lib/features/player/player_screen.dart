@@ -21,7 +21,6 @@ import '../../shared/models/media_details.dart';
 import '../../shared/models/stream_source.dart';
 import '../../shared/providers/continue_watching_provider.dart';
 import '../../shared/providers/download_provider.dart';
-import '../../shared/providers/open_cinema_provider.dart';
 import '../../shared/providers/player_controller.dart';
 import '../../shared/providers/settings_provider.dart';
 import '../../shared/providers/stream_providers.dart';
@@ -58,6 +57,11 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
   Timer? _hideTimer;
   Timer? _progressSaveTimer;
   Timer? _autoAdvanceTimer;
+
+  static bool _isDirectFile(String url) {
+    final u = url.toLowerCase();
+    return (u.contains('.mp4') || u.contains('.mkv')) && !u.contains('.m3u8');
+  }
 
   List<StreamSource> _sources = const [];
   StreamSource? _selected;
@@ -425,17 +429,26 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
       _showToast('Removed from downloads');
       return;
     }
-    // Downloads stream real bytes, so we can only save titles whose source
-    // URL we actually know (the Open Cinema library, MP4 entries only).
-    final url = widget.details.type == MediaType.movie &&
-            openCinemaSupportsDownload(widget.details.id)
-        ? openCinemaStreamUrl(widget.details.id)
-        : null;
-    if (url == null) {
+    // Offline download copies real bytes, so it needs a single direct file.
+    // The currently selected source is used when it is MP4/MKV, otherwise the
+    // first direct-file source the providers returned.
+    StreamSource? direct;
+    if (_selected != null && _isDirectFile(_selected!.url)) {
+      direct = _selected;
+    } else {
+      for (final s in _sources) {
+        if (_isDirectFile(s.url)) {
+          direct = s;
+          break;
+        }
+      }
+    }
+    if (direct == null) {
       _showToast(
-          'Offline download is only available for titles in the Open Cinema library');
+          'This link is an HLS stream — pick an MP4/MKV source to download offline');
       return;
     }
+    final url = direct.url;
     n.enqueue(DownloadItem(
       key: key,
       title: title,

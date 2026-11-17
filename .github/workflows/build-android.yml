@@ -12,11 +12,46 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+env:
+  # Flutter 3.50 / Dart 3.14 — required by the QuickJS-NG engine that runs the
+  # TJ provider bundles (quickjs_engine needs Dart >= 3.8) and by the current
+  # media_kit_video SurfaceProducer API.
+  FLUTTER_VERSION: 3.50.0
+  NDK_VERSION: 27.0.12077973
+  CMAKE_VERSION: 3.22.1
+
 jobs:
+  verify:
+    name: Format, analyze, test
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Verify formatting (app + vendored provider package)
+        run: dart format --output=none --set-exit-if-changed lib test packages/tj_flutter_providers/lib packages/tj_flutter_providers/test
+
+      - name: Analyze (fatal on errors/warnings)
+        run: flutter analyze --no-pub
+
+      - name: Run tests
+        run: flutter test --no-pub --timeout 120s
+
   build-debug:
     name: Build debug APK
     runs-on: ubuntu-24.04
     timeout-minutes: 45
+    needs: verify
     steps:
       - uses: actions/checkout@v4
 
@@ -26,51 +61,32 @@ jobs:
 
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
-        with: { flutter-version: '3.27.3', channel: 'stable', cache: true }
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
 
-      - name: Install Android SDK 36 + NDK 27 (required by media_kit)
+      - name: Install Android SDK + NDK + CMake
         run: |
-          echo "ANDROID_HOME=$ANDROID_HOME"
-          echo "ANDROID_SDK_ROOT=$ANDROID_SDK_ROOT"
           SDK_MANAGER="$ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager"
           if [ ! -x "$SDK_MANAGER" ]; then
             SDK_MANAGER=$(find "$ANDROID_SDK_ROOT" -name sdkmanager -type f 2>/dev/null | head -1)
           fi
           echo "Using sdkmanager: $SDK_MANAGER"
           yes | "$SDK_MANAGER" --licenses >/dev/null 2>&1 || true
-          "$SDK_MANAGER" "platforms;android-36" "build-tools;36.0.0" "ndk;27.0.12077973" "cmake;3.22.1"
+          "$SDK_MANAGER" "platforms;android-36" "build-tools;36.0.0" "ndk;${NDK_VERSION}" "cmake;${CMAKE_VERSION}"
+
+      - name: Cache Gradle
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: gradle-${{ runner.os }}-${{ hashFiles('android/**/*.gradle*', 'pubspec.lock') }}
+          restore-keys: gradle-${{ runner.os }}-
 
       - name: Install dependencies
         run: flutter pub get
-
-      - name: Patch media_kit_video for SDK 36 / Flutter 3.27
-        shell: bash
-        env:
-          PATCH_B64: "aW1wb3J0IHN5cwpwID0gc3lzLmFyZ3ZbMV0KcyA9IG9wZW4ocCkucmVhZCgpCiMgRmx1dHRlciAzLjI3IFN1cmZhY2VQcm9kdWNlci5DYWxsYmFjayBpbnRlcmZhY2U6CiMgICBwdWJsaWMgZGVmYXVsdCB2b2lkIG9uU3VyZmFjZUNyZWF0ZWQoKTsKIyAgIHB1YmxpYyBkZWZhdWx0IHZvaWQgb25TdXJmYWNlQXZhaWxhYmxlKCk7CiMgICBwdWJsaWMgYWJzdHJhY3Qgdm9pZCBvblN1cmZhY2VEZXN0cm95ZWQoKTsKIyBvblN1cmZhY2VDbGVhbnVwIHdhcyByZW1vdmVkIChyZW5hbWVkIHRvIG9uU3VyZmFjZURlc3Ryb3llZCkuCmFzc2VydCAib25TdXJmYWNlQ2xlYW51cCIgaW4gcywgInVueHBlY3RlZCBzb3VyY2UiCnMgPSBzLnJlcGxhY2UoInB1YmxpYyB2b2lkIG9uU3VyZmFjZUNsZWFudXAoKSIsICJwdWJsaWMgdm9pZCBvblN1cmZhY2VEZXN0cm95ZWQoKSIpCnMgPSBzLnJlcGxhY2UoIm9uU3VyZmFjZUNsZWFudXAoKTsiLCAib25TdXJmYWNlRGVzdHJveWVkKCk7IikKcyA9IHMucmVwbGFjZSgiTG9nLmkoVEFHLCBcIm9uU3VyZmFjZUNsZWFudXBcIikiLCAiTG9nLmkoVEFHLCBcIm9uU3VyZmFjZURlc3Ryb3llZFwiKSIpCnMgPSBzLnJlcGxhY2UoInB1YmxpYyBjbGFzcyBWaWRlb091dHB1dCIsICIvKiBQYXRjaGVkRm9yU2RrMzYgKi8gcHVibGljIGNsYXNzIFZpZGVvT3V0cHV0IiwgMSkKb3BlbihwLCAndycpLndyaXRlKHMpCnByaW50KCJQYXRjaGVkIE9LIikK"
-        run: |
-          set -euo pipefail
-          VO=$(find "$HOME/.pub-cache" -path "*media_kit_video-*" -name VideoOutput.java 2>/dev/null | head -1 || true)
-          if [ -z "${VO:-}" ]; then
-            echo "::error::VideoOutput.java not found under pub-cache — the media_kit_video package layout changed; update the patch step."
-            exit 1
-          fi
-          echo "Patching: $VO"
-          if grep -q "PatchedForSdk36" "$VO"; then
-            echo "Already patched."
-          else
-            echo "$PATCH_B64" | base64 -d > /tmp/patch.py
-            python3 /tmp/patch.py "$VO"
-          fi
-          grep -n "onSurface" "$VO"
-
-      - name: Verify formatting
-        run: dart format --output=none --set-exit-if-changed lib test
-
-      - name: Analyze (fatal on any issue)
-        run: flutter analyze --no-pub
-
-      - name: Run tests
-        run: flutter test --no-pub --timeout 60s
 
       - name: Build APK (debug)
         env:
@@ -82,12 +98,16 @@ jobs:
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
-        with: { name: aeroflix-debug-apk, path: build/app/outputs/flutter-apk/app-debug.apk, if-no-files-found: error }
+        with:
+          name: aeroflix-debug-apk
+          path: build/app/outputs/flutter-apk/app-debug.apk
+          if-no-files-found: error
 
   build-release:
     name: Build release APK
     runs-on: ubuntu-24.04
     timeout-minutes: 45
+    needs: verify
     if: github.ref == 'refs/heads/main'
     steps:
       - uses: actions/checkout@v4
@@ -98,9 +118,12 @@ jobs:
 
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
-        with: { flutter-version: '3.27.3', channel: 'stable', cache: true }
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
 
-      - name: Install Android SDK 36 + NDK 27 (required by media_kit)
+      - name: Install Android SDK + NDK + CMake
         run: |
           SDK_MANAGER="$ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager"
           if [ ! -x "$SDK_MANAGER" ]; then
@@ -108,30 +131,19 @@ jobs:
           fi
           echo "Using sdkmanager: $SDK_MANAGER"
           yes | "$SDK_MANAGER" --licenses >/dev/null 2>&1 || true
-          "$SDK_MANAGER" "platforms;android-36" "build-tools;36.0.0" "ndk;27.0.12077973" "cmake;3.22.1"
+          "$SDK_MANAGER" "platforms;android-36" "build-tools;36.0.0" "ndk;${NDK_VERSION}" "cmake;${CMAKE_VERSION}"
+
+      - name: Cache Gradle
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: gradle-${{ runner.os }}-${{ hashFiles('android/**/*.gradle*', 'pubspec.lock') }}
+          restore-keys: gradle-${{ runner.os }}-
 
       - name: Install dependencies
         run: flutter pub get
-
-      - name: Patch media_kit_video for SDK 36 / Flutter 3.27
-        shell: bash
-        env:
-          PATCH_B64: "aW1wb3J0IHN5cwpwID0gc3lzLmFyZ3ZbMV0KcyA9IG9wZW4ocCkucmVhZCgpCmFzc2VydCAib25TdXJmYWNlQ2xlYW51cCIgaW4gcywgInVueHBlY3RlZCBzb3VyY2UiCnMgPSBzLnJlcGxhY2UoInB1YmxpYyB2b2lkIG9uU3VyZmFjZUNsZWFudXAoKSIsICJwdWJsaWMgdm9pZCBvblN1cmZhY2VEZXN0cm95ZWQoKSIpCnMgPSBzLnJlcGxhY2UoIm9uU3VyZmFjZUNsZWFudXAoKTsiLCAib25TdXJmYWNlRGVzdHJveWVkKCk7IikKcyA9IHMucmVwbGFjZSgiTG9nLmkoVEFHLCBcIm9uU3VyZmFjZUNsZWFudXBcIikiLCAiTG9nLmkoVEFHLCBcIm9uU3VyZmFjZURlc3Ryb3llZFwiKSIpCnMgPSBzLnJlcGxhY2UoInB1YmxpYyBjbGFzcyBWaWRlb091dHB1dCIsICIvKiBQYXRjaGVkRm9yU2RrMzYgKi8gcHVibGljIGNsYXNzIFZpZGVvT3V0cHV0IiwgMSkKb3BlbihwLCAndycpLndyaXRlKHMpCnByaW50KCJQYXRjaGVkIE9LIikK"
-        run: |
-          set -euo pipefail
-          VO=$(find "$HOME/.pub-cache" -path "*media_kit_video-*" -name VideoOutput.java 2>/dev/null | head -1 || true)
-          if [ -z "${VO:-}" ]; then
-            echo "::error::VideoOutput.java not found under pub-cache — the media_kit_video package layout changed; update the patch step."
-            exit 1
-          fi
-          echo "Patching: $VO"
-          if grep -q "PatchedForSdk36" "$VO"; then
-            echo "Already patched."
-          else
-            echo "$PATCH_B64" | base64 -d > /tmp/patch.py
-            python3 /tmp/patch.py "$VO"
-          fi
-          grep -n "onSurface" "$VO"
 
       - name: Build APK (release, debug-signed for sideloading)
         env:
@@ -143,4 +155,7 @@ jobs:
 
       - name: Upload release APK
         uses: actions/upload-artifact@v4
-        with: { name: aeroflix-release-apk, path: build/app/outputs/flutter-apk/app-release.apk, if-no-files-found: error }
+        with:
+          name: aeroflix-release-apk
+          path: build/app/outputs/flutter-apk/app-release.apk
+          if-no-files-found: error

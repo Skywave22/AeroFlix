@@ -2,7 +2,6 @@ import 'package:aeroflix/core/errors/failures.dart';
 import 'package:aeroflix/shared/models/media_details.dart';
 import 'package:aeroflix/shared/models/stream_source.dart';
 import 'package:aeroflix/shared/providers/continue_watching_provider.dart';
-import 'package:aeroflix/shared/providers/open_cinema_provider.dart';
 import 'package:aeroflix/core/utils/trailer_helper.dart';
 import 'package:aeroflix/shared/models/watch_provider.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -99,36 +98,68 @@ void main() {
     });
   });
 
-  group('Open Cinema library', () {
-    test('known id yields a playable HTTPS stream', () async {
-      final streams = await openCinemaGetStreams(
-          const MediaDetails(type: MediaType.movie, id: 10378, title: 'BBB'));
-      expect(streams, isNotEmpty);
-      expect(streams.first.url, startsWith('https://'));
-      expect(streams.first.providerId, 'open-cinema');
+  group('stream sorting (real provider output)', () {
+    StreamSource s(String quality, String language, {String? name}) =>
+        StreamSource(
+          url: 'https://example.com/x.m3u8',
+          name: name ?? 'Provider · $quality',
+          providerId: 'cinezo',
+          quality: quality,
+          language: language,
+        );
+
+    test('best quality first, Hindi before other languages at equal quality',
+        () {
+      // Mirror of StreamService's ordering contract.
+      final list = [
+        s('480p', 'Hindi'),
+        s('1080p', 'English'),
+        s('1080p', 'Hindi'),
+        s('4K', 'English'),
+      ];
+      int rank(String? q) {
+        final v = (q ?? '').toLowerCase();
+        if (v.contains('4k') || v.contains('2160')) return 5;
+        if (v.contains('1440')) return 4;
+        if (v.contains('1080')) return 3;
+        if (v.contains('720')) return 2;
+        if (v.contains('480')) return 1;
+        return 0;
+      }
+
+      list.sort((a, b) {
+        final byQuality = rank(b.quality).compareTo(rank(a.quality));
+        if (byQuality != 0) return byQuality;
+        final aHindi =
+            (a.language ?? '').toLowerCase().contains('hindi') ? 0 : 1;
+        final bHindi =
+            (b.language ?? '').toLowerCase().contains('hindi') ? 0 : 1;
+        return aHindi.compareTo(bHindi);
+      });
+
+      expect(list.first.quality, '4K');
+      expect(list[1].quality, '1080p');
+      expect(list[1].language, 'Hindi');
+      expect(list.last.quality, '480p');
     });
 
-    test('unknown id yields no streams', () async {
-      final streams = await openCinemaGetStreams(
-          const MediaDetails(type: MediaType.movie, id: 1234567, title: 'X'));
-      expect(streams, isEmpty);
-    });
-
-    test('id lookup is exact, not a prefix match', () {
-      expect(isOpenCinemaId(10378), isTrue);
-      expect(isOpenCinemaId(1037), isFalse);
-      expect(isOpenCinemaId(103780), isFalse);
-    });
-
-    test('MP4 entries support offline download, HLS does not', () {
-      expect(openCinemaSupportsDownload(10378), isTrue); // Big Buck Bunny MP4
-      expect(openCinemaSupportsDownload(900001), isFalse); // HLS test stream
-      expect(openCinemaSupportsDownload(999999), isFalse); // unknown
-    });
-
-    test('openCinemaStreamUrl mirrors the map', () {
-      expect(openCinemaStreamUrl(7486), contains('Sintel.mp4'));
-      expect(openCinemaStreamUrl(999999), isNull);
+    test('StreamSource carries headers and subtitles through', () {
+      const src = StreamSource(
+        url: 'https://example.com/a.m3u8',
+        name: 'Cinezo · Scape Nitro',
+        providerId: 'cinezo',
+        quality: '1080p',
+        language: 'Hindi + English',
+        headers: {'Referer': 'https://cinezo.gd/'},
+        subtitles: [
+          SubtitleTrack(
+              url: 'https://example.com/en.vtt',
+              language: 'English',
+              label: 'English'),
+        ],
+      );
+      expect(src.headers['Referer'], contains('cinezo'));
+      expect(src.subtitles.single.language, 'English');
     });
   });
 

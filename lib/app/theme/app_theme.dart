@@ -56,9 +56,9 @@ class AppTheme {
       filledButtonTheme: FilledButtonThemeData(
           style: FilledButton.styleFrom(
         backgroundColor: AppColors.accent,
-        foregroundColor: AppColors.textPrimary,
+        foregroundColor: Colors.white,
         textStyle: AppTypography.button,
-        minimumSize: const Size(double.infinity, 48),
+        minimumSize: const Size(double.infinity, 52),
         padding: const EdgeInsets.symmetric(horizontal: 24),
         shape: RoundedRectangleBorder(borderRadius: AppRadii.lgRadius),
         elevation: 0,
@@ -67,7 +67,7 @@ class AppTheme {
           style: OutlinedButton.styleFrom(
         foregroundColor: AppColors.textPrimary,
         textStyle: AppTypography.button,
-        minimumSize: const Size(double.infinity, 48),
+        minimumSize: const Size(double.infinity, 52),
         padding: const EdgeInsets.symmetric(horizontal: 24),
         shape: RoundedRectangleBorder(borderRadius: AppRadii.lgRadius),
         side: const BorderSide(color: AppColors.outline, width: 1),
@@ -91,7 +91,7 @@ class AppTheme {
             borderRadius: AppRadii.lgRadius,
             borderSide: const BorderSide(color: AppColors.accent, width: 1.5)),
       ),
-      cardTheme: CardTheme(
+      cardTheme: CardThemeData(
           color: AppColors.surface,
           elevation: 0,
           margin: EdgeInsets.zero,
@@ -116,7 +116,7 @@ class AppTheme {
         circularTrackColor: AppColors.surfaceElevated,
       ),
       iconTheme: const IconThemeData(color: AppColors.textPrimary, size: 22),
-      tabBarTheme: TabBarTheme(
+      tabBarTheme: TabBarThemeData(
         labelColor: AppColors.textPrimary,
         unselectedLabelColor: AppColors.textMuted,
         labelStyle: AppTypography.button.copyWith(fontSize: 14),

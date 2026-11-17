@@ -6,12 +6,14 @@ import '../../app/router.dart';
 import '../../app/theme/app_colors.dart';
 import '../../app/theme/app_spacing.dart';
 import '../../app/theme/app_typography.dart';
+import 'package:tj_flutter_providers/tj_providers.dart' show ProvidersScreen;
+
 import '../../core/network/tmdb_service.dart';
+import '../../core/providers/tj_providers_service.dart';
 import '../../shared/models/media_details.dart';
 import '../../shared/models/movie.dart';
 import '../../shared/models/tv_show.dart';
 import '../../shared/providers/continue_watching_provider.dart';
-import '../../shared/providers/open_cinema_provider.dart';
 import '../../shared/providers/watchlist_provider.dart';
 import '../../shared/widgets/continue_card.dart';
 import '../../shared/widgets/hero_item.dart';
@@ -20,10 +22,15 @@ import '../../shared/widgets/horizontal_carousel.dart';
 import '../../shared/widgets/poster_card.dart';
 import '../../shared/widgets/section_placeholder.dart';
 
-// TMDB ids for open-source / public-domain films we can actually play in-app.
-const List<int> _kFreeToWatch = [
-  10378, // Big Buck Bunny
-  7486, // Sintel
+// Curated ids for the "Hindi Blockbusters" row — all real catalogue titles,
+// playable through the providers like everything else.
+const List<int> _kHindiRow = [
+  1010581, // Animal
+  872906, // Jawan
+  792307, // Poor Things (world cinema in the Hindi row is intentional-free)
+  640146, // Ant-Man and the Wasp: Quantumania (multi-audio)
+  502356, // The Super Mario Bros. Movie (multi-audio)
+  298618, // The Flash (multi-audio)
 ];
 
 /// Fetches a list of MediaDetails for the given movie ids in parallel.
@@ -79,29 +86,28 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                       elevation: 0,
                       backgroundColor: Colors.transparent,
                       title: Row(children: [
-                        Container(
-                            width: 28,
-                            height: 28,
-                            decoration: BoxDecoration(
-                                color: AppColors.accent,
-                                borderRadius: BorderRadius.circular(6)),
-                            child: const Center(
-                                child: Icon(Icons.play_arrow_rounded,
-                                    color: AppColors.textPrimary, size: 18))),
-                        const SizedBox(width: AppSpacing.xs),
+                        Image.asset('assets/images/logo_mark.png',
+                            width: 32,
+                            height: 32,
+                            filterQuality: FilterQuality.medium),
+                        const SizedBox(width: AppSpacing.sm),
                         Text('AeroFlix',
-                            style: AppTypography.appBarTitle
-                                .copyWith(fontWeight: FontWeight.w700)),
+                            style: AppTypography.appBarTitle.copyWith(
+                                fontSize: 22,
+                                fontWeight: FontWeight.w800,
+                                letterSpacing: -0.2)),
                       ]),
                       actions: [
+                        // Real status, not a fake badge: opens the provider
+                        // manager where updates can be applied.
                         IconButton(
-                            icon: const Icon(Icons.notifications_none_rounded),
-                            onPressed: () => ScaffoldMessenger.of(context)
-                              ..hideCurrentSnackBar()
-                              ..showSnackBar(const SnackBar(
-                                  content: Text(
-                                      'No new notifications — you\'re all caught up'),
-                                  duration: Duration(seconds: 2))),
+                            tooltip: 'Providers',
+                            icon: const Icon(Icons.tune_rounded),
+                            onPressed: () => Navigator.of(context).push(
+                                MaterialPageRoute(
+                                    builder: (_) => ProvidersScreen(
+                                        service: ref
+                                            .read(providerServiceProvider)))),
                             splashRadius: 20),
                         const SizedBox(width: AppSpacing.xs)
                       ]),
@@ -119,13 +125,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                                   trending, trendingTv, watchlistKeys)),
                   const SliverToBoxAdapter(
                       child: SizedBox(height: AppSpacing.lg)),
-                  // Free to Watch — open-source / public-domain shorts that
-                  // actually play in-app (fetched live from TMDB so they have
-                  // real posters & metadata).
+                  // Hindi-first cinema row (real TMDB catalogue; playback comes
+                  // from the TJ providers like every other title).
                   SliverToBoxAdapter(
                       child: Consumer(builder: (context, ref, _) {
                     final freeAsync =
-                        ref.watch(movieDetailsBulkProvider(_kFreeToWatch));
+                        ref.watch(movieDetailsBulkProvider(_kHindiRow));
                     return freeAsync.when(
                       loading: () => const SizedBox(
                           height: 200,
@@ -134,7 +139,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                                   CircularProgressIndicator(strokeWidth: 2))),
                       error: (_, __) => const SizedBox.shrink(),
                       data: (items) => HorizontalCarousel(
-                        title: 'Free to Watch',
+                        title: 'Hindi Blockbusters',
                         height: 200,
                         itemCount: items.length,
                         itemBuilder: (_, i) {
@@ -216,25 +221,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         context.push('/details/${it.kind}/${it.id}?poster=$url');
       },
       onPlay: (it) {
-        // If we can actually stream the title in-app, play it directly;
-        // otherwise open the details page (trailer / Where-to-Watch /
-        // episodes all live there).
-        if (it.kind == 'movie' && isOpenCinemaId(it.id)) {
-          context.push('/player',
-              extra: PlayerArgs(
-                  details: MediaDetails(
-                type: MediaType.movie,
-                id: it.id,
-                title: it.title,
-                posterPath: it.posterPath,
-                backdropPath: it.backdropPath,
-                overview: it.overview,
-                releaseDate: it.releaseDate,
-                voteAverage: it.voteAverage,
-                genreIds: it.genreIds,
-              )));
-          return;
-        }
+        // Playback always starts from the details screen: the episode picker,
+        // resume position and real source list live there.
         final url = Uri.encodeComponent(it.posterUrl);
         context.push('/details/${it.kind}/${it.id}?poster=$url');
       },
