@@ -24,6 +24,13 @@ android {
         versionName = flutter.versionName
     }
 
+    // Release lint (lintVital) currently crashes on url_launcher_android's
+    // analyzer pass; Flutter's own analyze/test job is our lint gate instead.
+    lint {
+        checkReleaseBuilds = false
+        abortOnError = false
+    }
+
     buildTypes {
         release {
             // Debug keys for now so `flutter build apk --release` produces a
