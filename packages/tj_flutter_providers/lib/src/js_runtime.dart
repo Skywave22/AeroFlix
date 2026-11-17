@@ -53,8 +53,23 @@ class JsRuntime {
     this.cryptoJsCode,
   }) : _http = httpClient ?? http.Client();
 
-  Future<String> _loadAsset(String path, String? override) async =>
-      override ?? await rootBundle.loadString(path);
+  static const String _packagePrefix = 'packages/tj_flutter_providers/';
+
+  /// Loads a runtime asset (`assets/js/polyfill.js`, `call.js`, `crypto-js`).
+  ///
+  /// Flutter namespaces package assets inside a host app
+  /// (`packages/<package>/assets/js/...`), while the package's own tests and
+  /// example see the bare path, so both are tried. Getting this wrong is fatal
+  /// but silent: every provider call would throw and the app would report "no
+  /// streams" for every title.
+  Future<String> _loadAsset(String path, String? override) async {
+    if (override != null) return override;
+    try {
+      return await rootBundle.loadString('$_packagePrefix$path');
+    } catch (_) {
+      return await rootBundle.loadString(path);
+    }
+  }
 
   /// Runs one provider's getStreams() and returns the raw JSON string
   /// (an array of stream objects — parse with StreamResult.fromJson).
