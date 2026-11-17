@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:tj_flutter_providers/tj_providers.dart';
 
@@ -5,16 +7,62 @@ import '../../core/providers/tj_providers_service.dart';
 import '../models/media_details.dart';
 import '../models/stream_source.dart';
 
+/// Result of one provider for one title.
+class ProviderResolution {
+  const ProviderResolution({
+    required this.providerId,
+    this.sources = const [],
+    this.error,
+    this.elapsed = Duration.zero,
+  });
+
+  final String providerId;
+  final List<StreamSource> sources;
+  final String? error;
+  final Duration elapsed;
+
+  bool get ok => error == null;
+}
+
 /// Resolves playable links for a title through the TJ-Plugins providers
 /// (Cinezo, ScreenScape, Nxsha, AniHype, KatDrama by default).
 ///
-/// Everything here is real: the provider bundles are downloaded from GitHub,
-/// executed in QuickJS, and return direct HLS/MP4 links with the headers each
-/// server expects. Nothing is simulated and there is no demo content.
+/// Everything here is real: provider bundles ship with the app and auto-update
+/// from GitHub, they run in QuickJS, and they return direct HLS/MP4 links with
+/// the headers each server expects. Nothing is simulated.
 class StreamService {
   StreamService(this._providers);
 
   final ProviderService _providers;
+
+  /// Which providers will be queried, in order.
+  List<String> get providers => _providers.enabledIds;
+
+  /// Query providers one by one, emitting each result as soon as it lands so
+  /// the player can start on the first hit instead of waiting for the slowest
+  /// provider.
+  Stream<ProviderResolution> resolveStreams(
+    MediaDetails media, {
+    int season = 0,
+    int episode = 0,
+    List<String>? onlyProviderIds,
+  }) async* {
+    final isTv = media.type == MediaType.tv;
+    await for (final outcome in _providers.streamStreams(
+      tmdbId: '${media.id}',
+      mediaType: isTv ? 'tv' : 'movie',
+      season: isTv && season > 0 ? season : null,
+      episode: isTv && episode > 0 ? episode : null,
+      onlyProviderIds: onlyProviderIds,
+    )) {
+      yield ProviderResolution(
+        providerId: outcome.providerId,
+        sources: _map(outcome.streams),
+        error: outcome.error,
+        elapsed: outcome.elapsed,
+      );
+    }
+  }
 
   /// Fetch links for [media] (optionally for a specific episode).
   ///
@@ -34,7 +82,10 @@ class StreamService {
       episode: isTv && episode > 0 ? episode : null,
       onlyProviderIds: onlyProviderIds,
     );
+    return _map(results);
+  }
 
+  List<StreamSource> _map(List<StreamResult> results) {
     final sources = results
         .map((s) => StreamSource(
               url: s.url,

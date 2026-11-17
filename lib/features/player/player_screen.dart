@@ -24,6 +24,7 @@ import '../../shared/providers/download_provider.dart';
 import '../../shared/providers/player_controller.dart';
 import '../../shared/providers/settings_provider.dart';
 import '../../shared/providers/stream_providers.dart';
+import '../providers/provider_diagnostics_screen.dart';
 
 class PlayerScreen extends ConsumerStatefulWidget {
   final MediaDetails details;
@@ -67,6 +68,12 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
   StreamSource? _selected;
   bool _loadingSources = true;
   String? _error;
+
+  /// Live progress of the provider search (id -> resolution), so the loading
+  /// screen shows which provider is being scraped instead of a bare spinner.
+  final Map<String, ProviderResolution> _progress = {};
+  StreamSubscription<ProviderResolution>? _resolveSub;
+  bool _startedPlayback = false;
   bool _playing = false;
   Duration _position = Duration.zero;
   Duration _duration = Duration.zero;
@@ -164,63 +171,255 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
   }
 
   Future<void> _loadSources() async {
+    await _resolveSub?.cancel();
+    _resolveSub = null;
+    if (!mounted) return;
     setState(() {
       _loadingSources = true;
       _error = null;
       _completed = false;
+      _progress.clear();
+      _startedPlayback = false;
+      _selected = null;
+      _sources = const [];
     });
-    try {
-      final localPath = widget.localFilePath;
-      if (localPath != null) {
-        final f = File(localPath);
-        if (!await f.exists()) {
-          if (!mounted) return;
-          setState(() {
-            _loadingSources = false;
-            _error =
-                'The downloaded file is missing. Remove it from Downloads and download it again.';
-          });
-          return;
-        }
-        final src = StreamSource(
-          url: f.path,
-          name: 'Offline · ${widget.details.title}',
-          quality: 'Local',
-          providerId: 'local',
-        );
-        _sources = [src];
-        await _play(src);
+
+    // Offline playback from a completed download.
+    final localPath = widget.localFilePath;
+    if (localPath != null) {
+      final f = File(localPath);
+      if (!await f.exists()) {
         if (!mounted) return;
         setState(() {
           _loadingSources = false;
-          _selected = src;
+          _error =
+              'The downloaded file is missing. Remove it from Downloads and download it again.';
         });
         return;
       }
-      final svc = ref.read(streamServiceProvider);
-      final list = await svc.getAllStreams(widget.details,
-          season: widget.season, episode: widget.episode);
+      final src = StreamSource(
+        url: f.path,
+        name: 'Offline · ${widget.details.title}',
+        quality: 'Local',
+        providerId: 'local',
+      );
+      _sources = [src];
+      setState(() => _selected = src);
+      await _play(src);
       if (!mounted) return;
-      if (list.isEmpty) {
+      setState(() {
+        _loadingSources = false;
+        _startedPlayback = true;
+      });
+      return;
+    }
+
+    // Providers are scraped one at a time (QuickJS is synchronous), so start
+    // playing the first link that lands and let the rest keep filling the
+    // source list in the background.
+    _resolveSub = ref
+        .read(streamServiceProvider)
+        .resolveStreams(widget.details,
+            season: widget.season, episode: widget.episode)
+        .listen(
+      (res) {
+        if (!mounted) return;
+        setState(() => _progress[res.providerId] = res);
+        if (res.sources.isEmpty) return;
+        final merged = <StreamSource>{..._sources, ...res.sources}.toList();
+        merged.sort((a, b) {
+          final q = _quality(a.quality).compareTo(_quality(b.quality));
+          if (q != 0) return -q;
+          return _hindi(a).compareTo(_hindi(b));
+        });
+        setState(() => _sources = merged);
+        if (!_startedPlayback) {
+          _startedPlayback = true;
+          final first = merged.first;
+          setState(() {
+            _selected = first;
+            _loadingSources = false;
+          });
+          _play(first).catchError((Object e) {
+            if (mounted) setState(() => _error = 'Playback failed: $e');
+          });
+        }
+      },
+      onError: (Object e) {
+        if (!mounted) return;
         setState(() {
           _loadingSources = false;
-          _error =
-              'No in-app stream available for this title. Try the trailer or tap Retry.';
+          _error = 'Provider search failed: $e';
         });
-        return;
-      }
-      _sources = list;
-      await _play(list.first);
-      setState(() {
-        _loadingSources = false;
-        _selected = list.first;
-      });
-    } catch (e) {
-      if (!mounted) return;
-      setState(() {
-        _loadingSources = false;
-        _error = 'Failed to load streams: $e';
-      });
+      },
+      onDone: () {
+        if (!mounted) return;
+        setState(() {
+          _loadingSources = false;
+          if (_sources.isEmpty && _error == null) {
+            final failures = _progress.entries
+                .where((e) => !e.value.ok)
+                .map((e) => '${e.key}: ${e.value.error}')
+                .toList();
+            _error = failures.isEmpty
+                ? 'No provider has a working in-app link for this title right now.'
+                : 'No working link right now.\n\n${failures.take(3).join('\n')}';
+          }
+        });
+      },
+    );
+  }
+
+  static int _quality(String? q) {
+    final s = (q ?? '').toLowerCase();
+    if (s.contains('4k') || s.contains('2160')) return 5;
+    if (s.contains('1440')) return 4;
+    if (s.contains('1080')) return 3;
+    if (s.contains('720')) return 2;
+    if (s.contains('480')) return 1;
+    return 0;
+  }
+
+  static int _hindi(StreamSource s) =>
+      '${s.language ?? ''} ${s.name}'.toLowerCase().contains('hindi') ? 0 : 1;
+
+  /// Loading / failure panel: shows which provider is being scraped and, when
+  /// nothing resolves, gives the user something that actually works.
+  Widget _buildCenterState() {
+    final ids = ref.read(streamServiceProvider).providers;
+    if (_loadingSources) {
+      return Container(
+        margin: const EdgeInsets.symmetric(horizontal: 24),
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          color: Colors.black.withValues(alpha: 0.55),
+          borderRadius: BorderRadius.circular(18),
+        ),
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
+          const SizedBox(
+              height: 26,
+              width: 26,
+              child: CircularProgressIndicator(
+                  color: AppColors.accent, strokeWidth: 2)),
+          const SizedBox(height: 14),
+          Text('Finding a working source…',
+              style: AppTypography.bodyPrimary.copyWith(
+                  color: AppColors.textPrimary,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600)),
+          const SizedBox(height: 4),
+          Text('${_progress.length} of ${ids.length} providers checked',
+              style: AppTypography.bodyPrimary
+                  .copyWith(color: AppColors.textMuted, fontSize: 12)),
+          const SizedBox(height: 14),
+          for (final id in ids)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 3),
+              child: Row(mainAxisSize: MainAxisSize.min, children: [
+                SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: _progressRowIcon(_progress[id], id)),
+                const SizedBox(width: 10),
+                Text(_providerLabel(id),
+                    style: AppTypography.bodyPrimary.copyWith(
+                        color: AppColors.textSecondary, fontSize: 12)),
+                const SizedBox(width: 8),
+                Text(_progressStatus(_progress[id]),
+                    style: AppTypography.bodyPrimary
+                        .copyWith(color: AppColors.textMuted, fontSize: 11)),
+              ]),
+            ),
+        ]),
+      );
+    }
+
+    // Failure panel.
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 24),
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.black.withValues(alpha: 0.6),
+        borderRadius: BorderRadius.circular(18),
+      ),
+      child: Column(mainAxisSize: MainAxisSize.min, children: [
+        const Icon(Icons.cloud_off_rounded,
+            color: AppColors.textMuted, size: 40),
+        const SizedBox(height: 10),
+        Text(_error ?? 'No working source for this title.',
+            textAlign: TextAlign.center,
+            style: AppTypography.bodyPrimary.copyWith(
+                color: AppColors.textSecondary, fontSize: 13, height: 1.4)),
+        const SizedBox(height: 18),
+        Wrap(
+            spacing: 10,
+            runSpacing: 10,
+            alignment: WrapAlignment.center,
+            children: [
+              FilledButton.icon(
+                  onPressed: _loadSources,
+                  icon: const Icon(Icons.refresh_rounded, size: 18),
+                  label: const Text('Try again')),
+              if (trailerUrl(widget.details) != null)
+                OutlinedButton.icon(
+                    onPressed: () async {
+                      context.pop();
+                      await openTrailer(widget.details);
+                    },
+                    icon:
+                        const Icon(Icons.play_circle_outline_rounded, size: 18),
+                    label: const Text('Watch trailer')),
+              TextButton.icon(
+                  onPressed: () => Navigator.of(context).push(MaterialPageRoute(
+                      builder: (_) => const ProviderDiagnosticsScreen())),
+                  icon: const Icon(Icons.tune_rounded, size: 18),
+                  label: const Text('Provider status')),
+            ]),
+      ]),
+    );
+  }
+
+  Widget _progressRowIcon(ProviderResolution? res, String id) {
+    if (res == null) {
+      return const SizedBox(
+          width: 14,
+          height: 14,
+          child: CircularProgressIndicator(
+              strokeWidth: 1.5, color: AppColors.textMuted));
+    }
+    if (!res.ok) {
+      return const Icon(Icons.close_rounded,
+          size: 16, color: Color(0xFFFF6B6B));
+    }
+    return Icon(
+        res.sources.isEmpty ? Icons.remove_rounded : Icons.check_rounded,
+        size: 16,
+        color: res.sources.isEmpty ? AppColors.textMuted : AppColors.accent);
+  }
+
+  String _progressStatus(ProviderResolution? res) {
+    if (res == null) return '…';
+    if (!res.ok) {
+      final e = res.error ?? 'failed';
+      return e.length > 28 ? '${e.substring(0, 28)}…' : e;
+    }
+    return res.sources.isEmpty ? 'no links' : '${res.sources.length} links';
+  }
+
+  static String _providerLabel(String id) {
+    switch (id) {
+      case 'cinezo':
+        return 'Cinezo';
+      case 'screenscape':
+        return 'ScreenScape';
+      case 'nxsha':
+        return 'Nxsha';
+      case 'anihype':
+        return 'AniHype';
+      case 'katdrama':
+        return 'KatDrama';
+      default:
+        return id;
     }
   }
 
@@ -332,6 +531,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
     _playSub?.cancel();
     _completeSub?.cancel();
     _tracksSub?.cancel();
+    _resolveSub?.cancel();
     final pip = ref.read(pipServiceProvider);
     pip.removeListener(_onPipChanged);
     pip.setEnabled(false);
@@ -805,59 +1005,22 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
                         fit: BoxFit.cover))),
 
           // Center state
-          Center(
-              child: _loadingSources
-                  ? Column(mainAxisSize: MainAxisSize.min, children: [
-                      const CircularProgressIndicator(
-                          color: AppColors.accent, strokeWidth: 2),
-                      const SizedBox(height: 16),
-                      Text('Fetching streams…',
-                          style: AppTypography.bodyPrimary.copyWith(
-                              color: AppColors.textSecondary, fontSize: 13))
-                    ])
-                  : _error != null
-                      ? Column(mainAxisSize: MainAxisSize.min, children: [
-                          const Icon(Icons.error_outline_rounded,
-                              color: AppColors.textMuted, size: 48),
-                          const SizedBox(height: 12),
-                          Padding(
-                              padding:
-                                  const EdgeInsets.symmetric(horizontal: 24),
-                              child: Text(_error!,
-                                  textAlign: TextAlign.center,
-                                  style: AppTypography.bodyPrimary.copyWith(
-                                      color: AppColors.textSecondary,
-                                      fontSize: 13))),
-                          const SizedBox(height: 16),
-                          Row(mainAxisSize: MainAxisSize.min, children: [
-                            if (trailerUrl(widget.details) != null)
-                              FilledButton.icon(
-                                  onPressed: () async {
-                                    context.pop();
-                                    await openTrailer(widget.details);
-                                  },
-                                  icon: const Icon(
-                                      Icons.play_circle_outline_rounded,
-                                      size: 18),
-                                  label: const Text('Watch Trailer')),
-                            if (trailerUrl(widget.details) != null)
-                              const SizedBox(width: 10),
-                            OutlinedButton(
-                                onPressed: _loadSources,
-                                child: const Text('Retry')),
-                          ])
-                        ])
-                      : IconButton(
-                          icon: Icon(
-                              _completed
-                                  ? Icons.replay_rounded
-                                  : _playing
-                                      ? Icons.pause_rounded
-                                      : Icons.play_arrow_rounded,
-                              size: 64,
-                              color: AppColors.textPrimary
-                                  .withValues(alpha: _showControls ? 1 : 0)),
-                          onPressed: _showControls ? _togglePlay : null)),
+          if (!hasVideo || _loadingSources || _error != null)
+            Positioned.fill(child: Center(child: _buildCenterState())),
+          if (hasVideo && !_loadingSources && _error == null)
+            Positioned.fill(
+                child: Center(
+                    child: IconButton(
+                        icon: Icon(
+                            _completed
+                                ? Icons.replay_rounded
+                                : _playing
+                                    ? Icons.pause_rounded
+                                    : Icons.play_arrow_rounded,
+                            size: 64,
+                            color: AppColors.textPrimary
+                                .withValues(alpha: _showControls ? 1 : 0)),
+                        onPressed: _showControls ? _togglePlay : null))),
 
           // Auto-advance overlay
           if (_completed &&

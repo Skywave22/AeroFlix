@@ -13,11 +13,10 @@ provider plugins running inside the app.
 |---|---|
 | Catalogue | TMDB trending / popular / top-rated / Hindi rows / anime / now playing, search, person pages |
 | Playback | Real HLS/MP4/MKV links resolved from 5 bundled providers (Cinezo, ScreenScape, Nxsha, AniHype, KatDrama) with per-link headers and subtitles |
-| Provider updates | Bundles are fetched from GitHub at runtime and cached on device — upstream fixes arrive on the next launch, no app update needed |
+| Provider updates | A snapshot of the providers ships inside the APK, so the first launch works even with GitHub blocked; on every launch the app also syncs from GitHub (raw → jsDelivr → githack) and picks up upstream fixes with no app update |
 | Trailer | Official YouTube trailer as the fallback when nothing resolves |
 | Downloads | Real byte-for-byte downloads of direct MP4/MKV sources, offline playback from the player |
 | Player | media_kit: resume, auto-advance to the next episode, speed, subtitles, PiP, wake lock |
-| Where to watch | TMDB watch providers per region |
 | Watchlist / Continue watching | Persisted locally |
 
 Empty states are honest: if a provider has no working link for a title, the app
@@ -25,12 +24,18 @@ says so and offers the trailer instead of showing a broken player.
 
 ## Providers
 
-Provider JS bundles are **not** compiled into the APK. On launch the app fetches
-`manifest.json` from `Skywave22/Plugins-TJ`, compares versions with what is
-cached in `<appDocs>/tj_providers/`, and downloads only what changed.
+Provider JS bundles are **shipped in the APK** (`assets/providers/`, a snapshot
+of `Skywave22/Plugins-TJ`) and copied into `<appDocs>/tj_providers/` on first
+launch — so streams resolve with no network at all. On every launch the app then
+fetches `manifest.json` from GitHub (falling back to jsDelivr and githack when
+raw.githubusercontent.com is unreachable), compares versions, and downloads only
+what changed.
 
 - Settings → **Providers** shows every provider, its version, and an
   "Update available" badge with a manual update button.
+- Settings → **Provider status** is the diagnostics screen: seed/sync state,
+  the mirror that answered, cached versions, and a live "run every provider"
+  test that reports link counts and errors per provider.
 - The engine is QuickJS-NG (`quickjs_engine`), which is required: the older
   `flutter_js` QuickJS cannot compile these bundles.
 - `packages/tj_flutter_providers/` is the vendored runtime (Dart bridges for

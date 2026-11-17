@@ -6,10 +6,8 @@ import '../../app/router.dart';
 import '../../app/theme/app_colors.dart';
 import '../../app/theme/app_spacing.dart';
 import '../../app/theme/app_typography.dart';
-import 'package:tj_flutter_providers/tj_providers.dart' show ProvidersScreen;
 
 import '../../core/network/tmdb_service.dart';
-import '../../core/providers/tj_providers_service.dart';
 import '../../shared/models/media_details.dart';
 import '../../shared/models/movie.dart';
 import '../../shared/models/tv_show.dart';
@@ -21,6 +19,7 @@ import '../../shared/widgets/hero_rotator.dart';
 import '../../shared/widgets/horizontal_carousel.dart';
 import '../../shared/widgets/poster_card.dart';
 import '../../shared/widgets/section_placeholder.dart';
+import '../providers/provider_diagnostics_screen.dart';
 
 // Curated ids for the "Hindi Blockbusters" row — all real catalogue titles,
 // playable through the providers like everything else.
@@ -101,13 +100,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                         // Real status, not a fake badge: opens the provider
                         // manager where updates can be applied.
                         IconButton(
-                            tooltip: 'Providers',
+                            tooltip: 'Provider status',
                             icon: const Icon(Icons.tune_rounded),
                             onPressed: () => Navigator.of(context).push(
                                 MaterialPageRoute(
-                                    builder: (_) => ProvidersScreen(
-                                        service: ref
-                                            .read(providerServiceProvider)))),
+                                    builder: (_) =>
+                                        const ProviderDiagnosticsScreen())),
                             splashRadius: 20),
                         const SizedBox(width: AppSpacing.xs)
                       ]),

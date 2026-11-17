@@ -18,7 +18,6 @@ import '../../shared/providers/stream_providers.dart';
 import '../../shared/providers/watchlist_provider.dart';
 import '../../shared/widgets/horizontal_carousel.dart';
 import '../../shared/widgets/poster_card.dart';
-import 'watch_providers_section.dart';
 
 /// Arguments passed to the details route via GoRouter extra.
 class DetailsArgs {
@@ -393,13 +392,6 @@ class _DetailsContent extends ConsumerWidget {
                           label: const Text('Watch Trailer')),
                     ],
                   ]))),
-
-      // Where to Watch (JustWatch via TMDB)
-      SliverToBoxAdapter(
-          child: Padding(
-              padding: const EdgeInsets.only(top: AppSpacing.lg),
-              child:
-                  WatchProvidersSection(type: details.type, id: details.id))),
 
       // Cast
       if (details.cast.isNotEmpty) ...[

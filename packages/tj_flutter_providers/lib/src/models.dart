@@ -1,6 +1,4 @@
 /// Models matching Plugins-TJ manifest.json + provider getStreams() output.
-library;
-
 ///
 /// Manifest (https://raw.githubusercontent.com/Skywave22/Plugins-TJ/main/manifest.json):
 /// {
@@ -17,6 +15,7 @@ library;
 ///   "url": "https://...m3u8", "quality": "1080p", "provider": "cinezo",
 ///   "language": "Hindi", "size": "1.2 GB",
 ///   "headers": {"Referer": "..."}, "subtitles": [{"url": "...", "language": "English"}] }
+library;
 
 class ProviderInfo {
   final String id;
@@ -260,4 +259,30 @@ class UpdateCheckResult {
   });
 
   bool get hasUpdates => updatesAvailable.isNotEmpty || available.isNotEmpty;
+}
+
+/// Result of running one provider for one title.
+///
+/// Providers are slow (each one scrapes several sites), so the app can stream
+/// these out and start playback on the first hit while the rest keep working.
+class ProviderOutcome {
+  final String providerId;
+  final List<StreamResult> streams;
+  final String? error;
+  final Duration elapsed;
+
+  const ProviderOutcome({
+    required this.providerId,
+    this.streams = const [],
+    this.error,
+    this.elapsed = Duration.zero,
+  });
+
+  bool get ok => error == null;
+  int get count => streams.length;
+
+  @override
+  String toString() =>
+      'ProviderOutcome($providerId, ${streams.length} streams'
+      '${error == null ? '' : ', error: $error'}, ${elapsed.inMilliseconds}ms)';
 }

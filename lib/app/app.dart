@@ -77,14 +77,24 @@ class _AeroFlixAppState extends State<AeroFlixApp> {
 
 /// Starts the one-shot TJ provider sync and keeps the result (and any
 /// providers already on disk) available to the widget tree.
-class _ProviderBootstrap extends ConsumerWidget {
+class _ProviderBootstrap extends ConsumerStatefulWidget {
   const _ProviderBootstrap({required this.child});
   final Widget child;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    ref.watch(providerSyncProvider);
-    ref.watch(installedProvidersProvider);
-    return child;
+  ConsumerState<_ProviderBootstrap> createState() => _ProviderBootstrapState();
+}
+
+class _ProviderBootstrapState extends ConsumerState<_ProviderBootstrap> {
+  @override
+  void initState() {
+    super.initState();
+    // Copy the bundled providers into app storage, then check GitHub — once,
+    // in the background. The app is usable the whole time.
+    Future.microtask(
+        () => ref.read(providerStatusProvider.notifier).bootstrap());
   }
+
+  @override
+  Widget build(BuildContext context) => widget.child;
 }

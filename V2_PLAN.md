@@ -36,6 +36,18 @@ them are resolved; the notes below record how, and what is left.
 - **Build**: Flutter 3.50.0, Gradle 9.5.0, AGP 9.3.1, KGP 2.4.20, NDK 27,
   compileSdk 36, minSdk from Flutter (24).
 
+## Provider delivery (2026-11-17)
+
+- Bundled seed in `assets/providers/`: first launch works offline / on carriers
+  where raw.githubusercontent.com is blocked.
+- Sync falls back across mirrors (raw → jsDelivr → githack).
+- Player streams results per provider: it starts the first working link while
+  the remaining providers are still being scraped, and shows per-provider
+  progress instead of a bare spinner.
+- "Provider status" screen reports seed/sync state, mirror, cached versions and
+  a live per-provider test with link counts and errors.
+- "Where to Watch" (JustWatch/TMDB) was removed by request.
+
 ## Known limitations (honest list)
 
 1. **HLS cannot be downloaded.** Offline copies require a direct MP4/MKV; the

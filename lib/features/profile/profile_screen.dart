@@ -16,6 +16,7 @@ import '../../shared/models/media_details.dart';
 import '../../shared/providers/continue_watching_provider.dart';
 import '../../shared/providers/settings_provider.dart';
 import '../../shared/providers/watchlist_provider.dart';
+import '../../features/providers/provider_diagnostics_screen.dart';
 import 'about_sheet.dart';
 
 class ProfileScreen extends ConsumerStatefulWidget {
@@ -56,6 +57,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   @override
   Widget build(BuildContext context) {
     final settings = ref.watch(settingsProvider);
+    final status = ref.watch(providerStatusProvider);
     final wlCount = ref.watch(watchlistProvider).length;
     final cwCount = ref.watch(continueWatchingProvider).length;
     return Scaffold(
@@ -121,8 +123,23 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
             _ListTile(
               icon: Icons.extension_rounded,
               title: 'Providers',
-              subtitle: 'Stream sources · check for updates',
+              subtitle: status.busy
+                  ? status.summary
+                  : '${status.installed} sources · ${status.updated} updated',
               onTap: _openProviders,
+              trailing: const Icon(Icons.chevron_right_rounded,
+                  color: AppColors.textMuted),
+            ),
+            _ListTile(
+              icon: Icons.monitor_heart_outlined,
+              title: 'Provider status',
+              subtitle: status.error != null
+                  ? 'Offline copy in use — tap for details'
+                  : (status.syncedAt == null
+                      ? 'Not checked yet'
+                      : 'Checked ${_ago(status.syncedAt!)}'),
+              onTap: () => Navigator.of(context).push(MaterialPageRoute(
+                  builder: (_) => const ProviderDiagnosticsScreen())),
               trailing: const Icon(Icons.chevron_right_rounded,
                   color: AppColors.textMuted),
             ),
@@ -317,6 +334,14 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     if (picked != null) {
       await ref.read(settingsProvider.notifier).setDefaultSpeed(picked);
     }
+  }
+
+  static String _ago(DateTime t) {
+    final d = DateTime.now().difference(t);
+    if (d.inMinutes < 1) return 'just now';
+    if (d.inMinutes < 60) return '${d.inMinutes}m ago';
+    if (d.inHours < 24) return '${d.inHours}h ago';
+    return '${d.inDays}d ago';
   }
 
   void _openProviders() {

@@ -3,7 +3,6 @@ import 'package:aeroflix/shared/models/media_details.dart';
 import 'package:aeroflix/shared/models/stream_source.dart';
 import 'package:aeroflix/shared/providers/continue_watching_provider.dart';
 import 'package:aeroflix/core/utils/trailer_helper.dart';
-import 'package:aeroflix/shared/models/watch_provider.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -213,35 +212,6 @@ void main() {
       expect(s2.url, s.url);
       expect(s2.providerId, s.providerId);
       expect(s2.quality, '1080p');
-    });
-  });
-
-  group('WatchProviders', () {
-    test('empty when every group is empty', () {
-      const p = WatchProviders(region: 'US');
-      expect(p.isEmpty, isTrue);
-    });
-
-    test('not empty with a streaming provider; logo URL built from path', () {
-      const netflix = WatchProvider(
-          providerId: 8, displayName: 'Netflix', logoPath: '/xyz.jpg');
-      const p = WatchProviders(
-          region: 'IN', flatrate: [netflix], link: 'https://link');
-      expect(p.isEmpty, isFalse);
-      expect(netflix.logoUrl, 'https://image.tmdb.org/t/p/w92/xyz.jpg');
-      expect(const WatchProvider(providerId: 1, displayName: 'NoLogo').logoUrl,
-          '');
-    });
-
-    test('fromJson reads provider fields safely', () {
-      final wp = WatchProvider.fromJson({
-        'provider_id': 9,
-        'provider_name': 'Prime Video',
-        'logo_path': '/p.png'
-      });
-      expect(wp.providerId, 9);
-      expect(wp.displayName, 'Prime Video');
-      expect(wp.logoUrl, contains('/p.png'));
     });
   });
 }

@@ -20,15 +20,27 @@ import 'models.dart';
 ///     If [autoUpdate] is true, download changed providers immediately.
 ///     If false, return [UpdateCheckResult] so UI can show "Update available".
 ///
-/// The provider JS files are NEVER bundled in the APK — they are fetched
-/// at runtime. When Skywave22 updates a provider in the repo, your users
-/// get the fix on next app launch / manual refresh, without you shipping
-/// a new app version. This is exactly how Nuvio's Settings → Plugins works.
+/// The provider JS files are usually fetched at runtime, so a fix published in
+/// the repo reaches users on the next launch without shipping a new app
+/// version (this is how Nuvio's Settings → Plugins works). Because
+/// raw.githubusercontent.com is slow or blocked on some mobile networks, the
+/// manager also accepts **bundled seed copies** ([seedBundled]) and falls back
+/// across several mirrors ([mirrorBases]) — the app therefore still resolves
+/// streams on a first launch with no usable GitHub access.
 class ProviderManager {
   /// Base URL of the repo on GitHub (raw). Manifest lives at "$base/manifest.json",
   /// provider files at `"$base/<filename>"` e.g. "$base/providers/cinezo.js".
   static const String defaultBaseUrl =
       'https://raw.githubusercontent.com/Skywave22/Plugins-TJ/main';
+
+  /// Mirrors tried in order when fetching the manifest / provider files.
+  /// jsDelivr is a CDN that stays reachable on networks where GitHub raw is
+  /// blocked (e.g. several Indian ISPs).
+  static const List<String> defaultMirrorBases = [
+    'https://raw.githubusercontent.com/Skywave22/Plugins-TJ/main',
+    'https://cdn.jsdelivr.net/gh/Skywave22/Plugins-TJ@main',
+    'https://raw.githack.com/Skywave22/Plugins-TJ/main',
+  ];
 
   /// Recommended starter pack (best coverage, Hindi-first).
   /// Cinezo + ScreenScape + Nxsha cover most popular titles,
@@ -41,9 +53,17 @@ class ProviderManager {
     'katdrama',
   ];
 
+  /// Preferred base URL. Mirrors are tried in order starting from this one.
   final String baseUrl;
+
+  /// All mirrors to try, in order.
+  final List<String> mirrorBases;
+
   final http.Client _http;
   final Duration httpTimeout;
+
+  /// Mirror that last answered successfully (used for provider downloads).
+  String? _resolvedBase;
 
   /// Optional cache directory override (used by tests, or if you want the
   /// providers stored in a custom location instead of app documents).
@@ -51,10 +71,25 @@ class ProviderManager {
 
   ProviderManager({
     this.baseUrl = defaultBaseUrl,
+    List<String>? mirrorBases,
     http.Client? httpClient,
     this.httpTimeout = const Duration(seconds: 20),
     this.cacheDir,
-  }) : _http = httpClient ?? http.Client();
+  }) : _http = httpClient ?? http.Client(),
+       mirrorBases = mirrorBases ?? defaultMirrorBases;
+
+  /// Base URL that last worked, if any.
+  String? get resolvedBaseUrl => _resolvedBase;
+
+  /// Every base URL worth trying, preferred one first.
+  List<String> get _bases {
+    final all = <String>[];
+    if (_resolvedBase != null) all.add(_resolvedBase!);
+    for (final b in [baseUrl, ...mirrorBases]) {
+      if (!all.contains(b)) all.add(b);
+    }
+    return all;
+  }
 
   String get manifestUrl => '$baseUrl/manifest.json';
 
@@ -140,39 +175,63 @@ class ProviderManager {
   // ── Network ─────────────────────────────────────────────────────────────
 
   Future<Manifest> fetchManifest() async {
-    final res = await _http.get(Uri.parse(manifestUrl)).timeout(httpTimeout);
-    if (res.statusCode != 200) {
-      throw Exception('Manifest fetch failed: HTTP ${res.statusCode}');
+    Object? lastError;
+    for (final base in _bases) {
+      try {
+        final res = await _http
+            .get(Uri.parse('$base/manifest.json'))
+            .timeout(httpTimeout);
+        if (res.statusCode != 200) {
+          lastError = Exception('manifest HTTP ${res.statusCode} at $base');
+          continue;
+        }
+        // Decode explicitly as UTF-8 — GitHub raw serves text/plain and some
+        // manifests contain non-Latin1 characters (e.g. em dashes).
+        final body = utf8.decode(res.bodyBytes, allowMalformed: true);
+        final manifest = Manifest.fromJson(
+          jsonDecode(body) as Map<String, dynamic>,
+        );
+        _resolvedBase = base;
+        await cacheManifestJson(body);
+        return manifest;
+      } catch (e) {
+        lastError = e;
+      }
     }
-    // Decode explicitly as UTF-8 — GitHub raw serves text/plain and some
-    // manifests contain non-Latin1 characters (e.g. em dashes).
-    final body = utf8.decode(res.bodyBytes, allowMalformed: true);
-    final manifest = Manifest.fromJson(
-      jsonDecode(body) as Map<String, dynamic>,
-    );
-    // Cache for offline use
+    throw Exception('Manifest fetch failed on all mirrors: $lastError');
+  }
+
+  /// Store a manifest JSON string as the offline copy (bundled seed or
+  /// last-known-good network response).
+  Future<void> cacheManifestJson(String json) async {
     try {
       final f = await _manifestCacheFile();
-      await f.writeAsString(body, flush: true);
+      await f.writeAsString(json, flush: true);
     } catch (_) {}
-    return manifest;
   }
 
   Future<String> _downloadProviderCode(ProviderInfo info) async {
-    final url = providerUrl(info);
-    final res = await _http.get(Uri.parse(url)).timeout(httpTimeout);
-    if (res.statusCode != 200) {
-      throw Exception(
-        '${info.id}: download failed HTTP ${res.statusCode} ($url)',
-      );
+    Object? lastError;
+    for (final base in _bases) {
+      final url = '$base/${info.filename}';
+      try {
+        final res = await _http.get(Uri.parse(url)).timeout(httpTimeout);
+        if (res.statusCode != 200) {
+          lastError = Exception('HTTP ${res.statusCode} at $url');
+          continue;
+        }
+        final code = utf8.decode(res.bodyBytes, allowMalformed: true);
+        if (code.isEmpty || !code.contains('getStreams')) {
+          lastError = Exception('not a provider bundle (missing getStreams)');
+          continue;
+        }
+        _resolvedBase = base;
+        return code;
+      } catch (e) {
+        lastError = e;
+      }
     }
-    final code = utf8.decode(res.bodyBytes, allowMalformed: true);
-    if (code.isEmpty || !code.contains('getStreams')) {
-      throw Exception(
-        '${info.id}: downloaded file does not look like a provider (missing getStreams)',
-      );
-    }
-    return code;
+    throw Exception('${info.id}: download failed on all mirrors: $lastError');
   }
 
   /// Download (or re-download) a single provider and update cache.
@@ -191,6 +250,47 @@ class ProviderManager {
     cached[info.id] = entry;
     await _saveCached(cached);
     return entry;
+  }
+
+  /// Install provider code that ships inside the app (offline seed).
+  ///
+  /// [read] returns the JS source for an id, or null when the app has no
+  /// bundled copy. Existing downloads are kept when they are at least as new as
+  /// the bundled version, so a bundled seed never downgrades a live update.
+  Future<int> seedBundled({
+    required Manifest manifest,
+    required Future<String?> Function(String id) read,
+    List<String>? onlyIds,
+  }) async {
+    final cached = await getCached();
+    var seeded = 0;
+    for (final info in manifest.scrapers) {
+      if (onlyIds != null && !onlyIds.contains(info.id)) continue;
+      final local = cached[info.id];
+      if (local != null && !_isNewer(info.version, local.version)) continue;
+      if (local != null) {
+        final existing = File(local.filePath);
+        if (await existing.exists() && await existing.length() > 0) continue;
+      }
+      try {
+        final code = await read(info.id);
+        if (code == null || !code.contains('getStreams')) continue;
+        final file = await providerFile(info.id);
+        await file.writeAsString(code, flush: true);
+        cached[info.id] = CachedProvider(
+          id: info.id,
+          version: info.version,
+          filePath: file.path,
+          downloadedAt: DateTime.now(),
+          sizeBytes: code.length,
+        );
+        seeded++;
+      } catch (_) {
+        // A single bad bundled file must never break startup.
+      }
+    }
+    if (seeded > 0) await _saveCached(cached);
+    return seeded;
   }
 
   /// Download several providers. Returns map id -> error message (empty = success).
