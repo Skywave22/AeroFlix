@@ -110,8 +110,9 @@ class ProviderService {
   }) async {
     try {
       final code = await manager.readProviderCode(id);
-      if (code == null)
+      if (code == null) {
         return []; // not downloaded yet — call syncOnLaunch() first
+      }
 
       final runtime = JsRuntime(tmdbApiKey: tmdbApiKey, scraperId: id);
       try {

@@ -86,9 +86,12 @@ class _StreamsSheetState extends State<StreamsSheet> {
           .toList();
     }
     if (_filter == '4K') {
-      final q = (s) => s.quality.toLowerCase();
       return all
-          .where((s) => q(s).contains('2160') || q(s).contains('4k'))
+          .where(
+            (s) =>
+                s.quality.toLowerCase().contains('2160') ||
+                s.quality.toLowerCase().contains('4k'),
+          )
           .toList();
     }
     return all

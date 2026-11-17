@@ -9,7 +9,7 @@
 /// await service.syncOnLaunch(); // downloads + auto-updates providers from GitHub
 /// final streams = await service.getStreams(tmdbId: '27205', mediaType: 'movie');
 /// ```
-library tj_providers;
+library;
 
 export 'src/models.dart';
 export 'src/provider_manager.dart';

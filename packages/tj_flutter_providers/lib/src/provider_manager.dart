@@ -26,7 +26,7 @@ import 'models.dart';
 /// a new app version. This is exactly how Nuvio's Settings → Plugins works.
 class ProviderManager {
   /// Base URL of the repo on GitHub (raw). Manifest lives at "$base/manifest.json",
-  /// provider files at "$base/<filename>" e.g. "$base/providers/cinezo.js".
+  /// provider files at `"$base/<filename>"` e.g. "$base/providers/cinezo.js".
   static const String defaultBaseUrl =
       'https://raw.githubusercontent.com/Skywave22/Plugins-TJ/main';
 

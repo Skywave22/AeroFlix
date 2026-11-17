@@ -1,4 +1,6 @@
 /// Models matching Plugins-TJ manifest.json + provider getStreams() output.
+library;
+
 ///
 /// Manifest (https://raw.githubusercontent.com/Skywave22/Plugins-TJ/main/manifest.json):
 /// {
@@ -148,8 +150,9 @@ class StreamResult {
     final rawHeaders = json['headers'];
     if (rawHeaders is Map) {
       rawHeaders.forEach((k, v) {
-        if (v != null && v is! Map && v is! List)
+        if (v != null && v is! Map && v is! List) {
           headers[k.toString()] = v.toString();
+        }
       });
     }
     final subs = <Subtitle>[];

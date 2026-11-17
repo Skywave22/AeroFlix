@@ -10,8 +10,8 @@ import 'crypto_bridge.dart';
 /// QuickJS / JavaScriptCore runtime that executes TJ-Plugins providers.
 ///
 /// Bridge contract (see assets/js/polyfill.js):
-///   JS -> Dart: sendMessage(channel, JSON {"__tjId": <int>, "__tjData": {...}})
-///   Dart -> JS: runtime.evaluate('__TJ_DELIVER(<id>, true, "<json string>")')
+///   JS -> Dart: `sendMessage(channel, JSON {"__tjId": <int>, "__tjData": {...}})`
+///   Dart -> JS: `runtime.evaluate('__TJ_DELIVER(<id>, true, "<json string>")')`
 ///
 /// Channels:
 ///   __native_fetch  -> Dart http (OkHttp-like semantics: default UA, redirects,
@@ -354,7 +354,7 @@ class JsRuntime {
       final respHeaders = <String, String>{};
       streamed.headers.forEach((k, v) {
         respHeaders[k.toLowerCase()] = v.length > 8192
-            ? v.substring(0, 8177) + '...[truncated]'
+            ? '${v.substring(0, 8177)}...[truncated]'
             : v;
       });
 

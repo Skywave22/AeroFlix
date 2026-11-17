@@ -147,6 +147,7 @@ void _toggleDownload(
   } catch (_) {
     direct = null;
   }
+  if (!context.mounted) return;
   if (direct == null) {
     ScaffoldMessenger.of(context)
       ..hideCurrentSnackBar()
