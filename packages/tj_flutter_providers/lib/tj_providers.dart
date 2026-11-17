@@ -14,6 +14,7 @@ library;
 export 'src/models.dart';
 export 'src/provider_manager.dart';
 export 'src/provider_service.dart';
+export 'src/isolate_runner.dart';
 export 'src/js_runtime.dart';
 export 'src/crypto_bridge.dart';
 export 'src/widgets/providers_screen.dart';

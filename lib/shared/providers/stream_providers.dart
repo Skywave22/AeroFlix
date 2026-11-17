@@ -138,13 +138,16 @@ class StreamService {
     return score;
   }
 
+  /// Quality ranking tuned for phones on mobile data: 1080p streams start and
+  /// stay smooth, 4K from these one-off CDNs is what makes playback stall, so
+  /// it ranks below 1080p/720p instead of above it.
   static int _rank(String? q) {
     final s = (q ?? '').toLowerCase();
-    if (s.contains('4k') || s.contains('2160')) return 5;
-    if (s.contains('1440')) return 4;
-    if (s.contains('1080')) return 3;
-    if (s.contains('720')) return 2;
-    if (s.contains('480')) return 1;
+    if (s.contains('1080') || s.contains('fhd')) return 5;
+    if (s.contains('720') || s.contains('hd')) return 4;
+    if (s.contains('4k') || s.contains('2160')) return 3;
+    if (s.contains('1440')) return 2;
+    if (s.contains('480') || s.contains('sd')) return 1;
     return 0;
   }
 

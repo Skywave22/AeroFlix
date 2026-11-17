@@ -145,17 +145,26 @@ jobs:
       - name: Install dependencies
         run: flutter pub get
 
-      - name: Build APK (release, debug-signed for sideloading)
+      # Split per ABI: the universal APK is ~100 MB because it carries libmpv
+      # and QuickJS for four architectures. Per-ABI builds are ~35-40 MB.
+      - name: Build APK (release, per-ABI, debug-signed for sideloading)
         env:
           TMDB_API_KEY: ${{ secrets.TMDB_API_KEY }}
         run: |
           EXTRA=""
           if [ -n "${TMDB_API_KEY:-}" ]; then EXTRA="--dart-define=TMDB_API_KEY=$TMDB_API_KEY"; fi
-          flutter build apk --release --no-shrink --no-pub $EXTRA
+          flutter build apk --release --split-per-abi --no-shrink --no-pub $EXTRA --target-platform android-arm,android-arm64
 
-      - name: Upload release APK
+      - name: Upload arm64 APK (most phones)
         uses: actions/upload-artifact@v4
         with:
-          name: aeroflix-release-apk
-          path: build/app/outputs/flutter-apk/app-release.apk
+          name: aeroflix-arm64-apk
+          path: build/app/outputs/flutter-apk/app-arm64-v8a-release.apk
+          if-no-files-found: error
+
+      - name: Upload armv7 APK (older devices)
+        uses: actions/upload-artifact@v4
+        with:
+          name: aeroflix-armv7-apk
+          path: build/app/outputs/flutter-apk/app-armeabi-v7a-release.apk
           if-no-files-found: error

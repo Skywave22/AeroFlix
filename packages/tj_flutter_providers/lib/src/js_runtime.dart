@@ -62,8 +62,11 @@ class JsRuntime {
   /// example see the bare path, so both are tried. Getting this wrong is fatal
   /// but silent: every provider call would throw and the app would report "no
   /// streams" for every title.
-  Future<String> _loadAsset(String path, String? override) async {
-    if (override != null) return override;
+  Future<String> _loadAsset(String path, String? override) async =>
+      override ?? await loadAsset(path);
+
+  /// Public form of the loader above (used by [TjRuntimeAssets]).
+  static Future<String> loadAsset(String path) async {
     try {
       return await rootBundle.loadString('$_packagePrefix$path');
     } catch (_) {
@@ -414,4 +417,35 @@ class _Envelope {
   final int id;
   final Map<String, dynamic> data;
   const _Envelope(this.id, this.data);
+}
+
+/// The three JS sources every provider needs (polyfill, call wrapper, CryptoJS).
+///
+/// Loaded once and reused — both in-process and inside provider isolates, which
+/// cannot touch the asset bundle.
+class TjRuntimeAssets {
+  const TjRuntimeAssets({
+    required this.polyfill,
+    required this.call,
+    required this.cryptoJs,
+  });
+
+  final String polyfill;
+  final String call;
+  final String cryptoJs;
+
+  static TjRuntimeAssets? _cached;
+
+  /// Loads the bundled sources (cached for the process lifetime).
+  static Future<TjRuntimeAssets> load() async {
+    final cached = _cached;
+    if (cached != null) return cached;
+    final loaded = TjRuntimeAssets(
+      polyfill: await JsRuntime.loadAsset('assets/js/polyfill.js'),
+      call: await JsRuntime.loadAsset('assets/js/call.js'),
+      cryptoJs: await JsRuntime.loadAsset('assets/js/crypto-js.min.js'),
+    );
+    _cached = loaded;
+    return loaded;
+  }
 }

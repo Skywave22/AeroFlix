@@ -37,6 +37,14 @@ class AppColors {
     colors: [Color(0x0006070C), Color(0x6606070C), scrimBottom],
     stops: [0.0, 0.55, 1.0],
   );
+
+  /// Top-down scrim behind the transparent home app bar.
+  static const LinearGradient heroTopScrim = LinearGradient(
+    begin: Alignment.topCenter,
+    end: Alignment.bottomCenter,
+    colors: [Color(0xE606070C), Color(0x9906070C), Color(0x0006070C)],
+    stops: [0.0, 0.55, 1.0],
+  );
   static const LinearGradient navBarScrim = LinearGradient(
     begin: Alignment.topCenter,
     end: Alignment.bottomCenter,

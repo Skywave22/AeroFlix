@@ -63,6 +63,36 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
     return Scaffold(
         backgroundColor: AppColors.background,
+        extendBodyBehindAppBar: true,
+        appBar: AppBar(
+            backgroundColor: Colors.transparent,
+            elevation: 0,
+            scrolledUnderElevation: 0,
+            surfaceTintColor: Colors.transparent,
+            // A top-down scrim instead of a solid bar: the hero artwork runs
+            // behind the status bar (no dead band at the top) while the logo
+            // and the section headings stay readable once you scroll.
+            flexibleSpace: const DecoratedBox(
+                decoration: BoxDecoration(gradient: AppColors.heroTopScrim)),
+            title: Row(children: [
+              Image.asset('assets/images/logo_mark.png',
+                  width: 32, height: 32, filterQuality: FilterQuality.medium),
+              const SizedBox(width: AppSpacing.sm),
+              Text('AeroFlix',
+                  style: AppTypography.appBarTitle.copyWith(
+                      fontSize: 22,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: -0.2)),
+            ]),
+            actions: [
+              IconButton(
+                  tooltip: 'Provider status',
+                  icon: const Icon(Icons.tune_rounded),
+                  onPressed: () => Navigator.of(context).push(MaterialPageRoute(
+                      builder: (_) => const ProviderDiagnosticsScreen())),
+                  splashRadius: 20),
+              const SizedBox(width: AppSpacing.xs)
+            ]),
         body: RefreshIndicator(
             color: AppColors.accent,
             backgroundColor: AppColors.surface,
@@ -78,42 +108,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 physics: const BouncingScrollPhysics(
                     parent: AlwaysScrollableScrollPhysics()),
                 slivers: [
-                  SliverAppBar(
-                      pinned: false,
-                      floating: true,
-                      snap: true,
-                      elevation: 0,
-                      scrolledUnderElevation: 0,
-                      surfaceTintColor: Colors.transparent,
-                      // Opaque, not transparent: a floating bar over scrolling
-                      // posters has to occlude them, otherwise the logo and the
-                      // section headings collide.
-                      backgroundColor: AppColors.background,
-                      title: Row(children: [
-                        Image.asset('assets/images/logo_mark.png',
-                            width: 32,
-                            height: 32,
-                            filterQuality: FilterQuality.medium),
-                        const SizedBox(width: AppSpacing.sm),
-                        Text('AeroFlix',
-                            style: AppTypography.appBarTitle.copyWith(
-                                fontSize: 22,
-                                fontWeight: FontWeight.w800,
-                                letterSpacing: -0.2)),
-                      ]),
-                      actions: [
-                        // Real status, not a fake badge: opens the provider
-                        // manager where updates can be applied.
-                        IconButton(
-                            tooltip: 'Provider status',
-                            icon: const Icon(Icons.tune_rounded),
-                            onPressed: () => Navigator.of(context).push(
-                                MaterialPageRoute(
-                                    builder: (_) =>
-                                        const ProviderDiagnosticsScreen())),
-                            splashRadius: 20),
-                        const SizedBox(width: AppSpacing.xs)
-                      ]),
                   SliverToBoxAdapter(
                       child: (trending.isLoading || trendingTv.isLoading)
                           ? Container(height: 420, color: AppColors.surface)
@@ -126,6 +120,26 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                               ? const SizedBox(height: 380)
                               : _buildHero(
                                   trending, trendingTv, watchlistKeys)),
+                  const SliverToBoxAdapter(
+                      child: SizedBox(height: AppSpacing.lg)),
+                  if (continueList.isNotEmpty)
+                    SliverToBoxAdapter(
+                        child: HorizontalCarousel(
+                            title: 'Continue Watching',
+                            height: 160,
+                            itemCount: continueList.length,
+                            itemBuilder: (_, i) => ContinueCard(
+                                  item: continueList[i],
+                                  onTap: () => _playContinue(continueList[i]),
+                                  onRemove: () => ref
+                                      .read(continueWatchingProvider.notifier)
+                                      .remove(continueList[i].type,
+                                          continueList[i].id,
+                                          season: continueList[i].season,
+                                          episode: continueList[i].episode),
+                                ))),
+                  if (continueList.isEmpty)
+                    SliverToBoxAdapter(child: _continueEmpty()),
                   const SliverToBoxAdapter(
                       child: SizedBox(height: AppSpacing.lg)),
                   // Hindi-first cinema row (real TMDB catalogue; playback comes
@@ -163,24 +177,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   _sliverMovies(trending, 'Trending Now'),
                   const SliverToBoxAdapter(
                       child: SizedBox(height: AppSpacing.lg)),
-                  if (continueList.isNotEmpty)
-                    SliverToBoxAdapter(
-                        child: HorizontalCarousel(
-                            title: 'Continue Watching',
-                            height: 160,
-                            itemCount: continueList.length,
-                            itemBuilder: (_, i) => ContinueCard(
-                                  item: continueList[i],
-                                  onTap: () => _playContinue(continueList[i]),
-                                  onRemove: () => ref
-                                      .read(continueWatchingProvider.notifier)
-                                      .remove(continueList[i].type,
-                                          continueList[i].id,
-                                          season: continueList[i].season,
-                                          episode: continueList[i].episode),
-                                ))),
-                  if (continueList.isEmpty)
-                    SliverToBoxAdapter(child: _continueEmpty()),
                   const SliverToBoxAdapter(
                       child: SizedBox(height: AppSpacing.lg)),
                   _sliverMovies(hindi, 'Hindi Cinema'),

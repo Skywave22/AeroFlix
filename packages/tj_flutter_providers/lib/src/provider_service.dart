@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 
+import 'isolate_runner.dart';
 import 'js_runtime.dart';
 import 'models.dart';
 import 'provider_manager.dart';
@@ -28,10 +29,18 @@ class ProviderService {
   /// Change to all 25 ids from manifest if you want everything.
   final List<String> enabledIds;
 
+  /// Run providers on a background isolate (recommended: keeps the UI at
+  /// 60 fps). Falls back to in-process execution automatically when a platform
+  /// cannot host one.
+  final bool useIsolate;
+
+  bool _isolateBroken = false;
+
   ProviderService({
     required this.manager,
     this.tmdbApiKey = '',
     this.enabledIds = ProviderManager.recommendedIds,
+    this.useIsolate = true,
   });
 
   /// Call on app start: fetch manifest, download new providers,
@@ -156,6 +165,58 @@ class ProviderService {
     return ids;
   }
 
+  /// Runs the provider either off-isolate or in-process.
+  Future<String> _execute({
+    required String providerCode,
+    required String providerId,
+    required String tmdbId,
+    required String mediaType,
+    int? season,
+    int? episode,
+    required Duration timeout,
+  }) async {
+    if (useIsolate && !_isolateBroken) {
+      try {
+        final assets = await TjRuntimeAssets.load();
+        return await IsolateProviderRunner.run(
+          providerCode: providerCode,
+          providerId: providerId,
+          tmdbApiKey: tmdbApiKey,
+          tmdbId: tmdbId,
+          mediaType: mediaType,
+          season: season,
+          episode: episode,
+          polyfillCode: assets.polyfill,
+          callCode: assets.call,
+          cryptoJsCode: assets.cryptoJs,
+          timeout: timeout,
+        );
+      } on IsolateUnavailable {
+        _isolateBroken = true; // platform cannot host one; stop trying
+      } on TimeoutException {
+        rethrow; // genuine provider timeout — don't retry in-process
+      } catch (_) {
+        // First run failed (e.g. debug-mode messenger restriction): fall back
+        // for this call and keep using the isolate next time.
+      }
+    }
+    final runtime = JsRuntime(tmdbApiKey: tmdbApiKey, scraperId: providerId);
+    try {
+      return await runtime
+          .getStreamsJson(
+            providerCode: providerCode,
+            providerId: providerId,
+            tmdbId: tmdbId,
+            mediaType: mediaType,
+            season: season,
+            episode: episode,
+          )
+          .timeout(timeout);
+    } finally {
+      runtime.dispose();
+    }
+  }
+
   Future<ProviderOutcome> _runProvider({
     required String id,
     required String tmdbId,
@@ -165,7 +226,6 @@ class ProviderService {
     Duration perProviderTimeout = const Duration(seconds: 30),
   }) async {
     final sw = Stopwatch()..start();
-    JsRuntime? runtime;
     try {
       final code = await manager.readProviderCode(id);
       if (code == null) {
@@ -176,17 +236,15 @@ class ProviderService {
         );
       }
 
-      runtime = JsRuntime(tmdbApiKey: tmdbApiKey, scraperId: id);
-      final jsonStr = await runtime
-          .getStreamsJson(
-            providerCode: code,
-            providerId: id,
-            tmdbId: tmdbId,
-            mediaType: mediaType,
-            season: season,
-            episode: episode,
-          )
-          .timeout(perProviderTimeout);
+      final jsonStr = await _execute(
+        providerCode: code,
+        providerId: id,
+        tmdbId: tmdbId,
+        mediaType: mediaType,
+        season: season,
+        episode: episode,
+        timeout: perProviderTimeout,
+      );
 
       final decoded = jsonDecode(jsonStr);
       final streams = decoded is List
@@ -213,8 +271,6 @@ class ProviderService {
         error: e.toString(),
         elapsed: sw.elapsed,
       );
-    } finally {
-      runtime?.dispose();
     }
   }
 
