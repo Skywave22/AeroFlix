@@ -1437,8 +1437,9 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
                                           setState(() => _seeking = false);
                                           final ap =
                                               ref.read(activePlayerProvider);
-                                          if (ap != null)
+                                          if (ap != null) {
                                             ap.player.seek(_duration * v);
+                                          }
                                           _cancelAutoAdvance();
                                           _scheduleHide();
                                         },
