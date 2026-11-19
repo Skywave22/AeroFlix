@@ -70,6 +70,37 @@ jobs:
           flutter test --timeout 120s
 
 
+  format-apply:
+    # ON-DEMAND maintenance job: applies `dart format` with the exact SDK the
+    # verify gate uses and pushes the result. Useful when a change was written
+    # on a machine without a local Flutter SDK. It never runs automatically.
+    name: Format apply
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+      - name: Format and commit
+        run: |
+          dart format lib test packages/tj_flutter_providers/lib \
+            packages/tj_flutter_providers/test
+          if git diff --quiet; then
+            echo "Already formatted; nothing to commit."
+            exit 0
+          fi
+          git diff --stat
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -am "style: dart format (applied by CI)"
+          git push origin HEAD:${{ github.ref_name }}
+
   build-debug:
     name: Build debug APK
     runs-on: ubuntu-24.04
