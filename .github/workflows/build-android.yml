@@ -56,7 +56,19 @@ jobs:
           fi
 
       - name: Analyze (fatal on errors/warnings)
-        run: flutter analyze --no-pub
+        run: |
+          set +e
+          flutter analyze --no-pub 2>&1 | tee /tmp/analyze.txt
+          code=${PIPESTATUS[0]}
+          if [ "$code" -ne 0 ]; then
+            # Surface the first issues as annotations so they can be read from
+            # the API without downloading logs.
+            grep -E '^\s*(error|warning|info)' /tmp/analyze.txt | head -40 | \
+              while IFS= read -r line; do
+                echo "::error title=analyzer::$line"
+              done
+          fi
+          exit "$code"
 
       - name: Run app tests
         run: flutter test --no-pub --timeout 120s
