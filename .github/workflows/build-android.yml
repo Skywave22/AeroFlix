@@ -69,11 +69,14 @@ jobs:
 
   format-apply:
     # TEMPORARY: formats the tree with the exact SDK the verify job uses and
-    # uploads the result, so formatting can be applied on a machine without a
-    # local Flutter SDK. Delete this job once the gate is green.
+    # commits the result back to this branch, so formatting can be applied on a
+    # machine that has no local Flutter SDK. Delete this job once the gate is
+    # green.
     name: Format apply
     runs-on: ubuntu-24.04
     timeout-minutes: 15
+    permissions:
+      contents: write
     steps:
       - uses: actions/checkout@v4
       - uses: subosito/flutter-action@v2
@@ -81,17 +84,18 @@ jobs:
           flutter-version: ${{ env.FLUTTER_VERSION }}
           channel: stable
           cache: true
-      - name: Format and package
+      - name: Format and commit
         run: |
           dart format lib test packages/tj_flutter_providers/lib \
             packages/tj_flutter_providers/test
-          tar czf formatted.tgz lib test packages/tj_flutter_providers/lib \
-            packages/tj_flutter_providers/test
-      - uses: actions/upload-artifact@v4
-        with:
-          name: formatted-tree
-          path: formatted.tgz
-          if-no-files-found: error
+          if git diff --quiet; then
+            echo "Already formatted; nothing to commit."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -am "style: dart format (applied by CI)"
+          git push origin HEAD:${{ github.ref_name }}
 
   build-debug:
     name: Build debug APK
