@@ -283,10 +283,10 @@ class _DownloadRow extends ConsumerWidget {
                   ),
                 ),
                 Expanded(
-                child: IgnorePointer(
-                  child: _row(context, ref, poster, isDone, isActive),
+                  child: IgnorePointer(
+                    child: _row(context, ref, poster, isDone, isActive),
+                  ),
                 ),
-              ),
               ],
             ),
           ),
@@ -311,41 +311,32 @@ class _DownloadRow extends ConsumerWidget {
   }
 
   Widget _row(
-      BuildContext context,
-      WidgetRef ref,
-      String poster,
-      bool isDone,
-      bool isActive,
-    ) =>
-        Container(
-          decoration: BoxDecoration(
-            color: AppColors.surface,
-            borderRadius: AppRadii.mdRadius,
-          ),
-          padding: const EdgeInsets.all(AppSpacing.sm),
-          child: Row(
-            children: [
-              ClipRRect(
-                borderRadius: AppRadii.smRadius,
-                child: SizedBox(
-                  width: 88,
-                  height: 56,
-                  child: poster.isNotEmpty
-                      ? CachedNetworkImage(
-                          imageUrl: poster,
-                          fit: BoxFit.cover,
-                          placeholder: (_, __) =>
-                              Container(color: AppColors.surfaceElevated),
-                          errorWidget: (_, __, ___) => Container(
-                            color: AppColors.surfaceElevated,
-                            child: const Icon(
-                              Icons.movie,
-                              color: AppColors.textMuted,
-                              size: 22,
-                            ),
-                          ),
-                        )
-                      : Container(
+    BuildContext context,
+    WidgetRef ref,
+    String poster,
+    bool isDone,
+    bool isActive,
+  ) =>
+      Container(
+        decoration: BoxDecoration(
+          color: AppColors.surface,
+          borderRadius: AppRadii.mdRadius,
+        ),
+        padding: const EdgeInsets.all(AppSpacing.sm),
+        child: Row(
+          children: [
+            ClipRRect(
+              borderRadius: AppRadii.smRadius,
+              child: SizedBox(
+                width: 88,
+                height: 56,
+                child: poster.isNotEmpty
+                    ? CachedNetworkImage(
+                        imageUrl: poster,
+                        fit: BoxFit.cover,
+                        placeholder: (_, __) =>
+                            Container(color: AppColors.surfaceElevated),
+                        errorWidget: (_, __, ___) => Container(
                           color: AppColors.surfaceElevated,
                           child: const Icon(
                             Icons.movie,
@@ -353,64 +344,71 @@ class _DownloadRow extends ConsumerWidget {
                             size: 22,
                           ),
                         ),
-                ),
-              ),
-              const SizedBox(width: AppSpacing.md),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      item.title,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: AppTypography.bodyPrimary.copyWith(
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      _subtitle(),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: AppTypography.metadata.copyWith(
-                        color: isDone
-                            ? AppColors.success
-                            : (isActive
-                                ? AppColors.accent
-                                : AppColors.textMuted),
-                        fontSize: 11,
-                      ),
-                    ),
-                    const SizedBox(height: 6),
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(2),
-                      child: LinearProgressIndicator(
-                        value: isDone
-                            ? 1
-                            : (item.status == DownloadStatus.paused ||
-                                    item.status == DownloadStatus.failed
-                                ? item.progress
-                                : null),
-                        minHeight: 3,
-                        backgroundColor: AppColors.surfaceElevated,
-                        valueColor: AlwaysStoppedAnimation<Color>(
-                          isDone
-                              ? AppColors.success
-                              : (item.status == DownloadStatus.failed
-                                  ? AppColors.error
-                                  : AppColors.accent),
+                      )
+                    : Container(
+                        color: AppColors.surfaceElevated,
+                        child: const Icon(
+                          Icons.movie,
+                          color: AppColors.textMuted,
+                          size: 22,
                         ),
                       ),
-                    ),
-                  ],
-                ),
               ),
-              const SizedBox(width: AppSpacing.sm),
-              _trailing(context, ref),
-            ],
-          ),
-        );
+            ),
+            const SizedBox(width: AppSpacing.md),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    item.title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: AppTypography.bodyPrimary.copyWith(
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    _subtitle(),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: AppTypography.metadata.copyWith(
+                      color: isDone
+                          ? AppColors.success
+                          : (isActive ? AppColors.accent : AppColors.textMuted),
+                      fontSize: 11,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(2),
+                    child: LinearProgressIndicator(
+                      value: isDone
+                          ? 1
+                          : (item.status == DownloadStatus.paused ||
+                                  item.status == DownloadStatus.failed
+                              ? item.progress
+                              : null),
+                      minHeight: 3,
+                      backgroundColor: AppColors.surfaceElevated,
+                      valueColor: AlwaysStoppedAnimation<Color>(
+                        isDone
+                            ? AppColors.success
+                            : (item.status == DownloadStatus.failed
+                                ? AppColors.error
+                                : AppColors.accent),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: AppSpacing.sm),
+            _trailing(context, ref),
+          ],
+        ),
+      );
 
   String _subtitle() {
     switch (item.status) {
