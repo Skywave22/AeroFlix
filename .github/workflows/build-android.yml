@@ -39,19 +39,16 @@ jobs:
         run: flutter pub get
 
       - name: Verify formatting (app + vendored provider package)
+        # Bash `run` defaults to `set -eo pipefail` on Actions runners, so a
+        # failing command inside a multi-line block aborts the step before any
+        # diagnostic code can run. Keep this to a single command and let the
+        # annotation carry the fix instructions.
         run: |
-          if ! dart format --output=none --set-exit-if-changed \
-              lib test packages/tj_flutter_providers/lib \
-              packages/tj_flutter_providers/test; then
-            echo "::error::Formatting check failed. Run 'dart format lib test"
-            echo "packages/tj_flutter_providers/lib packages/tj_flutter_providers/test'."
-            # Show exactly which files differ so the annotation is actionable.
-            cp -r lib /tmp/lib.bak
-            dart format --output=write lib test \
-              packages/tj_flutter_providers/lib packages/tj_flutter_providers/test
-            diff -ru /tmp/lib.bak lib | head -120 || true
-            exit 1
-          fi
+          dart format --output=none --set-exit-if-changed \
+            lib \
+            test \
+            packages/tj_flutter_providers/lib \
+            packages/tj_flutter_providers/test
 
       - name: Analyze (fatal on errors/warnings)
         run: flutter analyze --no-pub
