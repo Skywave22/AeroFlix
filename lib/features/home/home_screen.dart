@@ -143,34 +143,38 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             _sliverMovies(
               trending,
               'Trending Now',
-              source: trendingMoviesProvider,
+              onRetry: () => ref.invalidate(trendingMoviesProvider),
             ),
             const SliverToBoxAdapter(child: SizedBox(height: AppSpacing.lg)),
-            _sliverMovies(hindi, 'Hindi Cinema', source: hindiMoviesProvider),
+            _sliverMovies(
+              hindi,
+              'Hindi Cinema',
+              onRetry: () => ref.invalidate(hindiMoviesProvider),
+            ),
             const SliverToBoxAdapter(child: SizedBox(height: AppSpacing.lg)),
             _sliverMovies(
               popular,
               'Popular Movies',
-              source: popularMoviesProvider,
+              onRetry: () => ref.invalidate(popularMoviesProvider),
             ),
             const SliverToBoxAdapter(child: SizedBox(height: AppSpacing.lg)),
             _sliverTv(
               trendingTv,
               'Trending TV Shows',
-              source: trendingTvProvider,
+              onRetry: () => ref.invalidate(trendingTvProvider),
             ),
             const SliverToBoxAdapter(child: SizedBox(height: AppSpacing.lg)),
             _sliverMovies(
               topRated,
               'Top Rated',
               rating: true,
-              source: topRatedMoviesProvider,
+              onRetry: () => ref.invalidate(topRatedMoviesProvider),
             ),
             const SliverToBoxAdapter(child: SizedBox(height: AppSpacing.lg)),
             _sliverMovies(
               nowPlaying,
               'Now Playing',
-              source: nowPlayingMoviesProvider,
+              onRetry: () => ref.invalidate(nowPlayingMoviesProvider),
             ),
             const SliverToBoxAdapter(child: SizedBox(height: 100)),
           ],
@@ -197,12 +201,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     // rebuild (watchlist toggle, continue-watching update) and fought the
     // rotator's own index. Interleave movies and TV instead, and let the
     // rotator handle motion.
-    final movies = ms.take(5).map(HeroItem.fromMovie).toList();
-    final shows = ts.take(3).map(HeroItem.fromTv).toList();
+    final topMovies = ms.take(5).map(HeroItem.fromMovie).toList();
+    final topShows = ts.take(3).map(HeroItem.fromTv).toList();
     final hero = <HeroItem>[];
     for (var i = 0; i < 5; i++) {
-      if (i < movies.length) hero.add(movies[i]);
-      if (i < shows.length) hero.add(shows[i]);
+      if (i < topMovies.length) hero.add(topMovies[i]);
+      if (i < topShows.length) hero.add(topShows[i]);
     }
     if (hero.isEmpty) return const SizedBox(height: 380);
     return HeroRotator(
@@ -264,7 +268,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     AsyncValue<List<Movie>> prov,
     String title, {
     bool rating = false,
-    ProviderListenable<Object?>? source,
+    VoidCallback? onRetry,
   }) =>
       SliverToBoxAdapter(
         child: prov.when(
@@ -282,7 +286,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           loading: () => const SectionLoadingPlaceholder(),
           error: (_, __) => InlineErrorRow(
             message: 'Could not load “$title”',
-            onRetry: source == null ? null : () => ref.invalidate(source),
+            onRetry: onRetry,
           ),
         ),
       );
@@ -290,7 +294,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   Widget _sliverTv(
     AsyncValue<List<TvShow>> prov,
     String title, {
-    ProviderListenable<Object?>? source,
+    VoidCallback? onRetry,
   }) =>
       SliverToBoxAdapter(
         child: prov.when(
@@ -308,7 +312,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           loading: () => const SectionLoadingPlaceholder(),
           error: (_, __) => InlineErrorRow(
             message: 'Could not load “$title”',
-            onRetry: source == null ? null : () => ref.invalidate(source),
+            onRetry: onRetry,
           ),
         ),
       );
