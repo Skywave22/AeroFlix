@@ -67,6 +67,32 @@ jobs:
           flutter test --timeout 120s
 
 
+  format-apply:
+    # TEMPORARY: formats the tree with the exact SDK the verify job uses and
+    # uploads the result, so formatting can be applied on a machine without a
+    # local Flutter SDK. Delete this job once the gate is green.
+    name: Format apply
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+      - name: Format and package
+        run: |
+          dart format lib test packages/tj_flutter_providers/lib \
+            packages/tj_flutter_providers/test
+          tar czf formatted.tgz lib test packages/tj_flutter_providers/lib \
+            packages/tj_flutter_providers/test
+      - uses: actions/upload-artifact@v4
+        with:
+          name: formatted-tree
+          path: formatted.tgz
+          if-no-files-found: error
+
   build-debug:
     name: Build debug APK
     runs-on: ubuntu-24.04
