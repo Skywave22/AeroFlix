@@ -138,6 +138,10 @@ class ProviderServicePool {
   final Map<String, ProviderService> _active = {};
 
   /// A service for [token], or null when every slot is busy.
+  ///
+  /// Null is a soft outcome, not a failure: the caller falls back to the shared
+  /// [providerServiceProvider] and its search still runs, it just queues behind
+  /// the other in-flight ones the way the old single-service code always did.
   ProviderService? acquire(String token) {
     final existing = _active[token];
     if (existing != null) return existing;
