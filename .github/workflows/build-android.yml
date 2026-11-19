@@ -101,6 +101,31 @@ jobs:
           git commit -am "style: dart format (applied by CI)"
           git push origin HEAD:${{ github.ref_name }}
 
+      # Maintainer helper: records the formatter's verdict on every file so the
+      # result can be read with `gh api .../contents/format-report.txt`.
+      - name: Record format verdict
+        run: |
+          {
+            echo "flutter/dart: $(dart --version 2>&1)"
+            echo
+            echo "== files the formatter would change =="
+            dart format --output=none --show=all lib test \
+              packages/tj_flutter_providers/lib \
+              packages/tj_flutter_providers/test 2>&1 | grep -E '^(Changed|\.\.)' || true
+            echo
+            echo "== exit code =="
+            dart format --output=none --set-exit-if-changed lib test \
+              packages/tj_flutter_providers/lib \
+              packages/tj_flutter_providers/test > /dev/null 2>&1
+            echo "exit=$?"
+          } > format-report.txt
+          cat format-report.txt
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add format-report.txt
+          git commit -m "chore: record format report" || true
+          git push origin HEAD:${{ github.ref_name }} || true
+
   build-debug:
     name: Build debug APK
     runs-on: ubuntu-24.04
