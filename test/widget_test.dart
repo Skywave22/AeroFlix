@@ -81,13 +81,9 @@ void main() {
       // cut into the rounded hero card above them.
       final sheetRadius = theme.bottomSheetTheme.shape;
       expect(sheetRadius, isNotNull);
-      expect(
-        (theme.bottomSheetTheme.shape! as RoundedRectangleBorder)
-            .borderRadius
-            .topLeft
-            .x,
-        greaterThan(0),
-      );
+      final shape = theme.bottomSheetTheme.shape! as RoundedRectangleBorder;
+      expect(shape.borderRadius.resolve(TextDirection.ltr).topLeft.x,
+          greaterThan(0));
     });
   });
 
