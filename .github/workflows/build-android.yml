@@ -177,7 +177,10 @@ jobs:
     # in ways a debug build never surfaces. Without a keystore the build falls
     # back to the debug key (see android/app/build.gradle), so this is only a
     # compile+package check — real signing stays on main.
-    if: github.ref == 'refs/heads/main' || github.event_name == 'pull_request'
+    if: >-
+      github.ref == 'refs/heads/main' ||
+      github.event_name == 'pull_request' ||
+      github.event_name == 'workflow_dispatch'
     steps:
       - uses: actions/checkout@v4
 
