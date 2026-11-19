@@ -79,9 +79,10 @@ jobs:
           tail -60 test-report.txt
           if [ "$code" -ne 0 ]; then
             # Always emit something: an empty annotation is dropped by GitHub
-            # and the failure then looks unexplainable.
-            summary=$(grep -nE '❌|Expected:|Actual:|Which:|[0-9]+ tests passed|Error|error' test-report.txt \
-              | tail -25 | cut -c1-1100 | tr '\n' '|')
+            # and the failure then looks unexplainable. Keep the context lines
+            # after each failing test, which is where the reason lives.
+            summary=$(grep -nE '^[0-9]+:[0-9]+ \+[0-9]+.*-[0-9]+|❌|Expected:|Actual:|Which:|Exception|Test failed' test-report.txt \
+              | tail -20 | cut -c1-1100 | tr '\n' '|')
             [ -z "$summary" ] && summary=$(tail -25 test-report.txt | tr '\n' '|' | cut -c1-1500)
             echo "::error title=flutter test failures (exit $code)::$summary"
           fi
