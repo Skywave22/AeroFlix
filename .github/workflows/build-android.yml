@@ -64,7 +64,10 @@ jobs:
           cat analyze-report.txt
           echo "------------------------"
           if grep -qE '^\s*(error|warning)' analyze-report.txt; then
-            grep -E '^\s*(error|warning)' analyze-report.txt | head -40
+            # GitHub keeps only the first 10 annotations per step, so emit the
+            # count plus as much of the report as fits in one annotation.
+            bad=$(grep -cE '^\s*(error|warning)' analyze-report.txt)
+            echo "::error title=flutter analyze ($bad errors/warnings)::$(grep -E '^\s*(error|warning)' analyze-report.txt | head -6 | tr '\n' ';' | cut -c1-900)"
             exit 1
           fi
 
