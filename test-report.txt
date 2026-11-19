@@ -1,0 +1,67 @@
+
+::group::✅ Passing tests
+✅ /home/runner/work/AeroFlix/AeroFlix/test/providers_test.dart: DownloadItem JSON round-trip preserves every field
+✅ /home/runner/work/AeroFlix/AeroFlix/test/providers_test.dart: DownloadItem unknown status names fall back to queued
+✅ /home/runner/work/AeroFlix/AeroFlix/test/providers_test.dart: DownloadItem sizeLabel formats bytes
+✅ /home/runner/work/AeroFlix/AeroFlix/test/providers_test.dart: DownloadItem copyWith clears error only when asked
+✅ /home/runner/work/AeroFlix/AeroFlix/test/providers_test.dart: WatchlistNotifier initial load restores persisted keys
+✅ /home/runner/work/AeroFlix/AeroFlix/test/providers_test.dart: WatchlistNotifier toggle removes existing keys
+✅ /home/runner/work/AeroFlix/AeroFlix/test/providers_test.dart: SettingsNotifier defaults are sensible
+✅ /home/runner/work/AeroFlix/AeroFlix/test/providers_test.dart: SettingsNotifier persisted values win over defaults
+✅ /home/runner/work/AeroFlix/AeroFlix/test/widget_test.dart: AeroFlix smoke test: MaterialApp renders
+✅ /home/runner/work/AeroFlix/AeroFlix/test/provider_assets_test.dart: runtime JS assets assets/js/polyfill.js loads from the package namespace
+✅ /home/runner/work/AeroFlix/AeroFlix/test/provider_assets_test.dart: runtime JS assets assets/js/call.js loads from the package namespace
+✅ /home/runner/work/AeroFlix/AeroFlix/test/provider_assets_test.dart: runtime JS assets assets/js/crypto-js.min.js loads from the package namespace
+✅ /home/runner/work/AeroFlix/AeroFlix/test/provider_assets_test.dart: bundled providers manifest parses and lists the recommended pack
+✅ /home/runner/work/AeroFlix/AeroFlix/test/provider_assets_test.dart: bundled providers every provider in the manifest has a bundled bundle
+✅ /home/runner/work/AeroFlix/AeroFlix/test/provider_seed_test.dart: bundled seed installs providers when nothing is cached
+✅ /home/runner/work/AeroFlix/AeroFlix/test/provider_seed_test.dart: bundled seed never downgrades a newer download
+✅ /home/runner/work/AeroFlix/AeroFlix/test/provider_seed_test.dart: manifest is cached for offline use
+✅ /home/runner/work/AeroFlix/AeroFlix/test/provider_seed_test.dart: mirror list starts with GitHub raw and falls back to jsDelivr
+✅ /home/runner/work/AeroFlix/AeroFlix/test/layout_regression_test.dart: PosterCard fits the row heights the app computes phone 360x640 @ 1.0x renders without overflow
+✅ /home/runner/work/AeroFlix/AeroFlix/test/layout_regression_test.dart: PosterCard fits the row heights the app computes phone 360x640 @ 1.35x renders without overflow
+✅ /home/runner/work/AeroFlix/AeroFlix/test/layout_regression_test.dart: PosterCard fits the row heights the app computes phone 360x640 @ 2.0x renders without overflow
+✅ /home/runner/work/AeroFlix/AeroFlix/test/layout_regression_test.dart: PosterCard fits the row heights the app computes phone 411x891 @ 1.0x renders without overflow
+✅ /home/runner/work/AeroFlix/AeroFlix/test/layout_regression_test.dart: PosterCard fits the row heights the app computes phone 411x891 @ 1.35x renders without overflow
+✅ /home/runner/work/AeroFlix/AeroFlix/test/layout_regression_test.dart: PosterCard fits the row heights the app computes phone 411x891 @ 2.0x renders without overflow
+✅ /home/runner/work/AeroFlix/AeroFlix/test/core_test.dart: Failure network failure surfaces a network message and keeps its cause
+✅ /home/runner/work/AeroFlix/AeroFlix/test/core_test.dart: Failure timeout keeps its cause
+✅ /home/runner/work/AeroFlix/AeroFlix/test/core_test.dart: Failure unknown codes fall back to the raw message
+✅ /home/runner/work/AeroFlix/AeroFlix/test/core_test.dart: Failure parse failures expose a readable message
+✅ /home/runner/work/AeroFlix/AeroFlix/test/core_test.dart: ContinueWatchingItem progress is clamped to 0..1
+✅ /home/runner/work/AeroFlix/AeroFlix/test/core_test.dart: ContinueWatchingItem isFinished within 30s of the end
+✅ /home/runner/work/AeroFlix/AeroFlix/test/core_test.dart: ContinueWatchingItem key format matches the details-screen convention
+✅ /home/runner/work/AeroFlix/AeroFlix/test/core_test.dart: ContinueWatchingItem JSON round-trip preserves fields
+✅ /home/runner/work/AeroFlix/AeroFlix/test/core_test.dart: stream sorting (real provider output) best quality first, Hindi before other languages at equal quality
+✅ /home/runner/work/AeroFlix/AeroFlix/test/core_test.dart: stream sorting (real provider output) StreamSource carries headers and subtitles through
+✅ /home/runner/work/AeroFlix/AeroFlix/test/core_test.dart: trailerUrl prefers the entry named Official Trailer
+✅ /home/runner/work/AeroFlix/AeroFlix/test/core_test.dart: trailerUrl returns the first YouTube trailer when none is official
+✅ /home/runner/work/AeroFlix/AeroFlix/test/core_test.dart: trailerUrl ignores non-YouTube and non-Trailer entries
+✅ /home/runner/work/AeroFlix/AeroFlix/test/layout_regression_test.dart: PosterCard fits the row heights the app computes tv 960x540 @ 1.0x renders without overflow
+✅ /home/runner/work/AeroFlix/AeroFlix/test/core_test.dart: StreamSource copyWith preserves identity fields
+✅ /home/runner/work/AeroFlix/AeroFlix/test/core_test.dart: source ordering adaptive HLS ranks above a packed redirect even at lower quality
+✅ /home/runner/work/AeroFlix/AeroFlix/test/core_test.dart: source ordering links advertised as "may not play" go last
+✅ /home/runner/work/AeroFlix/AeroFlix/test/core_test.dart: source ordering quality still breaks ties between comparable links
+✅ /home/runner/work/AeroFlix/AeroFlix/test/layout_regression_test.dart: PosterCard fits the row heights the app computes tv 960x540 @ 1.35x renders without overflow
+✅ /home/runner/work/AeroFlix/AeroFlix/test/layout_regression_test.dart: PosterCard fits the row heights the app computes tv 960x540 @ 2.0x renders without overflow
+✅ /home/runner/work/AeroFlix/AeroFlix/test/layout_regression_test.dart: PosterCard fits the row heights the app computes row height grows with the text scale
+✅ /home/runner/work/AeroFlix/AeroFlix/test/layout_regression_test.dart: PosterCard fits the row heights the app computes posterRowFor is never smaller than the poster art
+✅ /home/runner/work/AeroFlix/AeroFlix/test/layout_regression_test.dart: grid columns adapt to the viewport phone stays at 3 columns, TV grows
+✅ /home/runner/work/AeroFlix/AeroFlix/test/layout_regression_test.dart: PosterCard is a semantics button with one label
+✅ /home/runner/work/AeroFlix/AeroFlix/test/layout_regression_test.dart: PosterCard activates from the keyboard / d-pad
+✅ /home/runner/work/AeroFlix/AeroFlix/test/download_item_test.dart: headers survive the JSON round-trip
+✅ /home/runner/work/AeroFlix/AeroFlix/test/download_item_test.dart: items persisted before headers existed load with none
+✅ /home/runner/work/AeroFlix/AeroFlix/test/download_item_test.dart: copyWith keeps headers unless they are replaced
+✅ /home/runner/work/AeroFlix/AeroFlix/test/download_item_test.dart: size label is honest for unknown and known sizes
+✅ /home/runner/work/AeroFlix/AeroFlix/test/screen_mode_test.dart: modeForLocation player routes are the only full-screen landscape routes
+✅ /home/runner/work/AeroFlix/AeroFlix/test/screen_mode_test.dart: modeForLocation a path that merely starts with the word player is not the player
+✅ /home/runner/work/AeroFlix/AeroFlix/test/screen_mode_test.dart: apply player mode locks landscape and hides the system bars
+✅ /home/runner/work/AeroFlix/AeroFlix/test/screen_mode_test.dart: apply app mode locks portrait only and restores the system bars
+✅ /home/runner/work/AeroFlix/AeroFlix/test/screen_mode_test.dart: apply repeating the active mode does not re-issue the platform request
+✅ /home/runner/work/AeroFlix/AeroFlix/test/screen_mode_test.dart: backing out of playback leaving /player returns the app to a portrait-only orientation
+✅ /home/runner/work/AeroFlix/AeroFlix/test/screen_mode_test.dart: backing out of playback advancing to the next episode keeps landscape
+✅ /home/runner/work/AeroFlix/AeroFlix/test/screen_mode_test.dart: backing out of playback reassert re-applies the active mode after a platform config change
+✅ /home/runner/work/AeroFlix/AeroFlix/test/screen_mode_test.dart: backing out of playback reassert before any mode is applied is a no-op
+::endgroup::
+
+🎉 62 tests passed.
