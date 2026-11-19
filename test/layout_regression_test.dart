@@ -181,10 +181,20 @@ void main() {
     // nodes; now the whole tile is one labelled button. Assert the properties
     // that matter rather than the full flag set, which also includes focus and
     // enabled state.
-    final node = tester.getSemantics(find.byType(PosterCard));
-    expect(node.label, 'Dune, 2021');
-    expect(node.hasFlag(SemanticsFlag.isButton), isTrue);
-    expect(node.getSemanticsData().hasAction(SemanticsAction.tap), isTrue);
+    // `matchesSemantics` is the stable assertion API: it checks the flags and
+    // actions without depending on whichever semantics enum shape the current
+    // Flutter exposes.
+    expect(
+      tester.getSemantics(find.byType(PosterCard)),
+      matchesSemantics(
+        label: 'Dune, 2021',
+        isButton: true,
+        hasTapAction: true,
+        hasFocusAction: true,
+        hasFocusableAction: true,
+        isFocused: false,
+      ),
+    );
     handle.dispose();
   });
 
