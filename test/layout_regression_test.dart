@@ -12,8 +12,11 @@ import 'package:flutter_test/flutter_test.dart';
 /// no overflow at any viewport / text-scale combination the app supports, and
 /// row heights derived from the real content height.
 void main() {
-  Widget host(Widget child,
-      {double textScale = 1.0, Size size = const Size(360, 640)}) {
+  Widget host(
+    Widget child, {
+    double textScale = 1.0,
+    Size size = const Size(360, 640),
+  }) {
     return MediaQuery(
       data: MediaQueryData(
         size: size,
@@ -39,41 +42,44 @@ void main() {
 
     for (final vp in viewports.entries) {
       for (final scale in scales) {
-        testWidgets('${vp.key} @ ${scale}x renders without overflow',
-            (tester) async {
+        testWidgets('${vp.key} @ ${scale}x renders without overflow', (
+          tester,
+        ) async {
           await tester.binding.setSurfaceSize(vp.value);
           addTearDown(() => tester.binding.setSurfaceSize(null));
 
           // Build a row the same way the screens do, then let the framework
           // report overflow as a test failure.
-          await tester.pumpWidget(host(
-            Builder(
-              builder: (context) => SizedBox(
-                height: AppSpacing.posterRowFor(context),
-                child: ListView(
-                  scrollDirection: Axis.horizontal,
-                  // The app sizes every tile from the row height; a bare
-                  // horizontal ListView would give each child unbounded height.
-                  children: [
-                    for (final title in const [
-                      'A Very Long Movie Title That Wraps To Two Lines',
-                      'Short',
-                    ])
-                      SizedBox(
-                        height: AppSpacing.posterRowFor(context),
-                        child: PosterCard(
-                          imageUrl: '',
-                          title: title,
-                          metadata: '2024 · 2h 18m',
+          await tester.pumpWidget(
+            host(
+              Builder(
+                builder: (context) => SizedBox(
+                  height: AppSpacing.posterRowFor(context),
+                  child: ListView(
+                    scrollDirection: Axis.horizontal,
+                    // The app sizes every tile from the row height; a bare
+                    // horizontal ListView would give each child unbounded height.
+                    children: [
+                      for (final title in const [
+                        'A Very Long Movie Title That Wraps To Two Lines',
+                        'Short',
+                      ])
+                        SizedBox(
+                          height: AppSpacing.posterRowFor(context),
+                          child: PosterCard(
+                            imageUrl: '',
+                            title: title,
+                            metadata: '2024 · 2h 18m',
+                          ),
                         ),
-                      ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
+              textScale: scale,
+              size: vp.value,
             ),
-            textScale: scale,
-            size: vp.value,
-          ));
+          );
           await tester.pumpAndSettle();
           expect(tester.takeException(), isNull);
         });
@@ -86,13 +92,17 @@ void main() {
 
       final heights = <double>[];
       for (final scale in [1.0, 1.35, 2.0]) {
-        await tester.pumpWidget(host(
-          Builder(builder: (context) {
-            heights.add(AppSpacing.posterRowFor(context));
-            return const SizedBox.shrink();
-          }),
-          textScale: scale,
-        ));
+        await tester.pumpWidget(
+          host(
+            Builder(
+              builder: (context) {
+                heights.add(AppSpacing.posterRowFor(context));
+                return const SizedBox.shrink();
+              },
+            ),
+            textScale: scale,
+          ),
+        );
         await tester.pump();
       }
       expect(heights, hasLength(3));
@@ -102,16 +112,21 @@ void main() {
       expect(heights.last, greaterThan(AppSpacing.posterRowHeight));
     });
 
-    testWidgets('posterRowFor is never smaller than the poster art',
-        (tester) async {
+    testWidgets('posterRowFor is never smaller than the poster art', (
+      tester,
+    ) async {
       late double rowHeight;
-      await tester.pumpWidget(host(
-        Builder(builder: (context) {
-          rowHeight = AppSpacing.posterRowFor(context);
-          return const SizedBox.shrink();
-        }),
-        textScale: 2.0,
-      ));
+      await tester.pumpWidget(
+        host(
+          Builder(
+            builder: (context) {
+              rowHeight = AppSpacing.posterRowFor(context);
+              return const SizedBox.shrink();
+            },
+          ),
+          textScale: 2.0,
+        ),
+      );
       await tester.pump();
       expect(rowHeight, greaterThan(AppSpacing.posterHeight));
     });
@@ -126,34 +141,41 @@ void main() {
         Size(1920, 1080): 8,
       }.entries) {
         late int cols;
-        await tester.pumpWidget(host(
-          Builder(builder: (context) {
-            cols = AppSpacing.posterColumnsFor(context);
-            return const SizedBox.shrink();
-          }),
-          size: entry.key,
-        ));
+        await tester.pumpWidget(
+          host(
+            Builder(
+              builder: (context) {
+                cols = AppSpacing.posterColumnsFor(context);
+                return const SizedBox.shrink();
+              },
+            ),
+            size: entry.key,
+          ),
+        );
         await tester.pump();
         expect(cols, entry.value, reason: 'at ${entry.key}');
       }
     });
   });
 
-  testWidgets('PosterCard is a semantics button with one label',
-      (tester) async {
+  testWidgets('PosterCard is a semantics button with one label', (
+    tester,
+  ) async {
     final handle = tester.ensureSemantics();
-    await tester.pumpWidget(host(
-      SizedBox(
-        height: AppSpacing.posterRowHeight,
-        width: 200,
-        child: PosterCard(
-          imageUrl: '',
-          title: 'Dune',
-          metadata: '2021',
-          onTap: () {},
+    await tester.pumpWidget(
+      host(
+        SizedBox(
+          height: AppSpacing.posterRowHeight,
+          width: 200,
+          child: PosterCard(
+            imageUrl: '',
+            title: 'Dune',
+            metadata: '2021',
+            onTap: () {},
+          ),
         ),
       ),
-    ));
+    );
     // Screen readers previously got the artwork (no label) plus two loose text
     // nodes; now the whole tile is one labelled button. Assert the properties
     // that matter rather than the full flag set, which also includes focus and
@@ -167,20 +189,22 @@ void main() {
 
   testWidgets('PosterCard activates from the keyboard / d-pad', (tester) async {
     var taps = 0;
-    await tester.pumpWidget(host(
-      Align(
-        alignment: Alignment.topLeft,
-        child: SizedBox(
-          height: AppSpacing.posterRowHeight,
-          width: 160,
-          child: PosterCard(
-            imageUrl: '',
-            title: 'Focus me',
-            onTap: () => taps++,
+    await tester.pumpWidget(
+      host(
+        Align(
+          alignment: Alignment.topLeft,
+          child: SizedBox(
+            height: AppSpacing.posterRowHeight,
+            width: 160,
+            child: PosterCard(
+              imageUrl: '',
+              title: 'Focus me',
+              onTap: () => taps++,
+            ),
           ),
         ),
       ),
-    ));
+    );
     await tester.pumpAndSettle();
     // The tile is a FocusableActionDetector: a D-pad centre press (or Enter on
     // a keyboard) fires ActivateIntent, which a bare GestureDetector tile could

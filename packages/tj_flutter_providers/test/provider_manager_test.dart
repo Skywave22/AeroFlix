@@ -240,9 +240,9 @@ void main() {
       expect(cachedManifest, isNotNull);
       expect(
         cachedManifest!.scrapers.length,
-        Manifest.fromJson(
-          jsonDecode(manifestBody) as Map<String, dynamic>,
-        ).scrapers.length,
+        Manifest.fromJson(jsonDecode(manifestBody) as Map<String, dynamic>)
+            .scrapers
+            .length,
       );
     });
 

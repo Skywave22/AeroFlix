@@ -64,8 +64,9 @@ class ProviderService {
     this.useIsolate = true,
     this.scraperSettings = const {},
     this.timeout = const Duration(seconds: 105),
-  }) : _enabledIds =
-            List.unmodifiable(enabledIds ?? ProviderManager.recommendedIds);
+  }) : _enabledIds = List.unmodifiable(
+         enabledIds ?? ProviderManager.recommendedIds,
+       );
 
   /// Call on app start: fetch manifest, download new providers,
   /// auto-update changed ones. Safe to call every launch (fast if up-to-date).
@@ -283,10 +284,10 @@ class ProviderService {
       final decoded = jsonDecode(jsonStr);
       final streams = decoded is List
           ? decoded
-              .whereType<Map>()
-              .map((e) => StreamResult.fromJson(Map<String, dynamic>.from(e)))
-              .where((s) => s.url.isNotEmpty)
-              .toList()
+                .whereType<Map>()
+                .map((e) => StreamResult.fromJson(Map<String, dynamic>.from(e)))
+                .where((s) => s.url.isNotEmpty)
+                .toList()
           : <StreamResult>[];
       return ProviderOutcome(
         providerId: id,

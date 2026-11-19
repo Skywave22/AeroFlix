@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+
 import '../shared/models/media_details.dart';
 import '../features/details/details_screen.dart';
 import '../features/downloads/downloads_screen.dart';
@@ -51,50 +52,68 @@ class _RouteFallback extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Scaffold(
-        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-        body: Center(
-          child: Padding(
-            padding: const EdgeInsets.all(32),
-            child: Column(mainAxisSize: MainAxisSize.min, children: [
-              const Icon(Icons.movie_filter_outlined, size: 48),
-              const SizedBox(height: 16),
-              Text(message, textAlign: TextAlign.center),
-              const SizedBox(height: 16),
-              FilledButton(
-                onPressed: () => context.go('/home'),
-                child: const Text('Go home'),
-              ),
-            ]),
-          ),
+    backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+    body: Center(
+      child: Padding(
+        padding: const EdgeInsets.all(32),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.movie_filter_outlined, size: 48),
+            const SizedBox(height: 16),
+            Text(message, textAlign: TextAlign.center),
+            const SizedBox(height: 16),
+            FilledButton(
+              onPressed: () => context.go('/home'),
+              child: const Text('Go home'),
+            ),
+          ],
         ),
-      );
+      ),
+    ),
+  );
 }
 
 int? _parseId(String? raw) => raw == null ? null : int.tryParse(raw);
 
-final appRouter =
-    GoRouter(initialLocation: '/home', debugLogDiagnostics: false, routes: [
-  StatefulShellRoute.indexedStack(
+final appRouter = GoRouter(
+  initialLocation: '/home',
+  debugLogDiagnostics: false,
+  routes: [
+    StatefulShellRoute.indexedStack(
       builder: (c, s, shell) => AppShell(navigationShell: shell),
       branches: [
-        StatefulShellBranch(routes: [
-          GoRoute(path: '/home', builder: (c, s) => const HomeScreen())
-        ]),
-        StatefulShellBranch(routes: [
-          GoRoute(path: '/explore', builder: (c, s) => const ExploreScreen())
-        ]),
-        StatefulShellBranch(routes: [
-          GoRoute(path: '/search', builder: (c, s) => const SearchScreen())
-        ]),
-        StatefulShellBranch(routes: [
-          GoRoute(
-              path: '/watchlist', builder: (c, s) => const WatchlistScreen())
-        ]),
-        StatefulShellBranch(routes: [
-          GoRoute(path: '/profile', builder: (c, s) => const ProfileScreen())
-        ]),
-      ]),
-  GoRoute(
+        StatefulShellBranch(
+          routes: [
+            GoRoute(path: '/home', builder: (c, s) => const HomeScreen()),
+          ],
+        ),
+        StatefulShellBranch(
+          routes: [
+            GoRoute(path: '/explore', builder: (c, s) => const ExploreScreen()),
+          ],
+        ),
+        StatefulShellBranch(
+          routes: [
+            GoRoute(path: '/search', builder: (c, s) => const SearchScreen()),
+          ],
+        ),
+        StatefulShellBranch(
+          routes: [
+            GoRoute(
+              path: '/watchlist',
+              builder: (c, s) => const WatchlistScreen(),
+            ),
+          ],
+        ),
+        StatefulShellBranch(
+          routes: [
+            GoRoute(path: '/profile', builder: (c, s) => const ProfileScreen()),
+          ],
+        ),
+      ],
+    ),
+    GoRoute(
       path: '/details/movie/:id',
       builder: (c, s) {
         final id = _parseId(s.pathParameters['id']);
@@ -103,10 +122,11 @@ final appRouter =
         }
         final poster = s.uri.queryParameters['poster'];
         return DetailsScreen(
-            args:
-                DetailsArgs(id: id, type: MediaType.movie, posterUrl: poster));
-      }),
-  GoRoute(
+          args: DetailsArgs(id: id, type: MediaType.movie, posterUrl: poster),
+        );
+      },
+    ),
+    GoRoute(
       path: '/details/tv/:id',
       builder: (c, s) {
         final id = _parseId(s.pathParameters['id']);
@@ -115,38 +135,47 @@ final appRouter =
         }
         final poster = s.uri.queryParameters['poster'];
         return DetailsScreen(
-            args: DetailsArgs(id: id, type: MediaType.tv, posterUrl: poster));
-      }),
-  GoRoute(path: '/downloads', builder: (c, s) => const DownloadsScreen()),
-  GoRoute(
+          args: DetailsArgs(id: id, type: MediaType.tv, posterUrl: poster),
+        );
+      },
+    ),
+    GoRoute(path: '/downloads', builder: (c, s) => const DownloadsScreen()),
+    GoRoute(
       path: '/player',
       builder: (c, s) {
         final args = s.extra;
         if (args is! PlayerArgs) {
           return const _RouteFallback(
-              message: 'This player session expired. Pick the title again.');
+            message: 'This player session expired. Pick the title again.',
+          );
         }
         return PlayerScreen(
-            details: args.details,
-            season: args.season,
-            episode: args.episode,
-            episodeTitle: args.episodeTitle,
-            resumeAtMs: args.resumeAtMs,
-            nextEpisode: args.nextEpisode,
-            localFilePath: args.localFilePath);
-      }),
-  GoRoute(
+          details: args.details,
+          season: args.season,
+          episode: args.episode,
+          episodeTitle: args.episodeTitle,
+          resumeAtMs: args.resumeAtMs,
+          nextEpisode: args.nextEpisode,
+          localFilePath: args.localFilePath,
+        );
+      },
+    ),
+    GoRoute(
       path: '/episodes',
       builder: (c, s) {
         final args = s.extra;
         if (args is! EpisodesArgs) {
           return const _RouteFallback(
-              message: 'That episode list could not be opened.');
+            message: 'That episode list could not be opened.',
+          );
         }
         return EpisodesScreen(
-            details: args.details, initialSeason: args.initialSeason);
-      }),
-  GoRoute(
+          details: args.details,
+          initialSeason: args.initialSeason,
+        );
+      },
+    ),
+    GoRoute(
       path: '/person/:id',
       builder: (c, s) {
         final id = _parseId(s.pathParameters['id']);
@@ -156,6 +185,9 @@ final appRouter =
         final name = s.uri.queryParameters['name'] ?? '';
         final profile = s.uri.queryParameters['profile'];
         return PersonScreen(
-            args: PersonArgs(id: id, name: name, profilePath: profile));
-      }),
-]);
+          args: PersonArgs(id: id, name: name, profilePath: profile),
+        );
+      },
+    ),
+  ],
+);

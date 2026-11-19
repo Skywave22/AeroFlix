@@ -44,8 +44,8 @@ final providerManagerProvider = Provider<ProviderManager>((ref) {
 /// watched by [providerServiceProvider] so a toggle takes effect immediately.
 final enabledProviderIdsProvider =
     NotifierProvider<EnabledProviderIdsNotifier, Set<String>>(
-  EnabledProviderIdsNotifier.new,
-);
+      EnabledProviderIdsNotifier.new,
+    );
 
 class EnabledProviderIdsNotifier extends Notifier<Set<String>> {
   static const _prefKey = 'enabled_provider_ids';
@@ -108,8 +108,9 @@ final providerServiceProvider = Provider<ProviderService>((ref) {
 });
 
 /// Providers currently cached on disk (id -> cached info).
-final installedProvidersProvider =
-    FutureProvider<Map<String, CachedProvider>>((ref) {
+final installedProvidersProvider = FutureProvider<Map<String, CachedProvider>>((
+  ref,
+) {
   return ref.watch(providerManagerProvider).getCached();
 });
 
@@ -243,19 +244,23 @@ class ProviderStatusNotifier extends Notifier<ProviderStatus> {
     String? error;
     try {
       final before = await manager.getCached();
-      final result = await manager.syncProviders(
-          onlyIds: ref.read(enabledProviderIdsProvider).toList())
+      final result = await manager
+          .syncProviders(onlyIds: ref.read(enabledProviderIdsProvider).toList())
           .timeout(const Duration(seconds: 60));
       final after = await manager.getCached();
       updated = after.entries
-          .where((e) =>
-              before[e.key]?.version != e.value.version ||
-              before[e.key]?.sizeBytes != e.value.sizeBytes)
+          .where(
+            (e) =>
+                before[e.key]?.version != e.value.version ||
+                before[e.key]?.sizeBytes != e.value.sizeBytes,
+          )
           .length;
       installed = after.keys.length;
       if (kDebugMode) {
-        debugPrint('[providers] manifest v${result.manifest.version} · '
-            'seeded $seeded · updated $updated · installed $installed');
+        debugPrint(
+          '[providers] manifest v${result.manifest.version} · '
+          'seeded $seeded · updated $updated · installed $installed',
+        );
       }
     } catch (e) {
       error = e.toString();
@@ -277,8 +282,8 @@ class ProviderStatusNotifier extends Notifier<ProviderStatus> {
 
 final providerStatusProvider =
     NotifierProvider<ProviderStatusNotifier, ProviderStatus>(
-  ProviderStatusNotifier.new,
-);
+      ProviderStatusNotifier.new,
+    );
 
 /// Manual "check for updates" used by the Providers screen.
 Future<UpdateCheckResult> refreshProviders(WidgetRef ref) async {

@@ -20,9 +20,9 @@ void main() {
     ScreenModeController.resetForTesting();
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
         .setMockMethodCallHandler(SystemChannels.platform, (MethodCall call) {
-      calls.add(call);
-      return null;
-    });
+          calls.add(call);
+          return null;
+        });
   });
 
   tearDown(() {
@@ -38,16 +38,18 @@ void main() {
   /// Flutter sends the mode as a bare string (`SystemUiMode.edgeToEdge`) for
   /// every mode except `manual`, which uses a separate overlay-list channel.
   String? lastUiMode() {
-    final List<MethodCall> uiCalls =
-        callsTo('SystemChrome.setEnabledSystemUIMode');
+    final List<MethodCall> uiCalls = callsTo(
+      'SystemChrome.setEnabledSystemUIMode',
+    );
     if (uiCalls.isEmpty) return null;
     return uiCalls.last.arguments.toString();
   }
 
   /// The orientation list requested by the most recent platform call.
   List<String>? lastRequestedOrientations() {
-    final List<MethodCall> orientationCalls =
-        callsTo('SystemChrome.setPreferredOrientations');
+    final List<MethodCall> orientationCalls = callsTo(
+      'SystemChrome.setPreferredOrientations',
+    );
     if (orientationCalls.isEmpty) return null;
     return (orientationCalls.last.arguments as List<Object?>)
         .map((Object? e) => e.toString())
@@ -57,20 +59,31 @@ void main() {
   group('modeForLocation', () {
     test('player routes are the only full-screen landscape routes', () {
       expect(
-          ScreenModeController.modeForLocation('/player'), ScreenMode.player);
+        ScreenModeController.modeForLocation('/player'),
+        ScreenMode.player,
+      );
       expect(
-          ScreenModeController.modeForLocation('/player/'), ScreenMode.player);
-      expect(ScreenModeController.modeForLocation('/details/movie/603'),
-          ScreenMode.app);
+        ScreenModeController.modeForLocation('/player/'),
+        ScreenMode.player,
+      );
+      expect(
+        ScreenModeController.modeForLocation('/details/movie/603'),
+        ScreenMode.app,
+      );
       expect(ScreenModeController.modeForLocation('/home'), ScreenMode.app);
       expect(ScreenModeController.modeForLocation('/episodes'), ScreenMode.app);
       expect(ScreenModeController.modeForLocation(''), ScreenMode.app);
     });
 
-    test('a path that merely starts with the word player is not the player',
-        () {
-      expect(ScreenModeController.modeForLocation('/players'), ScreenMode.app);
-    });
+    test(
+      'a path that merely starts with the word player is not the player',
+      () {
+        expect(
+          ScreenModeController.modeForLocation('/players'),
+          ScreenMode.app,
+        );
+      },
+    );
   });
 
   group('apply', () {
@@ -88,45 +101,55 @@ void main() {
       await ScreenModeController.apply(ScreenMode.app);
 
       // Exactly one orientation: the old bug was requesting all four.
-      expect(lastRequestedOrientations(),
-          <String>['DeviceOrientation.portraitUp']);
+      expect(lastRequestedOrientations(), <String>[
+        'DeviceOrientation.portraitUp',
+      ]);
       expect(lastUiMode(), 'SystemUiMode.edgeToEdge');
       expect(callsTo('SystemChrome.setSystemUIOverlayStyle'), isNotEmpty);
     });
 
-    test('repeating the active mode does not re-issue the platform request',
-        () async {
-      await ScreenModeController.apply(ScreenMode.app);
-      final int afterFirst =
-          callsTo('SystemChrome.setPreferredOrientations').length;
+    test(
+      'repeating the active mode does not re-issue the platform request',
+      () async {
+        await ScreenModeController.apply(ScreenMode.app);
+        final int afterFirst = callsTo('SystemChrome.setPreferredOrientations')
+            .length;
 
-      await ScreenModeController.apply(ScreenMode.app);
+        await ScreenModeController.apply(ScreenMode.app);
 
-      expect(
-          callsTo('SystemChrome.setPreferredOrientations').length, afterFirst);
-    });
+        expect(
+          callsTo('SystemChrome.setPreferredOrientations').length,
+          afterFirst,
+        );
+      },
+    );
   });
 
   group('backing out of playback', () {
-    test('leaving /player returns the app to a portrait-only orientation',
-        () async {
-      // Enter playback, then pop back to a details screen.
-      await ScreenModeController.syncForLocation('/player');
-      expect(lastRequestedOrientations(),
-          contains('DeviceOrientation.landscapeLeft'));
+    test(
+      'leaving /player returns the app to a portrait-only orientation',
+      () async {
+        // Enter playback, then pop back to a details screen.
+        await ScreenModeController.syncForLocation('/player');
+        expect(
+          lastRequestedOrientations(),
+          contains('DeviceOrientation.landscapeLeft'),
+        );
 
-      await ScreenModeController.syncForLocation('/details/movie/603');
+        await ScreenModeController.syncForLocation('/details/movie/603');
 
-      expect(lastRequestedOrientations(),
-          <String>['DeviceOrientation.portraitUp']);
-    });
+        expect(lastRequestedOrientations(), <String>[
+          'DeviceOrientation.portraitUp',
+        ]);
+      },
+    );
 
     test('advancing to the next episode keeps landscape', () async {
       // pushReplacement('/player') does not change the location, so the mode
       // must stay put instead of flipping to portrait mid-episode.
       await ScreenModeController.syncForLocation('/player');
-      final int before =
-          callsTo('SystemChrome.setPreferredOrientations').length;
+      final int before = callsTo('SystemChrome.setPreferredOrientations')
+          .length;
 
       await ScreenModeController.syncForLocation('/player');
 
@@ -134,21 +157,25 @@ void main() {
       expect(ScreenModeController.current, ScreenMode.player);
     });
 
-    test('reassert re-applies the active mode after a platform config change',
-        () async {
-      await ScreenModeController.syncForLocation('/player');
-      final int before =
-          callsTo('SystemChrome.setPreferredOrientations').length;
+    test(
+      'reassert re-applies the active mode after a platform config change',
+      () async {
+        await ScreenModeController.syncForLocation('/player');
+        final int before = callsTo('SystemChrome.setPreferredOrientations')
+            .length;
 
-      await ScreenModeController.reassert();
+        await ScreenModeController.reassert();
 
-      expect(
-          callsTo('SystemChrome.setPreferredOrientations').length, before + 1);
-      expect(lastRequestedOrientations(), <String>[
-        'DeviceOrientation.landscapeLeft',
-        'DeviceOrientation.landscapeRight',
-      ]);
-    });
+        expect(
+          callsTo('SystemChrome.setPreferredOrientations').length,
+          before + 1,
+        );
+        expect(lastRequestedOrientations(), <String>[
+          'DeviceOrientation.landscapeLeft',
+          'DeviceOrientation.landscapeRight',
+        ]);
+      },
+    );
 
     test('reassert before any mode is applied is a no-op', () async {
       await ScreenModeController.reassert();

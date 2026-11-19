@@ -1,4 +1,5 @@
 import 'package:equatable/equatable.dart';
+
 import 'movie.dart';
 import 'tv_show.dart';
 
@@ -18,15 +19,15 @@ class PersonInfo extends Equatable {
     this.popularity = 0,
   });
   factory PersonInfo.fromJson(Map<String, dynamic> j) => PersonInfo(
-        id: (j['id'] as int?) ?? 0,
-        name: (j['name'] ?? '') as String,
-        biography: (j['biography'] ?? '') as String,
-        profilePath: j['profile_path'] as String?,
-        birthday: j['birthday'] as String?,
-        deathday: j['deathday'] as String?,
-        placeOfBirth: j['place_of_birth'] as String?,
-        popularity: ((j['popularity'] as num?) ?? 0).toDouble(),
-      );
+    id: (j['id'] as int?) ?? 0,
+    name: (j['name'] ?? '') as String,
+    biography: (j['biography'] ?? '') as String,
+    profilePath: j['profile_path'] as String?,
+    birthday: j['birthday'] as String?,
+    deathday: j['deathday'] as String?,
+    placeOfBirth: j['place_of_birth'] as String?,
+    popularity: ((j['popularity'] as num?) ?? 0).toDouble(),
+  );
   @override
   List<Object?> get props => [id];
 }

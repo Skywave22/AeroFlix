@@ -1,4 +1,5 @@
 import 'package:url_launcher/url_launcher.dart';
+
 import '../../shared/models/media_details.dart';
 
 /// Returns the best available YouTube trailer URL for this title, or null.

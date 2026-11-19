@@ -51,10 +51,17 @@ class StreamService {
       '$id|$type|$season|$episode';
 
   /// Cached links for a title, or null when there is nothing fresh.
-  List<StreamSource>? cachedStreams(MediaDetails media,
-      {int season = 0, int episode = 0}) {
-    final key = _key('${media.id}', media.type == MediaType.tv ? 'tv' : 'movie',
-        season, episode);
+  List<StreamSource>? cachedStreams(
+    MediaDetails media, {
+    int season = 0,
+    int episode = 0,
+  }) {
+    final key = _key(
+      '${media.id}',
+      media.type == MediaType.tv ? 'tv' : 'movie',
+      season,
+      episode,
+    );
     final hit = _cache[key];
     if (hit == null) return null;
     if (DateTime.now().difference(hit.at) > _cacheTtl) {
@@ -64,11 +71,18 @@ class StreamService {
     return hit.sources;
   }
 
-  void _remember(String id, String type, int season, int episode,
-      List<StreamSource> sources) {
+  void _remember(
+    String id,
+    String type,
+    int season,
+    int episode,
+    List<StreamSource> sources,
+  ) {
     if (sources.isEmpty) return;
-    _cache[_key(id, type, season, episode)] =
-        _CachedResolution(sources, DateTime.now());
+    _cache[_key(id, type, season, episode)] = _CachedResolution(
+      sources,
+      DateTime.now(),
+    );
     if (_cache.length > 40) {
       _cache.remove(_cache.keys.first);
     }
@@ -106,11 +120,12 @@ class StreamService {
       final mapped = _map(outcome.streams);
       if (mapped.isNotEmpty) {
         _remember(
-            '${media.id}',
-            isTv ? 'tv' : 'movie',
-            isTv && season > 0 ? season : 0,
-            isTv && episode > 0 ? episode : 0,
-            mapped);
+          '${media.id}',
+          isTv ? 'tv' : 'movie',
+          isTv && season > 0 ? season : 0,
+          isTv && episode > 0 ? episode : 0,
+          mapped,
+        );
       }
       yield ProviderResolution(
         providerId: outcome.providerId,
@@ -143,33 +158,36 @@ class StreamService {
     );
     final mapped = _map(results);
     _remember(
-        '${media.id}',
-        isTv ? 'tv' : 'movie',
-        isTv && season > 0 ? season : 0,
-        isTv && episode > 0 ? episode : 0,
-        mapped);
+      '${media.id}',
+      isTv ? 'tv' : 'movie',
+      isTv && season > 0 ? season : 0,
+      isTv && episode > 0 ? episode : 0,
+      mapped,
+    );
     return mapped;
   }
 
   List<StreamSource> _map(List<StreamResult> results) {
     final sources = results
-        .map((s) => StreamSource(
-              url: s.url,
-              name: s.name,
-              providerId: s.provider,
-              quality: s.quality,
-              language: s.language,
-              size: s.size,
-              headers: s.headers,
-              subtitles: [
-                for (final sub in s.subtitles)
-                  SubtitleTrack(
-                    url: sub.url,
-                    language: sub.language,
-                    label: sub.language,
-                  ),
-              ],
-            ))
+        .map(
+          (s) => StreamSource(
+            url: s.url,
+            name: s.name,
+            providerId: s.provider,
+            quality: s.quality,
+            language: s.language,
+            size: s.size,
+            headers: s.headers,
+            subtitles: [
+              for (final sub in s.subtitles)
+                SubtitleTrack(
+                  url: sub.url,
+                  language: sub.language,
+                  label: sub.language,
+                ),
+            ],
+          ),
+        )
         .where((s) => s.url.isNotEmpty)
         .toList();
 
@@ -230,5 +248,5 @@ final streamServiceProvider = Provider<StreamService>((ref) {
 /// Convenience provider for widgets that just want the counts/list.
 final streamSourcesProvider =
     FutureProvider.family<List<StreamSource>, MediaDetails>((ref, media) {
-  return ref.watch(streamServiceProvider).getAllStreams(media);
-});
+      return ref.watch(streamServiceProvider).getAllStreams(media);
+    });

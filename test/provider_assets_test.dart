@@ -19,8 +19,9 @@ void main() {
       'assets/js/crypto-js.min.js',
     ]) {
       test('$path loads from the package namespace', () async {
-        final code =
-            await rootBundle.loadString('packages/tj_flutter_providers/$path');
+        final code = await rootBundle.loadString(
+          'packages/tj_flutter_providers/$path',
+        );
         expect(code, isNotEmpty);
       });
     }
@@ -29,26 +30,35 @@ void main() {
   group('bundled providers', () {
     test('manifest parses and lists the recommended pack', () async {
       final raw = await rootBundle.loadString('assets/providers/manifest.json');
-      final manifest =
-          Manifest.fromJson(jsonDecode(raw) as Map<String, dynamic>);
+      final manifest = Manifest.fromJson(
+        jsonDecode(raw) as Map<String, dynamic>,
+      );
 
       expect(manifest.scrapers, isNotEmpty);
       for (final id in ProviderManager.recommendedIds) {
-        expect(manifest.byId(id), isNotNull,
-            reason: '$id is enabled by default but missing from the manifest');
+        expect(
+          manifest.byId(id),
+          isNotNull,
+          reason: '$id is enabled by default but missing from the manifest',
+        );
       }
     });
 
     test('every provider in the manifest has a bundled bundle', () async {
       final raw = await rootBundle.loadString('assets/providers/manifest.json');
-      final manifest =
-          Manifest.fromJson(jsonDecode(raw) as Map<String, dynamic>);
+      final manifest = Manifest.fromJson(
+        jsonDecode(raw) as Map<String, dynamic>,
+      );
 
       for (final provider in manifest.scrapers) {
-        final code =
-            await rootBundle.loadString('assets/providers/${provider.id}.js');
-        expect(code, contains('getStreams'),
-            reason: '${provider.id}.js is not a provider bundle');
+        final code = await rootBundle.loadString(
+          'assets/providers/${provider.id}.js',
+        );
+        expect(
+          code,
+          contains('getStreams'),
+          reason: '${provider.id}.js is not a provider bundle',
+        );
       }
     });
   });

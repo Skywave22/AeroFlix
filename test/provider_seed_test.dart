@@ -61,9 +61,9 @@ void main() {
       downloadedAt: DateTime.now(),
       sizeBytes: await file.length(),
     );
-    await File('${dir.path}/meta.json').writeAsString(
-      jsonEncode(cached.map((k, v) => MapEntry(k, v.toJson()))),
-    );
+    await File(
+      '${dir.path}/meta.json',
+    ).writeAsString(jsonEncode(cached.map((k, v) => MapEntry(k, v.toJson()))));
 
     final seededAgain = await manager.seedBundled(
       manifest: manifest(),
@@ -82,11 +82,15 @@ void main() {
   });
 
   test('mirror list starts with GitHub raw and falls back to jsDelivr', () {
-    expect(ProviderManager.defaultMirrorBases.first,
-        ProviderManager.defaultBaseUrl);
     expect(
-        ProviderManager.defaultMirrorBases
-            .any((m) => m.contains('cdn.jsdelivr.net')),
-        isTrue);
+      ProviderManager.defaultMirrorBases.first,
+      ProviderManager.defaultBaseUrl,
+    );
+    expect(
+      ProviderManager.defaultMirrorBases.any(
+        (m) => m.contains('cdn.jsdelivr.net'),
+      ),
+      isTrue,
+    );
   });
 }

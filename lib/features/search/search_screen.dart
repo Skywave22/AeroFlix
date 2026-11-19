@@ -1,8 +1,10 @@
 import 'dart:async';
+
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+
 import '../../app/theme/app_colors.dart';
 import '../../app/theme/app_radii.dart';
 import '../../app/theme/app_spacing.dart';
@@ -14,6 +16,7 @@ import '../../shared/models/movie.dart';
 import '../../shared/models/person_search_result.dart';
 import '../../shared/models/tv_show.dart';
 import '../../shared/widgets/poster_card.dart';
+
 import 'package:shared_preferences/shared_preferences.dart';
 
 class SearchScreen extends ConsumerStatefulWidget {
@@ -74,8 +77,10 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
 
   Future<void> _saveRecent(String q) async {
     if (q.trim().isEmpty) return;
-    final list =
-        [q.trim(), ..._recent.where((r) => r != q.trim())].take(10).toList();
+    final list = [
+      q.trim(),
+      ..._recent.where((r) => r != q.trim()),
+    ].take(10).toList();
     final prefs = await SharedPreferences.getInstance();
     await prefs.setStringList(AppConstants.prefRecentSearches, list);
     setState(() => _recent = list);
@@ -105,8 +110,9 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
     if (_page >= w.totalPages) return;
     setState(() => _loadingMore = true);
     try {
-      final next =
-          await ref.read(tmdbServiceProvider).searchMulti(w.query, page: _page + 1);
+      final next = await ref
+          .read(tmdbServiceProvider)
+          .searchMulti(w.query, page: _page + 1);
       // The user may have typed a different query while this page was loading.
       if (!mounted || _window != w) return;
       setState(() {
@@ -131,59 +137,75 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
   }
 
   void _openMovie(Movie m) => context.push(
-      '/details/movie/${m.id}?poster=${Uri.encodeComponent(m.posterUrlW342)}');
+    '/details/movie/${m.id}?poster=${Uri.encodeComponent(m.posterUrlW342)}',
+  );
   void _openTv(TvShow s) => context.push(
-      '/details/tv/${s.id}?poster=${Uri.encodeComponent(s.posterUrlW342)}');
+    '/details/tv/${s.id}?poster=${Uri.encodeComponent(s.posterUrlW342)}',
+  );
   void _openPerson(PersonSearchResult p) => context.push(
-      '/person/${p.id}?name=${Uri.encodeComponent(p.name)}&profile=${Uri.encodeComponent(p.profilePath ?? '')}');
+    '/person/${p.id}?name=${Uri.encodeComponent(p.name)}&profile=${Uri.encodeComponent(p.profilePath ?? '')}',
+  );
 
   @override
   Widget build(BuildContext context) => Scaffold(
-      backgroundColor: AppColors.background,
-      body: SafeArea(
-          child: Padding(
-              padding: const EdgeInsets.symmetric(
-                  horizontal: AppSpacing.horizontalPadding),
-              child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const SizedBox(height: AppSpacing.md),
-                    Text('Search', style: AppTypography.screenHeading),
-                    const SizedBox(height: AppSpacing.md),
-                    TextField(
-                        controller: _c,
-                        style: AppTypography.bodyPrimary,
-                        textInputAction: TextInputAction.search,
-                        onSubmitted: (v) {
-                          if (v.trim().length >= 2) {
-                            _doSearch(v.trim(), remember: true);
-                          }
+    backgroundColor: AppColors.background,
+    body: SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(
+          horizontal: AppSpacing.horizontalPadding,
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const SizedBox(height: AppSpacing.md),
+            Text('Search', style: AppTypography.screenHeading),
+            const SizedBox(height: AppSpacing.md),
+            TextField(
+              controller: _c,
+              style: AppTypography.bodyPrimary,
+              textInputAction: TextInputAction.search,
+              onSubmitted: (v) {
+                if (v.trim().length >= 2) {
+                  _doSearch(v.trim(), remember: true);
+                }
+              },
+              decoration: InputDecoration(
+                hintText: 'Movies, shows, actors…',
+                prefixIcon: const Icon(
+                  Icons.search_rounded,
+                  color: AppColors.textMuted,
+                ),
+                suffixIcon: _c.text.isNotEmpty
+                    ? IconButton(
+                        tooltip: 'Clear search',
+                        icon: const Icon(
+                          Icons.clear,
+                          color: AppColors.textMuted,
+                          size: 20,
+                        ),
+                        onPressed: () {
+                          _c.clear();
+                          setState(() {
+                            _future = null;
+                            _window = null;
+                            _page = 1;
+                            _totalPages = 1;
+                            _appended.clear();
+                            _appendedTv.clear();
+                            _appendedPeople.clear();
+                          });
                         },
-                        decoration: InputDecoration(
-                            hintText: 'Movies, shows, actors…',
-                            prefixIcon: const Icon(Icons.search_rounded,
-                                color: AppColors.textMuted),
-                            suffixIcon: _c.text.isNotEmpty
-                                ? IconButton(
-                                    tooltip: 'Clear search',
-                                    icon: const Icon(Icons.clear,
-                                        color: AppColors.textMuted, size: 20),
-                                    onPressed: () {
-                                      _c.clear();
-                                      setState(() {
-                                        _future = null;
-                                        _window = null;
-                                        _page = 1;
-                                        _totalPages = 1;
-                                        _appended.clear();
-                                        _appendedTv.clear();
-                                        _appendedPeople.clear();
-                                      });
-                                    })
-                                : null)),
-                    const SizedBox(height: AppSpacing.lg),
-                    Expanded(child: _buildResults()),
-                  ]))));
+                      )
+                    : null,
+              ),
+            ),
+            const SizedBox(height: AppSpacing.lg),
+            Expanded(child: _buildResults()),
+          ],
+        ),
+      ),
+    ),
+  );
 
   Widget _buildResults() {
     final query = _c.text.trim();
@@ -192,22 +214,30 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
     }
     if (_loading) {
       return const Center(
-          child: CircularProgressIndicator(
-              color: AppColors.accent, strokeWidth: 2));
+        child: CircularProgressIndicator(
+          color: AppColors.accent,
+          strokeWidth: 2,
+        ),
+      );
     }
     return FutureBuilder<Map<String, dynamic>>(
       future: _future,
       builder: (c, snap) {
         if (snap.connectionState != ConnectionState.done) {
           return const Center(
-              child: CircularProgressIndicator(
-                  color: AppColors.accent, strokeWidth: 2));
+            child: CircularProgressIndicator(
+              color: AppColors.accent,
+              strokeWidth: 2,
+            ),
+          );
         }
         if (snap.hasError) {
           return Center(
-              child: SectionErrorState(
-                  message: 'Search failed — check your connection',
-                  onRetry: () => _doSearch(query)));
+            child: SectionErrorState(
+              message: 'Search failed — check your connection',
+              onRetry: () => _doSearch(query),
+            ),
+          );
         }
         final data = snap.data ?? {};
         // Remember which term this payload belongs to, so _loadMore() appends
@@ -234,63 +264,85 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
         ];
         if (movies.isEmpty && tv.isEmpty && people.isEmpty) {
           return Center(
-              child: Padding(
-                  padding: const EdgeInsets.all(AppSpacing.xl),
-                  child: Column(mainAxisSize: MainAxisSize.min, children: [
-                    const Icon(Icons.search_off_rounded,
-                        color: AppColors.textMuted, size: 48),
-                    const SizedBox(height: 12),
-                    Text('No results for "$query"',
-                        style: AppTypography.bodyPrimary),
-                    const SizedBox(height: 4),
-                    Text('Try different keywords.',
-                        style: AppTypography.metadata
-                            .copyWith(color: AppColors.textMuted)),
-                  ])));
+            child: Padding(
+              padding: const EdgeInsets.all(AppSpacing.xl),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(
+                    Icons.search_off_rounded,
+                    color: AppColors.textMuted,
+                    size: 48,
+                  ),
+                  const SizedBox(height: 12),
+                  Text(
+                    'No results for "$query"',
+                    style: AppTypography.bodyPrimary,
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    'Try different keywords.',
+                    style: AppTypography.metadata.copyWith(
+                      color: AppColors.textMuted,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
         }
         return ListView(
           physics: const BouncingScrollPhysics(),
           children: [
             if (movies.isNotEmpty) ...[
               Padding(
-                  padding: const EdgeInsets.only(bottom: AppSpacing.sm),
-                  child: Text('Movies', style: AppTypography.sectionHeading)),
+                padding: const EdgeInsets.only(bottom: AppSpacing.sm),
+                child: Text('Movies', style: AppTypography.sectionHeading),
+              ),
               SizedBox(
-                  height: AppSpacing.posterRowFor(context),
-                  child: ListView.separated(
-                      scrollDirection: Axis.horizontal,
-                      itemCount: movies.length,
-                      separatorBuilder: (_, __) =>
-                          const SizedBox(width: AppSpacing.md),
-                      itemBuilder: (_, i) => PosterCard(
-                          imageUrl: movies[i].posterUrlW342,
-                          title: movies[i].title,
-                          metadata: movies[i].year,
-                          onTap: () => _openMovie(movies[i])))),
+                height: AppSpacing.posterRowFor(context),
+                child: ListView.separated(
+                  scrollDirection: Axis.horizontal,
+                  itemCount: movies.length,
+                  separatorBuilder: (_, __) =>
+                      const SizedBox(width: AppSpacing.md),
+                  itemBuilder: (_, i) => PosterCard(
+                    imageUrl: movies[i].posterUrlW342,
+                    title: movies[i].title,
+                    metadata: movies[i].year,
+                    onTap: () => _openMovie(movies[i]),
+                  ),
+                ),
+              ),
               const SizedBox(height: AppSpacing.lg),
             ],
             if (tv.isNotEmpty) ...[
               Padding(
-                  padding: const EdgeInsets.only(bottom: AppSpacing.sm),
-                  child: Text('TV Shows', style: AppTypography.sectionHeading)),
+                padding: const EdgeInsets.only(bottom: AppSpacing.sm),
+                child: Text('TV Shows', style: AppTypography.sectionHeading),
+              ),
               SizedBox(
-                  height: AppSpacing.posterRowFor(context),
-                  child: ListView.separated(
-                      scrollDirection: Axis.horizontal,
-                      itemCount: tv.length,
-                      separatorBuilder: (_, __) =>
-                          const SizedBox(width: AppSpacing.md),
-                      itemBuilder: (_, i) => PosterCard(
-                          imageUrl: tv[i].posterUrlW342,
-                          title: tv[i].name,
-                          metadata: tv[i].year,
-                          onTap: () => _openTv(tv[i])))),
+                height: AppSpacing.posterRowFor(context),
+                child: ListView.separated(
+                  scrollDirection: Axis.horizontal,
+                  itemCount: tv.length,
+                  separatorBuilder: (_, __) =>
+                      const SizedBox(width: AppSpacing.md),
+                  itemBuilder: (_, i) => PosterCard(
+                    imageUrl: tv[i].posterUrlW342,
+                    title: tv[i].name,
+                    metadata: tv[i].year,
+                    onTap: () => _openTv(tv[i]),
+                  ),
+                ),
+              ),
               const SizedBox(height: AppSpacing.lg),
             ],
             if (people.isNotEmpty) ...[
               Padding(
-                  padding: const EdgeInsets.only(bottom: AppSpacing.sm),
-                  child: Text('People', style: AppTypography.sectionHeading)),
+                padding: const EdgeInsets.only(bottom: AppSpacing.sm),
+                child: Text('People', style: AppTypography.sectionHeading),
+              ),
               for (final p in people.take(10))
                 _PersonResult(p: p, onTap: () => _openPerson(p)),
             ],
@@ -306,11 +358,14 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                       ? const SizedBox(
                           width: 22,
                           height: 22,
-                          child: CircularProgressIndicator(strokeWidth: 2))
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
                       : OutlinedButton(
                           onPressed: _loadMore,
-                          child: Text('Load more (page ${_page + 1} of '
-                              '$_totalPages)'),
+                          child: Text(
+                            'Load more (page ${_page + 1} of '
+                            '$_totalPages)',
+                          ),
                         ),
                 ),
               ),
@@ -322,65 +377,94 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
   }
 
   Widget _buildIdle() => SingleChildScrollView(
-          child:
-              Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
         if (_recent.isNotEmpty) ...[
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text('Recent searches',
-                  style: AppTypography.sectionHeading.copyWith(fontSize: 16)),
+              Text(
+                'Recent searches',
+                style: AppTypography.sectionHeading.copyWith(fontSize: 16),
+              ),
               TextButton(
-                  onPressed: () async {
-                    final prefs = await SharedPreferences.getInstance();
-                    await prefs.remove(AppConstants.prefRecentSearches);
-                    setState(() => _recent = const []);
-                  },
-                  child: Text('Clear',
-                      style: AppTypography.metadata
-                          .copyWith(color: AppColors.accent))),
+                onPressed: () async {
+                  final prefs = await SharedPreferences.getInstance();
+                  await prefs.remove(AppConstants.prefRecentSearches);
+                  setState(() => _recent = const []);
+                },
+                child: Text(
+                  'Clear',
+                  style: AppTypography.metadata.copyWith(
+                    color: AppColors.accent,
+                  ),
+                ),
+              ),
             ],
           ),
           const SizedBox(height: AppSpacing.sm),
-          Wrap(spacing: AppSpacing.xs, runSpacing: AppSpacing.xs, children: [
-            for (final t in _recent)
-              ActionChip(
+          Wrap(
+            spacing: AppSpacing.xs,
+            runSpacing: AppSpacing.xs,
+            children: [
+              for (final t in _recent)
+                ActionChip(
                   label: Text(t),
                   backgroundColor: AppColors.surface,
-                  labelStyle: AppTypography.metadata
-                      .copyWith(color: AppColors.textSecondary),
+                  labelStyle: AppTypography.metadata.copyWith(
+                    color: AppColors.textSecondary,
+                  ),
                   side: BorderSide.none,
-                  shape:
-                      RoundedRectangleBorder(borderRadius: AppRadii.smRadius),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: AppRadii.smRadius,
+                  ),
                   onPressed: () {
                     _c.text = t;
                     _c.selection = TextSelection.fromPosition(
-                        TextPosition(offset: t.length));
+                      TextPosition(offset: t.length),
+                    );
                     _doSearch(t);
-                  }),
-          ]),
+                  },
+                ),
+            ],
+          ),
           const SizedBox(height: AppSpacing.xl),
         ],
-        Text('Browse by genre',
-            style: AppTypography.sectionHeading.copyWith(fontSize: 16)),
+        Text(
+          'Browse by genre',
+          style: AppTypography.sectionHeading.copyWith(fontSize: 16),
+        ),
         const SizedBox(height: AppSpacing.sm),
         Text(
-            'Keyword search is above; Explore has real TMDB genre filters.',
-            style: AppTypography.metadata.copyWith(color: AppColors.textMuted)),
+          'Keyword search is above; Explore has real TMDB genre filters.',
+          style: AppTypography.metadata.copyWith(color: AppColors.textMuted),
+        ),
         const SizedBox(height: AppSpacing.sm),
-        Wrap(spacing: AppSpacing.xs, runSpacing: AppSpacing.xs, children: [
-          ActionChip(
+        Wrap(
+          spacing: AppSpacing.xs,
+          runSpacing: AppSpacing.xs,
+          children: [
+            ActionChip(
               label: const Text('Open Explore'),
-              avatar: const Icon(Icons.explore_outlined,
-                  size: 16, color: AppColors.accent),
+              avatar: const Icon(
+                Icons.explore_outlined,
+                size: 16,
+                color: AppColors.accent,
+              ),
               backgroundColor: AppColors.surface,
-              labelStyle: AppTypography.metadata
-                  .copyWith(color: AppColors.textSecondary),
+              labelStyle: AppTypography.metadata.copyWith(
+                color: AppColors.textSecondary,
+              ),
               side: BorderSide.none,
               shape: RoundedRectangleBorder(borderRadius: AppRadii.smRadius),
-              onPressed: () => context.go('/explore')),
-        ]),
-      ]));
+              onPressed: () => context.go('/explore'),
+            ),
+          ],
+        ),
+      ],
+    ),
+  );
 }
 
 /// The first-page result set a search's paging state belongs to.
@@ -403,50 +487,75 @@ class _PersonResult extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Material(
-        color: Colors.transparent,
-        child: InkWell(
-            onTap: onTap,
-            child: Padding(
-                padding: const EdgeInsets.symmetric(vertical: AppSpacing.sm),
-                child: Row(children: [
-                  ClipOval(
-                    child: SizedBox(
-                        width: 52,
-                        height: 52,
-                        child: p.profileUrl.isNotEmpty
-                            ? CachedNetworkImage(
-                                imageUrl: p.profileUrl,
-                                fit: BoxFit.cover,
-                                placeholder: (_, __) =>
-                                    Container(color: AppColors.surface),
-                                errorWidget: (_, __, ___) => Container(
-                                    color: AppColors.surface,
-                                    child: const Icon(Icons.person,
-                                        color: AppColors.textMuted, size: 24)))
-                            : Container(
-                                color: AppColors.surface,
-                                child: const Icon(Icons.person,
-                                    color: AppColors.textMuted, size: 24))),
-                  ),
-                  const SizedBox(width: AppSpacing.md),
-                  Expanded(
-                      child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                        Text(p.name,
-                            style:
-                                AppTypography.cardTitle.copyWith(fontSize: 14)),
-                        if (p.knownForLabel().isNotEmpty) ...[
-                          const SizedBox(height: 2),
-                          Text(p.knownForLabel(),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: AppTypography.metadata.copyWith(
-                                  color: AppColors.textMuted, fontSize: 12)),
-                        ]
-                      ])),
-                  const Icon(Icons.chevron_right_rounded,
-                      color: AppColors.textMuted, size: 20),
-                ]))));
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: AppSpacing.sm),
+          child: Row(
+            children: [
+              ClipOval(
+                child: SizedBox(
+                  width: 52,
+                  height: 52,
+                  child: p.profileUrl.isNotEmpty
+                      ? CachedNetworkImage(
+                          imageUrl: p.profileUrl,
+                          fit: BoxFit.cover,
+                          placeholder: (_, __) =>
+                              Container(color: AppColors.surface),
+                          errorWidget: (_, __, ___) => Container(
+                            color: AppColors.surface,
+                            child: const Icon(
+                              Icons.person,
+                              color: AppColors.textMuted,
+                              size: 24,
+                            ),
+                          ),
+                        )
+                      : Container(
+                          color: AppColors.surface,
+                          child: const Icon(
+                            Icons.person,
+                            color: AppColors.textMuted,
+                            size: 24,
+                          ),
+                        ),
+                ),
+              ),
+              const SizedBox(width: AppSpacing.md),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      p.name,
+                      style: AppTypography.cardTitle.copyWith(fontSize: 14),
+                    ),
+                    if (p.knownForLabel().isNotEmpty) ...[
+                      const SizedBox(height: 2),
+                      Text(
+                        p.knownForLabel(),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: AppTypography.metadata.copyWith(
+                          color: AppColors.textMuted,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+              const Icon(
+                Icons.chevron_right_rounded,
+                color: AppColors.textMuted,
+                size: 20,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 }

@@ -1,5 +1,6 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
+
 import '../../app/theme/app_colors.dart';
 import '../../app/theme/app_radii.dart';
 import '../../app/theme/app_spacing.dart';
@@ -19,13 +20,14 @@ class PosterCard extends StatefulWidget {
   final VoidCallback? onTap;
   final double width;
 
-  const PosterCard(
-      {super.key,
-      required this.imageUrl,
-      required this.title,
-      this.metadata,
-      this.onTap,
-      this.width = AppSpacing.posterWidth});
+  const PosterCard({
+    super.key,
+    required this.imageUrl,
+    required this.title,
+    this.metadata,
+    this.onTap,
+    this.width = AppSpacing.posterWidth,
+  });
 
   @override
   State<PosterCard> createState() => _PosterCardState();
@@ -41,10 +43,12 @@ class _PosterCardState extends State<PosterCard> {
         if (f != _focused) setState(() => _focused = f);
       },
       actions: <Type, Action<Intent>>{
-        ActivateIntent: CallbackAction<ActivateIntent>(onInvoke: (_) {
-          widget.onTap?.call();
-          return null;
-        }),
+        ActivateIntent: CallbackAction<ActivateIntent>(
+          onInvoke: (_) {
+            widget.onTap?.call();
+            return null;
+          },
+        ),
       },
       child: Semantics(
         button: true,
@@ -70,9 +74,11 @@ class _PosterCardState extends State<PosterCard> {
                       decoration: BoxDecoration(
                         borderRadius: AppRadii.mdRadius,
                         border: Border.all(
-                            color:
-                                _focused ? AppColors.accent : Colors.transparent,
-                            width: 2),
+                          color: _focused
+                              ? AppColors.accent
+                              : Colors.transparent,
+                          width: 2,
+                        ),
                       ),
                       child: ClipRRect(
                         borderRadius: AppRadii.mdRadius,
@@ -81,16 +87,21 @@ class _PosterCardState extends State<PosterCard> {
                     ),
                   ),
                   const SizedBox(height: AppSpacing.xs),
-                  Text(widget.title,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: AppTypography.cardTitle.copyWith(fontSize: 13)),
-                  if (widget.metadata != null && widget.metadata!.isNotEmpty) ...[
+                  Text(
+                    widget.title,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: AppTypography.cardTitle.copyWith(fontSize: 13),
+                  ),
+                  if (widget.metadata != null &&
+                      widget.metadata!.isNotEmpty) ...[
                     const SizedBox(height: 2),
-                    Text(widget.metadata!,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: AppTypography.metadata.copyWith(fontSize: 12)),
+                    Text(
+                      widget.metadata!,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: AppTypography.metadata.copyWith(fontSize: 12),
+                    ),
                   ],
                 ],
               ),
@@ -106,8 +117,12 @@ class _PosterCardState extends State<PosterCard> {
       return Container(
         color: AppColors.surface,
         child: const Center(
-            child: Icon(Icons.movie_creation_outlined,
-                color: AppColors.textMuted, size: 28)),
+          child: Icon(
+            Icons.movie_creation_outlined,
+            color: AppColors.textMuted,
+            size: 28,
+          ),
+        ),
       );
     }
     return CachedNetworkImage(
@@ -117,8 +132,12 @@ class _PosterCardState extends State<PosterCard> {
       errorWidget: (_, __, ___) => Container(
         color: AppColors.surface,
         child: const Center(
-            child: Icon(Icons.image_not_supported_outlined,
-                color: AppColors.textMuted, size: 28)),
+          child: Icon(
+            Icons.image_not_supported_outlined,
+            color: AppColors.textMuted,
+            size: 28,
+          ),
+        ),
       ),
     );
   }

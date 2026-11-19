@@ -9,26 +9,28 @@ import 'package:flutter_test/flutter_test.dart';
 ///    it or every relaunch loses the headers again.
 void main() {
   DownloadItem sample({Map<String, String> headers = const {}}) => DownloadItem(
-        key: 'movie:550',
-        title: 'Fight Club',
-        subtitle: 'Movie',
-        posterPath: '/poster.jpg',
-        kind: 'movie',
-        mediaId: 550,
-        season: 0,
-        episode: 0,
-        url: 'https://cdn.example.com/fight-club.mp4',
-        headers: headers,
-        status: DownloadStatus.failed,
-        error: 'HTTP 403',
-      );
+    key: 'movie:550',
+    title: 'Fight Club',
+    subtitle: 'Movie',
+    posterPath: '/poster.jpg',
+    kind: 'movie',
+    mediaId: 550,
+    season: 0,
+    episode: 0,
+    url: 'https://cdn.example.com/fight-club.mp4',
+    headers: headers,
+    status: DownloadStatus.failed,
+    error: 'HTTP 403',
+  );
 
   test('headers survive the JSON round-trip', () {
-    final original = sample(headers: {
-      'Referer': 'https://stream.example.com/',
-      'Origin': 'https://stream.example.com',
-      'User-Agent': 'Mozilla/5.0',
-    });
+    final original = sample(
+      headers: {
+        'Referer': 'https://stream.example.com/',
+        'Origin': 'https://stream.example.com',
+        'User-Agent': 'Mozilla/5.0',
+      },
+    );
     final restored = DownloadItem.fromJson(original.toJson());
 
     expect(restored.headers, original.headers);

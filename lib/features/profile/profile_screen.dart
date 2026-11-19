@@ -5,6 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:go_router/go_router.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:tj_flutter_providers/tj_providers.dart' show ProvidersScreen;
+
 import '../../app/theme/app_colors.dart';
 import '../../app/theme/app_radii.dart';
 import '../../app/theme/app_spacing.dart';
@@ -63,42 +64,61 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     return Scaffold(
       backgroundColor: AppColors.background,
       body: SafeArea(
-          child: ListView(
-              padding: const EdgeInsets.all(AppSpacing.horizontalPadding),
-              physics: const BouncingScrollPhysics(),
-              children: [
+        child: ListView(
+          padding: const EdgeInsets.all(AppSpacing.horizontalPadding),
+          physics: const BouncingScrollPhysics(),
+          children: [
             // Profile header
-            Row(children: [
-              Image.asset('assets/images/logo_mark.png',
-                  width: 72, height: 72, filterQuality: FilterQuality.medium),
-              const SizedBox(width: AppSpacing.md),
-              Expanded(
+            Row(
+              children: [
+                Image.asset(
+                  'assets/images/logo_mark.png',
+                  width: 72,
+                  height: 72,
+                  filterQuality: FilterQuality.medium,
+                ),
+                const SizedBox(width: AppSpacing.md),
+                Expanded(
                   child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                    Text('Welcome to AeroFlix',
-                        style: AppTypography.cardTitle
-                            .copyWith(fontSize: 20, letterSpacing: 0.2)),
-                    const SizedBox(height: 2),
-                    Text('Premium cinematic streaming',
-                        style: AppTypography.metadata
-                            .copyWith(color: AppColors.textMuted)),
-                  ]))
-            ]),
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Welcome to AeroFlix',
+                        style: AppTypography.cardTitle.copyWith(
+                          fontSize: 20,
+                          letterSpacing: 0.2,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        'Premium cinematic streaming',
+                        style: AppTypography.metadata.copyWith(
+                          color: AppColors.textMuted,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
             const SizedBox(height: AppSpacing.lg),
 
             // Stats row
-            Row(children: [
-              _StatTile(
+            Row(
+              children: [
+                _StatTile(
                   label: 'Watchlist',
                   value: wlCount.toString(),
-                  icon: Icons.bookmark_rounded),
-              const SizedBox(width: AppSpacing.md),
-              _StatTile(
+                  icon: Icons.bookmark_rounded,
+                ),
+                const SizedBox(width: AppSpacing.md),
+                _StatTile(
                   label: 'In progress',
                   value: cwCount.toString(),
-                  icon: Icons.play_arrow_rounded),
-            ]),
+                  icon: Icons.play_arrow_rounded,
+                ),
+              ],
+            ),
             const SizedBox(height: AppSpacing.lg),
 
             _SectionHeader('My Library'),
@@ -107,8 +127,10 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
               title: 'Downloads',
               subtitle: 'Offline saved content',
               onTap: () => context.push('/downloads'),
-              trailing: const Icon(Icons.chevron_right_rounded,
-                  color: AppColors.textMuted),
+              trailing: const Icon(
+                Icons.chevron_right_rounded,
+                color: AppColors.textMuted,
+              ),
             ),
             _ListTile(
               icon: Icons.history_rounded,
@@ -117,8 +139,10 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                   ? 'Nothing watched yet'
                   : '$cwCount title${cwCount == 1 ? '' : 's'} in progress',
               onTap: cwCount == 0 ? null : _showHistory,
-              trailing: const Icon(Icons.chevron_right_rounded,
-                  color: AppColors.textMuted),
+              trailing: const Icon(
+                Icons.chevron_right_rounded,
+                color: AppColors.textMuted,
+              ),
             ),
             _ListTile(
               icon: Icons.extension_rounded,
@@ -127,8 +151,10 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                   ? status.summary
                   : '${status.installed} sources · ${status.updated} updated',
               onTap: _openProviders,
-              trailing: const Icon(Icons.chevron_right_rounded,
-                  color: AppColors.textMuted),
+              trailing: const Icon(
+                Icons.chevron_right_rounded,
+                color: AppColors.textMuted,
+              ),
             ),
             _ListTile(
               icon: Icons.monitor_heart_outlined,
@@ -136,12 +162,17 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
               subtitle: status.error != null
                   ? 'Offline copy in use — tap for details'
                   : (status.syncedAt == null
-                      ? 'Not checked yet'
-                      : 'Checked ${_ago(status.syncedAt!)}'),
-              onTap: () => Navigator.of(context).push(MaterialPageRoute(
-                  builder: (_) => const ProviderDiagnosticsScreen())),
-              trailing: const Icon(Icons.chevron_right_rounded,
-                  color: AppColors.textMuted),
+                        ? 'Not checked yet'
+                        : 'Checked ${_ago(status.syncedAt!)}'),
+              onTap: () => Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (_) => const ProviderDiagnosticsScreen(),
+                ),
+              ),
+              trailing: const Icon(
+                Icons.chevron_right_rounded,
+                color: AppColors.textMuted,
+              ),
             ),
             const SizedBox(height: AppSpacing.lg),
 
@@ -169,8 +200,10 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
               subtitle:
                   '${settings.defaultSpeed.toStringAsFixed(settings.defaultSpeed.truncateToDouble() == settings.defaultSpeed ? 1 : 2)}×',
               onTap: () => _pickSpeed(settings.defaultSpeed),
-              trailing: const Icon(Icons.chevron_right_rounded,
-                  color: AppColors.textMuted),
+              trailing: const Icon(
+                Icons.chevron_right_rounded,
+                color: AppColors.textMuted,
+              ),
             ),
             const SizedBox(height: AppSpacing.lg),
 
@@ -215,19 +248,31 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
               icon: Icons.privacy_tip_outlined,
               title: 'About, privacy & terms',
               subtitle: 'What this app does and what it stores',
-              onTap: () => AboutSheet.show(context,
-                  version: _version, build: _buildNumber),
-              trailing: const Icon(Icons.chevron_right_rounded,
-                  color: AppColors.textMuted),
+              onTap: () => AboutSheet.show(
+                context,
+                version: _version,
+                build: _buildNumber,
+              ),
+              trailing: const Icon(
+                Icons.chevron_right_rounded,
+                color: AppColors.textMuted,
+              ),
             ),
             const SizedBox(height: AppSpacing.lg),
 
             Center(
-                child: Text('Built with ♥ for cinema fans',
-                    style: AppTypography.metadata
-                        .copyWith(color: AppColors.textMuted, fontSize: 11))),
+              child: Text(
+                'Built with ♥ for cinema fans',
+                style: AppTypography.metadata.copyWith(
+                  color: AppColors.textMuted,
+                  fontSize: 11,
+                ),
+              ),
+            ),
             SizedBox(height: 20 + MediaQuery.paddingOf(context).bottom),
-          ])),
+          ],
+        ),
+      ),
     );
   }
 
@@ -240,36 +285,50 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     _loadMeta();
     ScaffoldMessenger.of(context)
       ..hideCurrentSnackBar()
-      ..showSnackBar(const SnackBar(
+      ..showSnackBar(
+        const SnackBar(
           content: Text('Image cache cleared'),
-          duration: Duration(seconds: 2)));
+          duration: Duration(seconds: 2),
+        ),
+      );
   }
 
   Future<void> _confirmReset() async {
     final ok = await showDialog<bool>(
-        context: context,
-        builder: (ctx) => AlertDialog(
-              backgroundColor: AppColors.surface,
-              shape: RoundedRectangleBorder(borderRadius: AppRadii.lgRadius),
-              title: Text('Reset all data?',
-                  style: AppTypography.cardTitle.copyWith(fontSize: 18)),
-              content: Text(
-                  'This will clear your watchlist, continue-watching progress, and settings. Downloads (if any) will remain.',
-                  style: AppTypography.bodyPrimary
-                      .copyWith(color: AppColors.textSecondary)),
-              actions: [
-                TextButton(
-                    onPressed: () => Navigator.pop(ctx, false),
-                    child: Text('Cancel',
-                        style: AppTypography.metadata
-                            .copyWith(color: AppColors.textMuted))),
-                TextButton(
-                    onPressed: () => Navigator.pop(ctx, true),
-                    child: Text('Reset',
-                        style: AppTypography.metadata
-                            .copyWith(color: AppColors.error))),
-              ],
-            ));
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: AppColors.surface,
+        shape: RoundedRectangleBorder(borderRadius: AppRadii.lgRadius),
+        title: Text(
+          'Reset all data?',
+          style: AppTypography.cardTitle.copyWith(fontSize: 18),
+        ),
+        content: Text(
+          'This will clear your watchlist, continue-watching progress, and settings. Downloads (if any) will remain.',
+          style: AppTypography.bodyPrimary.copyWith(
+            color: AppColors.textSecondary,
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: Text(
+              'Cancel',
+              style: AppTypography.metadata.copyWith(
+                color: AppColors.textMuted,
+              ),
+            ),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: Text(
+              'Reset',
+              style: AppTypography.metadata.copyWith(color: AppColors.error),
+            ),
+          ),
+        ],
+      ),
+    );
     if (ok != true) return;
     await ref.read(watchlistProvider.notifier).clear();
     await ref.read(continueWatchingProvider.notifier).clear();
@@ -298,39 +357,48 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     final picked = await showModalBottomSheet<double>(
       context: context,
       backgroundColor: AppColors.surface,
-      shape: const RoundedRectangleBorder(
-          borderRadius: AppRadii.sheetRadius),
+      shape: const RoundedRectangleBorder(borderRadius: AppRadii.sheetRadius),
       builder: (ctx) => SafeArea(
-        child: Column(mainAxisSize: MainAxisSize.min, children: [
-          const SizedBox(height: 12),
-          Container(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const SizedBox(height: 12),
+            Container(
               width: 40,
               height: 4,
               decoration: BoxDecoration(
-                  color: AppColors.textMuted.withValues(alpha: 0.3),
-                  borderRadius: BorderRadius.circular(4))),
-          Padding(
-            padding: const EdgeInsets.all(AppSpacing.lg),
-            child: Text('Default playback speed',
-                style: AppTypography.cardTitle.copyWith(fontSize: 16)),
-          ),
-          for (final s in speeds)
-            ListTile(
-              title: Text(
+                color: AppColors.textMuted.withValues(alpha: 0.3),
+                borderRadius: BorderRadius.circular(4),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.all(AppSpacing.lg),
+              child: Text(
+                'Default playback speed',
+                style: AppTypography.cardTitle.copyWith(fontSize: 16),
+              ),
+            ),
+            for (final s in speeds)
+              ListTile(
+                title: Text(
                   '${s.toStringAsFixed(s.truncateToDouble() == s ? 1 : 2)}×',
                   style: AppTypography.bodyPrimary.copyWith(
-                      color: s == current
-                          ? AppColors.accent
-                          : AppColors.textPrimary,
-                      fontWeight:
-                          s == current ? FontWeight.w700 : FontWeight.w500)),
-              trailing: s == current
-                  ? const Icon(Icons.check_rounded, color: AppColors.accent)
-                  : null,
-              onTap: () => Navigator.pop(ctx, s),
-            ),
-          const SizedBox(height: 8),
-        ]),
+                    color: s == current
+                        ? AppColors.accent
+                        : AppColors.textPrimary,
+                    fontWeight: s == current
+                        ? FontWeight.w700
+                        : FontWeight.w500,
+                  ),
+                ),
+                trailing: s == current
+                    ? const Icon(Icons.check_rounded, color: AppColors.accent)
+                    : null,
+                onTap: () => Navigator.pop(ctx, s),
+              ),
+            const SizedBox(height: 8),
+          ],
+        ),
       ),
     );
     if (picked != null) {
@@ -347,40 +415,48 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   }
 
   void _openProviders() {
-    Navigator.of(context).push(MaterialPageRoute(
+    Navigator.of(context).push(
+      MaterialPageRoute(
         builder: (_) => ProvidersScreen(
-              service: ref.read(providerServiceProvider),
-              initialEnabled: ref.read(enabledProviderIdsProvider),
-              onEnabledChanged: (ids) {
-                final notifier = ref.read(enabledProviderIdsProvider.notifier);
-                for (final id in ids) {
-                  notifier.setEnabled(id, true);
-                }
-                for (final id in ref
+          service: ref.read(providerServiceProvider),
+          initialEnabled: ref.read(enabledProviderIdsProvider),
+          onEnabledChanged: (ids) {
+            final notifier = ref.read(enabledProviderIdsProvider.notifier);
+            for (final id in ids) {
+              notifier.setEnabled(id, true);
+            }
+            for (final id
+                in ref
                     .read(enabledProviderIdsProvider)
                     .where((id) => !ids.contains(id))
                     .toList()) {
-                  notifier.setEnabled(id, false);
-                }
-                ref.invalidate(providerServiceProvider);
-              },
-            )));
+              notifier.setEnabled(id, false);
+            }
+            ref.invalidate(providerServiceProvider);
+          },
+        ),
+      ),
+    );
   }
 
   Future<void> _shareApp() async {
     // Share.share reports the outcome; it used to `hideCurrentSnackBar()`
     // without ever showing one, which is a no-op that reads like feedback.
     final result = await Share.share(
-        'AeroFlix — movies, series and anime with real sources. '
-        'https://github.com/Skywave22/AeroFlix',
-        subject: 'AeroFlix');
+      'AeroFlix — movies, series and anime with real sources. '
+      'https://github.com/Skywave22/AeroFlix',
+      subject: 'AeroFlix',
+    );
     if (!mounted) return;
     if (result.status == ShareResultStatus.unavailable) {
       ScaffoldMessenger.of(context)
         ..hideCurrentSnackBar()
-        ..showSnackBar(const SnackBar(
+        ..showSnackBar(
+          const SnackBar(
             content: Text('No app available to share with'),
-            duration: Duration(seconds: 2)));
+            duration: Duration(seconds: 2),
+          ),
+        );
     }
   }
 
@@ -393,8 +469,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
       backgroundColor: AppColors.surface,
       isScrollControlled: true,
       shape: const RoundedRectangleBorder(
-          borderRadius:
-              BorderRadius.vertical(top: Radius.circular(AppRadii.lg))),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(AppRadii.lg)),
+      ),
       builder: (ctx) => DraggableScrollableSheet(
         expand: false,
         initialChildSize: 0.75,
@@ -407,8 +483,10 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
             if (i == 0) {
               return Padding(
                 padding: const EdgeInsets.only(bottom: AppSpacing.md),
-                child: Text('Recently watched',
-                    style: AppTypography.sectionHeading),
+                child: Text(
+                  'Recently watched',
+                  style: AppTypography.sectionHeading,
+                ),
               );
             }
             final it = items[i - 1];
@@ -419,7 +497,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
               subtitle: Text(
                 it.type == MediaType.tv
                     ? 'S${it.season.toString().padLeft(2, '0')}E${it.episode.toString().padLeft(2, '0')}'
-                        '${it.episodeTitle != null ? ' · ${it.episodeTitle}' : ''} · $pct% watched'
+                          '${it.episodeTitle != null ? ' · ${it.episodeTitle}' : ''} · $pct% watched'
                     : '$pct% watched',
                 style: AppTypography.caption,
               ),
@@ -441,10 +519,15 @@ class _SectionHeader extends StatelessWidget {
   const _SectionHeader(this.label);
   @override
   Widget build(BuildContext context) => Padding(
-      padding: const EdgeInsets.only(bottom: AppSpacing.sm, top: AppSpacing.xs),
-      child: Text(label,
-          style: AppTypography.sectionHeading
-              .copyWith(fontSize: 13, letterSpacing: 1.2)));
+    padding: const EdgeInsets.only(bottom: AppSpacing.sm, top: AppSpacing.xs),
+    child: Text(
+      label,
+      style: AppTypography.sectionHeading.copyWith(
+        fontSize: 13,
+        letterSpacing: 1.2,
+      ),
+    ),
+  );
 }
 
 class _ListTile extends StatelessWidget {
@@ -453,54 +536,73 @@ class _ListTile extends StatelessWidget {
   final String? subtitle;
   final VoidCallback? onTap;
   final Widget? trailing;
-  const _ListTile(
-      {required this.icon,
-      required this.title,
-      this.subtitle,
-      this.onTap,
-      this.trailing});
+  const _ListTile({
+    required this.icon,
+    required this.title,
+    this.subtitle,
+    this.onTap,
+    this.trailing,
+  });
   @override
   Widget build(BuildContext context) {
     return Material(
-        color: Colors.transparent,
-        child: InkWell(
-            borderRadius: AppRadii.lgRadius,
-            onTap: onTap,
-            child: Padding(
-                padding: const EdgeInsets.symmetric(
-                    vertical: AppSpacing.sm, horizontal: 4),
-                child: Row(children: [
-                  Container(
-                      width: 38,
-                      height: 38,
-                      decoration: BoxDecoration(
-                          color: AppColors.surface,
-                          borderRadius: AppRadii.mdRadius),
-                      child: Icon(icon,
-                          size: 20,
-                          color: onTap == null
-                              ? AppColors.textMuted
-                              : AppColors.accent)),
-                  const SizedBox(width: AppSpacing.md),
-                  Expanded(
-                      child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                        Text(title,
-                            style: AppTypography.bodyPrimary.copyWith(
-                                fontWeight: FontWeight.w600,
-                                color: onTap == null
-                                    ? AppColors.textMuted
-                                    : AppColors.textPrimary)),
-                        if (subtitle != null) ...[
-                          const SizedBox(height: 2),
-                          Text(subtitle!,
-                              style: AppTypography.metadata.copyWith(
-                                  color: AppColors.textMuted, fontSize: 12)),
-                        ]
-                      ])),
-                  if (trailing != null) trailing!,
-                ]))));
+      color: Colors.transparent,
+      child: InkWell(
+        borderRadius: AppRadii.lgRadius,
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(
+            vertical: AppSpacing.sm,
+            horizontal: 4,
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 38,
+                height: 38,
+                decoration: BoxDecoration(
+                  color: AppColors.surface,
+                  borderRadius: AppRadii.mdRadius,
+                ),
+                child: Icon(
+                  icon,
+                  size: 20,
+                  color: onTap == null ? AppColors.textMuted : AppColors.accent,
+                ),
+              ),
+              const SizedBox(width: AppSpacing.md),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: AppTypography.bodyPrimary.copyWith(
+                        fontWeight: FontWeight.w600,
+                        color: onTap == null
+                            ? AppColors.textMuted
+                            : AppColors.textPrimary,
+                      ),
+                    ),
+                    if (subtitle != null) ...[
+                      const SizedBox(height: 2),
+                      Text(
+                        subtitle!,
+                        style: AppTypography.metadata.copyWith(
+                          color: AppColors.textMuted,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+              if (trailing != null) trailing!,
+            ],
+          ),
+        ),
+      ),
+    );
   }
 }
 
@@ -510,59 +612,84 @@ class _SwitchTile extends StatelessWidget {
   final String? subtitle;
   final bool value;
   final ValueChanged<bool> onChanged;
-  const _SwitchTile(
-      {required this.icon,
-      required this.title,
-      this.subtitle,
-      required this.value,
-      required this.onChanged});
+  const _SwitchTile({
+    required this.icon,
+    required this.title,
+    this.subtitle,
+    required this.value,
+    required this.onChanged,
+  });
   @override
   Widget build(BuildContext context) => _ListTile(
-      icon: icon,
-      title: title,
-      subtitle: subtitle,
-      trailing: Switch(
-        value: value,
-        activeThumbColor: AppColors.accent,
-        inactiveThumbColor: AppColors.textMuted,
-        inactiveTrackColor: AppColors.surfaceElevated,
-        trackOutlineWidth: const WidgetStatePropertyAll(0),
-        onChanged: onChanged,
-      ),
-      onTap: () => onChanged(!value));
+    icon: icon,
+    title: title,
+    subtitle: subtitle,
+    trailing: Switch(
+      value: value,
+      activeThumbColor: AppColors.accent,
+      inactiveThumbColor: AppColors.textMuted,
+      inactiveTrackColor: AppColors.surfaceElevated,
+      trackOutlineWidth: const WidgetStatePropertyAll(0),
+      onChanged: onChanged,
+    ),
+    onTap: () => onChanged(!value),
+  );
 }
 
 class _StatTile extends StatelessWidget {
   final String label, value;
   final IconData icon;
-  const _StatTile(
-      {required this.label, required this.value, required this.icon});
+  const _StatTile({
+    required this.label,
+    required this.value,
+    required this.icon,
+  });
   @override
   Widget build(BuildContext context) => Expanded(
-      child: Container(
-          padding: const EdgeInsets.symmetric(
-              vertical: AppSpacing.md, horizontal: AppSpacing.md),
-          decoration: BoxDecoration(
-              color: AppColors.surface, borderRadius: AppRadii.mdRadius),
-          child: Row(children: [
-            Container(
-                width: 40,
-                height: 40,
-                decoration: BoxDecoration(
-                    color: AppColors.accent.withValues(alpha: 0.15),
-                    borderRadius: AppRadii.smRadius),
-                child: Icon(icon, color: AppColors.accent, size: 20)),
-            const SizedBox(width: AppSpacing.sm),
-            Expanded(
-                child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                  Text(value,
-                      style: AppTypography.cardTitle
-                          .copyWith(fontSize: 18, fontWeight: FontWeight.w700)),
-                  Text(label,
-                      style: AppTypography.metadata
-                          .copyWith(color: AppColors.textMuted, fontSize: 11)),
-                ]))
-          ])));
+    child: Container(
+      padding: const EdgeInsets.symmetric(
+        vertical: AppSpacing.md,
+        horizontal: AppSpacing.md,
+      ),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: AppRadii.mdRadius,
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 40,
+            height: 40,
+            decoration: BoxDecoration(
+              color: AppColors.accent.withValues(alpha: 0.15),
+              borderRadius: AppRadii.smRadius,
+            ),
+            child: Icon(icon, color: AppColors.accent, size: 20),
+          ),
+          const SizedBox(width: AppSpacing.sm),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  value,
+                  style: AppTypography.cardTitle.copyWith(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                Text(
+                  label,
+                  style: AppTypography.metadata.copyWith(
+                    color: AppColors.textMuted,
+                    fontSize: 11,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    ),
+  );
 }

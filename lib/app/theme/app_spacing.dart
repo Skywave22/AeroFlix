@@ -54,7 +54,8 @@ class AppSpacing {
     return width * 9 / 16 + xs + (18 + 2 + 16) * scale + 2;
   }
 
-  static const EdgeInsets screenHorizontal =
-      EdgeInsets.symmetric(horizontal: horizontalPadding);
+  static const EdgeInsets screenHorizontal = EdgeInsets.symmetric(
+    horizontal: horizontalPadding,
+  );
   static const EdgeInsets cardPadding = EdgeInsets.all(md);
 }

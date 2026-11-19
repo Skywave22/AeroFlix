@@ -1,5 +1,6 @@
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+
 import '../errors/failures.dart';
 import '../../shared/models/genre.dart';
 import '../../shared/models/media_details.dart';
@@ -24,15 +25,22 @@ class TmdbService {
       _fetchMovies('/movie/now_playing');
   Future<List<TvShow>> getPopularTv() => _fetchTv('/tv/popular');
   Future<List<TvShow>> getTopRatedTv() => _fetchTv('/tv/top_rated');
-  Future<List<Movie>> getHindiMovies() => _fetchMovies('/discover/movie',
-      query: {'with_original_language': 'hi', 'sort_by': 'popularity.desc'});
-  Future<List<TvShow>> getHindiTv() => _fetchTv('/discover/tv',
-      query: {'with_original_language': 'hi', 'sort_by': 'popularity.desc'});
-  Future<List<Movie>> getMoviesByGenre(int genreId) =>
-      _fetchMovies('/discover/movie',
-          query: {'with_genres': '$genreId', 'sort_by': 'popularity.desc'});
-  Future<List<TvShow>> getTvByGenre(int genreId) => _fetchTv('/discover/tv',
-      query: {'with_genres': '$genreId', 'sort_by': 'popularity.desc'});
+  Future<List<Movie>> getHindiMovies() => _fetchMovies(
+    '/discover/movie',
+    query: {'with_original_language': 'hi', 'sort_by': 'popularity.desc'},
+  );
+  Future<List<TvShow>> getHindiTv() => _fetchTv(
+    '/discover/tv',
+    query: {'with_original_language': 'hi', 'sort_by': 'popularity.desc'},
+  );
+  Future<List<Movie>> getMoviesByGenre(int genreId) => _fetchMovies(
+    '/discover/movie',
+    query: {'with_genres': '$genreId', 'sort_by': 'popularity.desc'},
+  );
+  Future<List<TvShow>> getTvByGenre(int genreId) => _fetchTv(
+    '/discover/tv',
+    query: {'with_genres': '$genreId', 'sort_by': 'popularity.desc'},
+  );
 
   Future<List<Genre>> getMovieGenres() async {
     final r = await _get('/genre/movie/list');
@@ -43,14 +51,18 @@ class TmdbService {
   }
 
   Future<MediaDetails> getMovieDetails(int id) async {
-    final r = await _get('/movie/$id',
-        extraQuery: {'append_to_response': 'credits,videos,similar'});
+    final r = await _get(
+      '/movie/$id',
+      extraQuery: {'append_to_response': 'credits,videos,similar'},
+    );
     return _parseMovie(r);
   }
 
   Future<MediaDetails> getTvDetails(int id) async {
-    final r = await _get('/tv/$id',
-        extraQuery: {'append_to_response': 'credits,videos,similar'});
+    final r = await _get(
+      '/tv/$id',
+      extraQuery: {'append_to_response': 'credits,videos,similar'},
+    );
     return _parseTv(r);
   }
 
@@ -86,7 +98,9 @@ class TmdbService {
     movies.sort((a, b) => (b.releaseDate ?? '').compareTo(a.releaseDate ?? ''));
     tv.sort((a, b) => (b.firstAirDate ?? '').compareTo(a.firstAirDate ?? ''));
     return PersonCredits(
-        movies: movies.take(20).toList(), tv: tv.take(20).toList());
+      movies: movies.take(20).toList(),
+      tv: tv.take(20).toList(),
+    );
   }
 
   Future<Map<String, dynamic>> searchMulti(String q, {int page = 1}) async {
@@ -94,13 +108,15 @@ class TmdbService {
       return {
         'movies': <Movie>[],
         'tv': <TvShow>[],
-        'people': <PersonSearchResult>[]
+        'people': <PersonSearchResult>[],
       };
     }
-    final r = await _get('/search/multi',
-        extraQuery: {'query': q, 'page': '$page', 'include_adult': 'false'});
-    final results =
-        (r['results'] as List? ?? const []).cast<Map<String, dynamic>>();
+    final r = await _get(
+      '/search/multi',
+      extraQuery: {'query': q, 'page': '$page', 'include_adult': 'false'},
+    );
+    final results = (r['results'] as List? ?? const [])
+        .cast<Map<String, dynamic>>();
     final movies = <Movie>[], tv = <TvShow>[];
     final people = <PersonSearchResult>[];
     for (final x in results) {
@@ -110,8 +126,8 @@ class TmdbService {
       } else if (mt == 'tv') {
         tv.add(TvShow.fromJson(x));
       } else if (mt == 'person') {
-        final known =
-            (x['known_for'] as List? ?? const []).cast<Map<String, dynamic>>();
+        final known = (x['known_for'] as List? ?? const [])
+            .cast<Map<String, dynamic>>();
         final knownMovies = <Movie>[];
         final knownTv = <TvShow>[];
         for (final k in known) {
@@ -121,14 +137,16 @@ class TmdbService {
             knownTv.add(TvShow.fromJson(k));
           }
         }
-        people.add(PersonSearchResult(
-          id: (x['id'] as int?) ?? 0,
-          name: (x['name'] ?? '') as String,
-          profilePath: x['profile_path'] as String?,
-          knownForDepartment: (x['known_for_department'] ?? '') as String,
-          knownForMovies: knownMovies,
-          knownForTv: knownTv,
-        ));
+        people.add(
+          PersonSearchResult(
+            id: (x['id'] as int?) ?? 0,
+            name: (x['name'] ?? '') as String,
+            profilePath: x['profile_path'] as String?,
+            knownForDepartment: (x['known_for_department'] ?? '') as String,
+            knownForMovies: knownMovies,
+            knownForTv: knownTv,
+          ),
+        );
       }
     }
     return {
@@ -136,7 +154,7 @@ class TmdbService {
       'tv': tv,
       'people': people,
       'page': r['page'] as int? ?? 1,
-      'totalPages': r['total_pages'] as int? ?? 1
+      'totalPages': r['total_pages'] as int? ?? 1,
     };
   }
 
@@ -144,8 +162,10 @@ class TmdbService {
   /// (JustWatch data) for the default region, falling back to any available
   /// region (US → IN → GB → first present). Returns null when TMDB has no
   /// provider data at all for the title.
-  Future<List<Movie>> _fetchMovies(String p,
-      {Map<String, String>? query}) async {
+  Future<List<Movie>> _fetchMovies(
+    String p, {
+    Map<String, String>? query,
+  }) async {
     final r = await _get(p, extraQuery: query);
     return (r['results'] as List? ?? const [])
         .cast<Map<String, dynamic>>()
@@ -214,8 +234,8 @@ class TmdbService {
     final videos =
         ((r['videos'] as Map<String, dynamic>? ?? {})['results'] as List? ?? [])
             .cast<Map<String, dynamic>>();
-    final rawSeasons =
-        (r['seasons'] as List? ?? []).cast<Map<String, dynamic>>();
+    final rawSeasons = (r['seasons'] as List? ?? [])
+        .cast<Map<String, dynamic>>();
     final seasons = rawSeasons
         .where((s) => (s['season_number'] as int? ?? 0) > 0)
         .map(Season.fromJson)
@@ -253,8 +273,10 @@ class TmdbService {
     );
   }
 
-  Future<Map<String, dynamic>> _get(String path,
-      {Map<String, String>? extraQuery}) async {
+  Future<Map<String, dynamic>> _get(
+    String path, {
+    Map<String, String>? extraQuery,
+  }) async {
     try {
       final r = await _dio.get(path, queryParameters: extraQuery);
       if (r.statusCode == 404) throw Failure.notFound();
@@ -266,7 +288,7 @@ class TmdbService {
       if ({
         DioExceptionType.connectionTimeout,
         DioExceptionType.receiveTimeout,
-        DioExceptionType.sendTimeout
+        DioExceptionType.sendTimeout,
       }.contains(e.type)) {
         throw Failure.timeout(cause: e);
       }
@@ -284,28 +306,39 @@ class TmdbService {
   }
 }
 
-final tmdbServiceProvider =
-    Provider<TmdbService>((ref) => TmdbService(ref.watch(dioProvider)));
+final tmdbServiceProvider = Provider<TmdbService>(
+  (ref) => TmdbService(ref.watch(dioProvider)),
+);
 final trendingMoviesProvider = FutureProvider<List<Movie>>(
-    (ref) => ref.watch(tmdbServiceProvider).getTrendingMovies());
+  (ref) => ref.watch(tmdbServiceProvider).getTrendingMovies(),
+);
 final trendingTvProvider = FutureProvider<List<TvShow>>(
-    (ref) => ref.watch(tmdbServiceProvider).getTrendingTv());
+  (ref) => ref.watch(tmdbServiceProvider).getTrendingTv(),
+);
 final popularMoviesProvider = FutureProvider<List<Movie>>(
-    (ref) => ref.watch(tmdbServiceProvider).getPopularMovies());
+  (ref) => ref.watch(tmdbServiceProvider).getPopularMovies(),
+);
 final popularTvProvider = FutureProvider<List<TvShow>>(
-    (ref) => ref.watch(tmdbServiceProvider).getPopularTv());
+  (ref) => ref.watch(tmdbServiceProvider).getPopularTv(),
+);
 final topRatedMoviesProvider = FutureProvider<List<Movie>>(
-    (ref) => ref.watch(tmdbServiceProvider).getTopRatedMovies());
+  (ref) => ref.watch(tmdbServiceProvider).getTopRatedMovies(),
+);
 final nowPlayingMoviesProvider = FutureProvider<List<Movie>>(
-    (ref) => ref.watch(tmdbServiceProvider).getNowPlayingMovies());
+  (ref) => ref.watch(tmdbServiceProvider).getNowPlayingMovies(),
+);
 final hindiMoviesProvider = FutureProvider<List<Movie>>(
-    (ref) => ref.watch(tmdbServiceProvider).getHindiMovies());
+  (ref) => ref.watch(tmdbServiceProvider).getHindiMovies(),
+);
 final movieGenresProvider = FutureProvider<List<Genre>>(
-    (ref) => ref.watch(tmdbServiceProvider).getMovieGenres());
+  (ref) => ref.watch(tmdbServiceProvider).getMovieGenres(),
+);
 
 /// Family provider for season episodes. Key is '$tvId:$seasonNumber'.
-final seasonEpisodesProvider =
-    FutureProvider.family<List<Episode>, String>((ref, key) async {
+final seasonEpisodesProvider = FutureProvider.family<List<Episode>, String>((
+  ref,
+  key,
+) async {
   final parts = key.split(':');
   final tvId = int.tryParse(parts[0]) ?? 0;
   final season = int.tryParse(parts[1]) ?? 1;
@@ -314,4 +347,5 @@ final seasonEpisodesProvider =
 
 /// Hindi-language TV series (discover, original_language=hi).
 final hindiTvProvider = FutureProvider<List<TvShow>>(
-    (ref) => ref.watch(tmdbServiceProvider).getHindiTv());
+  (ref) => ref.watch(tmdbServiceProvider).getHindiTv(),
+);

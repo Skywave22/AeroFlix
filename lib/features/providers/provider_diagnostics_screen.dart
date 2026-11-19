@@ -34,8 +34,10 @@ class _ProviderDiagnosticsScreenState
     for (final id in service.enabledIds) {
       if (!mounted) return;
       setState(() => _runningId = id);
-      final outcome =
-          await service.testProvider(id, timeout: const Duration(seconds: 40));
+      final outcome = await service.testProvider(
+        id,
+        timeout: const Duration(seconds: 40),
+      );
       if (!mounted) return;
       setState(() => _results[id] = outcome);
     }
@@ -56,12 +58,17 @@ class _ProviderDiagnosticsScreenState
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
-          backgroundColor: AppColors.background,
-          foregroundColor: AppColors.textPrimary,
-          title: Text('Provider status', style: AppTypography.cardTitle)),
+        backgroundColor: AppColors.background,
+        foregroundColor: AppColors.textPrimary,
+        title: Text('Provider status', style: AppTypography.cardTitle),
+      ),
       body: ListView(
         padding: const EdgeInsets.fromLTRB(
-            AppSpacing.lg, AppSpacing.sm, AppSpacing.lg, AppSpacing.xxl),
+          AppSpacing.lg,
+          AppSpacing.sm,
+          AppSpacing.lg,
+          AppSpacing.xxl,
+        ),
         children: [
           _Card(
             title: 'Sync',
@@ -73,65 +80,75 @@ class _ProviderDiagnosticsScreenState
               _Row('Enabled for playback', '${service.enabledIds.join(', ')}'),
               _Row('Mirror', status.mirror ?? '—'),
               _Row(
-                  'Last check',
-                  status.syncedAt?.toLocal().toString().split('.').first ??
-                      '—'),
+                'Last check',
+                status.syncedAt?.toLocal().toString().split('.').first ?? '—',
+              ),
               if (status.error != null) _Row('Network error', status.error!),
             ],
-            action: Column(children: [
-              SizedBox(
-                width: double.infinity,
-                child: FilledButton.icon(
-                  onPressed: status.busy
-                      ? null
-                      : () =>
-                          ref.read(providerStatusProvider.notifier).refresh(),
-                  icon: const Icon(Icons.sync_rounded, size: 18),
-                  label: Text(status.busy ? 'Checking…' : 'Check GitHub now'),
+            action: Column(
+              children: [
+                SizedBox(
+                  width: double.infinity,
+                  child: FilledButton.icon(
+                    onPressed: status.busy
+                        ? null
+                        : () => ref
+                              .read(providerStatusProvider.notifier)
+                              .refresh(),
+                    icon: const Icon(Icons.sync_rounded, size: 18),
+                    label: Text(status.busy ? 'Checking…' : 'Check GitHub now'),
+                  ),
                 ),
-              ),
-              const SizedBox(height: 8),
-              SizedBox(
-                width: double.infinity,
-                child: OutlinedButton.icon(
-                  onPressed: () async {
-                    await ref.read(enabledProviderIdsProvider.notifier).reset();
-                    ref.invalidate(providerServiceProvider);
-                  },
-                  icon: const Icon(Icons.restart_alt_rounded, size: 18),
-                  label: const Text('Reset to recommended providers'),
+                const SizedBox(height: 8),
+                SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton.icon(
+                    onPressed: () async {
+                      await ref
+                          .read(enabledProviderIdsProvider.notifier)
+                          .reset();
+                      ref.invalidate(providerServiceProvider);
+                    },
+                    icon: const Icon(Icons.restart_alt_rounded, size: 18),
+                    label: const Text('Reset to recommended providers'),
+                  ),
                 ),
-              ),
-              const SizedBox(height: 8),
-              SizedBox(
-                width: double.infinity,
-                child: OutlinedButton.icon(
-                  onPressed: () => Navigator.of(context).push(MaterialPageRoute(
-                      builder: (_) => ProvidersScreen(
+                const SizedBox(height: 8),
+                SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton.icon(
+                    onPressed: () => Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) => ProvidersScreen(
                           service: ref.read(providerServiceProvider),
-                          initialEnabled:
-                              ref.read(enabledProviderIdsProvider),
+                          initialEnabled: ref.read(enabledProviderIdsProvider),
                           // Persist toggles and rebuild the service so the
                           // change reaches the next stream request.
                           onEnabledChanged: (ids) async {
-                            final notifier =
-                                ref.read(enabledProviderIdsProvider.notifier);
+                            final notifier = ref.read(
+                              enabledProviderIdsProvider.notifier,
+                            );
                             for (final id in ids) {
                               await notifier.setEnabled(id, true);
                             }
-                            for (final id in ref
-                                .read(enabledProviderIdsProvider)
-                                .where((id) => !ids.contains(id))
-                                .toList()) {
+                            for (final id
+                                in ref
+                                    .read(enabledProviderIdsProvider)
+                                    .where((id) => !ids.contains(id))
+                                    .toList()) {
                               await notifier.setEnabled(id, false);
                             }
                             ref.invalidate(providerServiceProvider);
-                          }))),
-                  icon: const Icon(Icons.extension_rounded, size: 18),
-                  label: const Text('Manage providers'),
+                          },
+                        ),
+                      ),
+                    ),
+                    icon: const Icon(Icons.extension_rounded, size: 18),
+                    label: const Text('Manage providers'),
+                  ),
                 ),
-              ),
-            ]),
+              ],
+            ),
           ),
           const SizedBox(height: AppSpacing.md),
           _Card(
@@ -142,7 +159,7 @@ class _ProviderDiagnosticsScreenState
               data: (map) {
                 if (map.isEmpty) {
                   return const [
-                    _Row('', 'none yet — check GitHub or relaunch')
+                    _Row('', 'none yet — check GitHub or relaunch'),
                   ];
                 }
                 final enabled = service.enabledIds;
@@ -169,9 +186,9 @@ class _ProviderDiagnosticsScreenState
                   _results[id] == null
                       ? (_runningId == id ? 'running…' : '—')
                       : _results[id]!.ok
-                          ? '${_results[id]!.count} links in '
-                              '${_results[id]!.elapsed.inSeconds}s'
-                          : 'failed: ${_results[id]!.error}',
+                      ? '${_results[id]!.count} links in '
+                            '${_results[id]!.elapsed.inSeconds}s'
+                      : 'failed: ${_results[id]!.error}',
                 ),
             ],
             action: FilledButton.icon(
@@ -185,7 +202,10 @@ class _ProviderDiagnosticsScreenState
             'A provider that fails here is broken upstream, not in AeroFlix. '
             'Open Plugins to update it, or wait for the next auto-update.',
             style: AppTypography.bodyPrimary.copyWith(
-                color: AppColors.textMuted, fontSize: 12, height: 1.45),
+              color: AppColors.textMuted,
+              fontSize: 12,
+              height: 1.45,
+            ),
           ),
         ],
       ),
@@ -207,15 +227,18 @@ class _Card extends StatelessWidget {
         color: AppColors.surface,
         borderRadius: AppRadii.mdRadius,
       ),
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Text(title, style: AppTypography.sectionHeading),
-        const SizedBox(height: 10),
-        ...rows,
-        if (action != null) ...[
-          const SizedBox(height: 12),
-          SizedBox(width: double.infinity, child: action),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(title, style: AppTypography.sectionHeading),
+          const SizedBox(height: 10),
+          ...rows,
+          if (action != null) ...[
+            const SizedBox(height: 12),
+            SizedBox(width: double.infinity, child: action),
+          ],
         ],
-      ]),
+      ),
     );
   }
 }
@@ -227,20 +250,29 @@ class _Row extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final style = AppTypography.bodyPrimary
-        .copyWith(color: AppColors.textSecondary, fontSize: 12, height: 1.4);
+    final style = AppTypography.bodyPrimary.copyWith(
+      color: AppColors.textSecondary,
+      fontSize: 12,
+      height: 1.4,
+    );
     return Padding(
       padding: const EdgeInsets.only(bottom: 6),
-      child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        if (label.isNotEmpty) ...[
-          SizedBox(
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (label.isNotEmpty) ...[
+            SizedBox(
               width: 120,
-              child: Text(label,
-                  style: style.copyWith(color: AppColors.textMuted))),
-          const SizedBox(width: 8),
+              child: Text(
+                label,
+                style: style.copyWith(color: AppColors.textMuted),
+              ),
+            ),
+            const SizedBox(width: 8),
+          ],
+          Expanded(child: Text(value, style: style)),
         ],
-        Expanded(child: Text(value, style: style)),
-      ]),
+      ),
     );
   }
 }
