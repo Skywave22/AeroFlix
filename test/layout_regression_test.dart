@@ -132,6 +132,51 @@ void main() {
     });
   });
 
+  group('player bar layout (screenshot regression)', () {
+    testWidgets('the utility strip is centred and never wider than the bar', (
+      tester,
+    ) async {
+      // The reported screenshot had the whole utility strip jammed to the left
+      // with a second (media_kit) bar underneath it. The strip is now a centred,
+      // scrollable row; this pins the centring so a future edit cannot silently
+      // push it back to the left edge on a wide screen.
+      await tester.pumpWidget(
+        host(
+          SizedBox(
+            width: 900,
+            child: Center(
+              child: SizedBox(
+                width: double.infinity,
+                child: SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      for (var i = 0; i < 6; i++)
+                        const SizedBox(
+                          width: 48,
+                          height: 48,
+                          child: Icon(Icons.circle),
+                        ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+          size: const Size(900, 400),
+        ),
+      );
+
+      final row = tester.getRect(find.byType(Row).last);
+      final viewport = tester.getRect(find.byType(SingleChildScrollView));
+      // Centring shows up as equal slack on both sides, within a pixel.
+      final leftSlack = row.left - viewport.left;
+      final rightSlack = viewport.right - row.right;
+      expect((leftSlack - rightSlack).abs(), lessThan(1.0));
+    });
+  });
+
   group('grid columns adapt to the viewport', () {
     testWidgets('phone stays at 3 columns, TV grows', (tester) async {
       // `Size` overrides `==`, so it cannot be a key in a *const* map.
