@@ -309,10 +309,10 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
     _poolSlot = slot;
     _resolveSub = StreamService(service)
         .resolveStreams(
-          widget.details,
-          season: widget.season,
-          episode: widget.episode,
-        )
+      widget.details,
+      season: widget.season,
+      episode: widget.episode,
+    )
         .listen(
       (res) {
         if (!mounted) return;
@@ -618,7 +618,8 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
   /// 501, no network) counts as "try it anyway". We only reject links the CDN
   /// itself says are gone, so a CDN that dislikes HEAD/range requests can never
   /// make playable content unreachable.
-  Future<bool> _probe(StreamSource src, {Duration timeout = const Duration(seconds: 6)}) async {
+  Future<bool> _probe(StreamSource src,
+      {Duration timeout = const Duration(seconds: 6)}) async {
     if (src.providerId == 'local' || src.url.startsWith('file')) return true;
     final uri = Uri.tryParse(src.url);
     if (uri == null || !uri.hasScheme) return true;
@@ -1682,653 +1683,396 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
         _exit();
       },
       child: Focus(
-      autofocus: true,
-      onKeyEvent: _handleKey,
-      child: Scaffold(
-        backgroundColor: Colors.black,
-        body: GestureDetector(
-          behavior: HitTestBehavior.opaque,
-          onTap: _onTap,
-          child: Stack(
-            fit: StackFit.expand,
-            children: [
-              Container(color: Colors.black),
-              if (hasVideo)
-                Positioned.fill(
-                  child: Video(
-                    controller: active.controller,
-                    fit: _fits[_fitIndex],
-                    fill: Colors.black,
-                    // THE DEFAULT HERE IS `AdaptiveVideoControls`: media_kit
-                    // draws an entire second control surface (its own scrim,
-                    // time labels and 10 s buttons) on top of ours. That is the
-                    // duplicate bar with the dark red disc in the bottom-left
-                    // of the player. `NoVideoControls` is the documented
-                    // "no controls" value.
-                    controls: NoVideoControls,
-                    // The player screen owns wake locking; Video would enable it
-                    // a second time and release it when *it* is disposed, which
-                    // races our own enable/disable.
-                    wakelock: false,
-                    // Backgrounding while playing must keep decoding: the app
-                    // enters Picture-in-Picture (see MainActivity), and the
-                    // default pause-on-background leaves the PiP window showing
-                    // a frozen frame.
-                    pauseUponEnteringBackgroundMode: false,
-                  ),
-                ),
-              if ((!hasVideo || _loadingSources) &&
-                  widget.details.backdropUrlW1280.isNotEmpty)
-                Positioned.fill(
-                  child: ColorFiltered(
-                    colorFilter: ColorFilter.mode(
-                      Colors.black.withValues(alpha: hasVideo ? 0.75 : 0.5),
-                      BlendMode.dstOver,
-                    ),
-                    child: Image.network(
-                      widget.details.backdropUrlW1280,
-                      fit: BoxFit.cover,
+        autofocus: true,
+        onKeyEvent: _handleKey,
+        child: Scaffold(
+          backgroundColor: Colors.black,
+          body: GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: _onTap,
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                Container(color: Colors.black),
+                if (hasVideo)
+                  Positioned.fill(
+                    child: Video(
+                      controller: active.controller,
+                      fit: _fits[_fitIndex],
+                      fill: Colors.black,
+                      // THE DEFAULT HERE IS `AdaptiveVideoControls`: media_kit
+                      // draws an entire second control surface (its own scrim,
+                      // time labels and 10 s buttons) on top of ours. That is the
+                      // duplicate bar with the dark red disc in the bottom-left
+                      // of the player. `NoVideoControls` is the documented
+                      // "no controls" value.
+                      controls: NoVideoControls,
+                      // The player screen owns wake locking; Video would enable it
+                      // a second time and release it when *it* is disposed, which
+                      // races our own enable/disable.
+                      wakelock: false,
+                      // Backgrounding while playing must keep decoding: the app
+                      // enters Picture-in-Picture (see MainActivity), and the
+                      // default pause-on-background leaves the PiP window showing
+                      // a frozen frame.
+                      pauseUponEnteringBackgroundMode: false,
                     ),
                   ),
-                ),
-
-              // Double-tap seek zones (left = -10s, right = +10s).
-              //
-              // Inserted *before* the control bars on purpose: later children of
-              // a Stack paint and hit-test on top, and this layer used to be
-              // last, so a double-tap on download/share/PiP seeked instead of
-              // pressing the button, while single taps on those buttons waited
-              // out the double-tap timeout. The band also stops short of both
-              // bars, and locking disables seeking entirely.
-              if (!_locked && _showControls)
-                Positioned(
-                  top: 96,
-                  bottom: 210,
-                  left: 0,
-                  right: 0,
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: _DoubleTapZone(
-                          icon: Icons.replay_10_rounded,
-                          onDoubleTap: () => _seekRel(-10),
-                        ),
+                if ((!hasVideo || _loadingSources) &&
+                    widget.details.backdropUrlW1280.isNotEmpty)
+                  Positioned.fill(
+                    child: ColorFiltered(
+                      colorFilter: ColorFilter.mode(
+                        Colors.black.withValues(alpha: hasVideo ? 0.75 : 0.5),
+                        BlendMode.dstOver,
                       ),
-                      const Expanded(child: SizedBox()),
-                      Expanded(
-                        child: _DoubleTapZone(
-                          icon: Icons.forward_10_rounded,
-                          onDoubleTap: () => _seekRel(10),
-                        ),
+                      child: Image.network(
+                        widget.details.backdropUrlW1280,
+                        fit: BoxFit.cover,
                       ),
-                    ],
+                    ),
                   ),
-                ),
 
-              // Buffering pill (a source that plays but starves)
-              if (hasVideo && _buffering && !_loadingSources && _error == null)
-                Positioned(
-                  top: 16,
-                  left: 20,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 10,
-                      vertical: 6,
-                    ),
-                    decoration: BoxDecoration(
-                      color: Colors.black.withValues(alpha: 0.6),
-                      borderRadius: BorderRadius.circular(20),
-                    ),
+                // Double-tap seek zones (left = -10s, right = +10s).
+                //
+                // Inserted *before* the control bars on purpose: later children of
+                // a Stack paint and hit-test on top, and this layer used to be
+                // last, so a double-tap on download/share/PiP seeked instead of
+                // pressing the button, while single taps on those buttons waited
+                // out the double-tap timeout. The band also stops short of both
+                // bars, and locking disables seeking entirely.
+                if (!_locked && _showControls)
+                  Positioned(
+                    top: 96,
+                    bottom: 210,
+                    left: 0,
+                    right: 0,
                     child: Row(
-                      mainAxisSize: MainAxisSize.min,
                       children: [
-                        const SizedBox(
-                          width: 12,
-                          height: 12,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 1.5,
-                            color: Colors.white,
+                        Expanded(
+                          child: _DoubleTapZone(
+                            icon: Icons.replay_10_rounded,
+                            onDoubleTap: () => _seekRel(-10),
                           ),
                         ),
-                        const SizedBox(width: 8),
-                        Text(
-                          'Buffering…',
-                          style: AppTypography.metadata.copyWith(
-                            color: Colors.white,
-                            fontSize: 11,
+                        const Expanded(child: SizedBox()),
+                        Expanded(
+                          child: _DoubleTapZone(
+                            icon: Icons.forward_10_rounded,
+                            onDoubleTap: () => _seekRel(10),
                           ),
                         ),
                       ],
                     ),
                   ),
-                ),
 
-              // Center state
-              if (!hasVideo || _loadingSources || _error != null)
-                Positioned.fill(child: Center(child: _buildCenterState())),
-              if (hasVideo && !_loadingSources && _error == null)
-                Positioned.fill(
-                  child: Center(
-                    child: IconButton(
-                      // The big centre button is decorative while the
-                      // bars are hidden: leave it inert and untargetable
-                      // instead of a 64 dp invisible tap target.
-                      tooltip: _showControls
-                          ? (_completed
-                              ? 'Replay'
-                              : (_playing ? 'Pause' : 'Play'))
-                          : null,
-                      icon: Icon(
-                        _completed
-                            ? Icons.replay_rounded
-                            : _playing
-                                ? Icons.pause_rounded
-                                : Icons.play_arrow_rounded,
-                        size: 64,
-                        color: AppColors.textPrimary.withValues(
-                          alpha: _showControls ? 1 : 0,
-                        ),
-                      ),
-                      onPressed: _showControls ? _togglePlay : null,
-                    ),
-                  ),
-                ),
-
-              // Auto-advance overlay
-              if (_completed &&
-                  widget.nextEpisode != null &&
-                  _autoAdvanceCountdown > 0)
-                Positioned(
-                  bottom: 120,
-                  right: 24,
-                  child: GestureDetector(
-                    onTap: _playNext,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 14,
-                        vertical: 10,
-                      ),
-                      decoration: BoxDecoration(
-                        color: Colors.black.withValues(alpha: 0.75),
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(
-                          color: AppColors.accent.withValues(alpha: 0.5),
-                        ),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          const Icon(
-                            Icons.skip_next_rounded,
-                            color: AppColors.accent,
-                            size: 22,
-                          ),
-                          const SizedBox(width: 8),
-                          Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Text(
-                                'Next up',
-                                style: AppTypography.metadata.copyWith(
-                                  color: AppColors.textMuted,
-                                  fontSize: 11,
-                                ),
-                              ),
-                              Text(
-                                widget.nextEpisode!.episodeTitle ??
-                                    'Next episode',
-                                style: AppTypography.bodyPrimary.copyWith(
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                              Text(
-                                'Playing in $_autoAdvanceCountdown…',
-                                style: AppTypography.metadata.copyWith(
-                                  color: AppColors.accent,
-                                  fontSize: 11,
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(width: 12),
-                          TextButton(
-                            onPressed: _cancelAutoAdvance,
-                            style: TextButton.styleFrom(
-                              foregroundColor: AppColors.textMuted,
-                              minimumSize: Size.zero,
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 8,
-                                vertical: 4,
-                              ),
-                            ),
-                            child: const Text('Cancel'),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-
-              // Source label
-              if (_selected != null && _showControls && !_locked)
-                Positioned(
-                  top: 60,
-                  left: 16,
-                  right: 80,
-                  child: SafeArea(
-                    bottom: false,
-                    child: Text(
-                      _selected!.name,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: AppTypography.metadata.copyWith(
-                        color: AppColors.textMuted,
-                        fontSize: 11,
-                      ),
-                    ),
-                  ),
-                ),
-
-              // Fit toast
-              if (_fitToast != null)
-                Center(
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 14,
-                      vertical: 8,
-                    ),
-                    decoration: BoxDecoration(
-                      color: Colors.black.withValues(alpha: 0.75),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Text(
-                      _fitToast!,
-                      style: AppTypography.bodyPrimary.copyWith(fontSize: 13),
-                    ),
-                  ),
-                ),
-
-              // Next-up card (always visible when nextEpisode available and controls showing)
-              if (widget.nextEpisode != null &&
-                  _showControls &&
-                  !_locked &&
-                  !_loadingSources &&
-                  _error == null &&
-                  !_buffering &&
-                  _autoAdvanceCountdown == 0)
-                Positioned(
-                  bottom: 170,
-                  left: 16,
-                  right: 16,
-                  child: _NextUpCard(
-                    episode: widget.nextEpisode!,
-                    onPlay: _playNext,
-                  ),
-                ),
-
-              // Resume-toast
-              if (widget.resumeAtMs > 5000 && !_seekedToResume && hasVideo)
-                Positioned(
-                  top: 90,
-                  right: 20,
-                  child: SafeArea(
-                    bottom: false,
+                // Buffering pill (a source that plays but starves)
+                if (hasVideo &&
+                    _buffering &&
+                    !_loadingSources &&
+                    _error == null)
+                  Positioned(
+                    top: 16,
+                    left: 20,
                     child: Container(
                       padding: const EdgeInsets.symmetric(
                         horizontal: 10,
                         vertical: 6,
                       ),
                       decoration: BoxDecoration(
-                        color: Colors.black.withValues(alpha: 0.7),
-                        borderRadius: BorderRadius.circular(8),
+                        color: Colors.black.withValues(alpha: 0.6),
+                        borderRadius: BorderRadius.circular(20),
                       ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const SizedBox(
+                            width: 12,
+                            height: 12,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 1.5,
+                              color: Colors.white,
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            'Buffering…',
+                            style: AppTypography.metadata.copyWith(
+                              color: Colors.white,
+                              fontSize: 11,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+
+                // Center state
+                if (!hasVideo || _loadingSources || _error != null)
+                  Positioned.fill(child: Center(child: _buildCenterState())),
+                if (hasVideo && !_loadingSources && _error == null)
+                  Positioned.fill(
+                    child: Center(
+                      child: IconButton(
+                        // The big centre button is decorative while the
+                        // bars are hidden: leave it inert and untargetable
+                        // instead of a 64 dp invisible tap target.
+                        tooltip: _showControls
+                            ? (_completed
+                                ? 'Replay'
+                                : (_playing ? 'Pause' : 'Play'))
+                            : null,
+                        icon: Icon(
+                          _completed
+                              ? Icons.replay_rounded
+                              : _playing
+                                  ? Icons.pause_rounded
+                                  : Icons.play_arrow_rounded,
+                          size: 64,
+                          color: AppColors.textPrimary.withValues(
+                            alpha: _showControls ? 1 : 0,
+                          ),
+                        ),
+                        onPressed: _showControls ? _togglePlay : null,
+                      ),
+                    ),
+                  ),
+
+                // Auto-advance overlay
+                if (_completed &&
+                    widget.nextEpisode != null &&
+                    _autoAdvanceCountdown > 0)
+                  Positioned(
+                    bottom: 120,
+                    right: 24,
+                    child: GestureDetector(
+                      onTap: _playNext,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 14,
+                          vertical: 10,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.black.withValues(alpha: 0.75),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                            color: AppColors.accent.withValues(alpha: 0.5),
+                          ),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(
+                              Icons.skip_next_rounded,
+                              color: AppColors.accent,
+                              size: 22,
+                            ),
+                            const SizedBox(width: 8),
+                            Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Text(
+                                  'Next up',
+                                  style: AppTypography.metadata.copyWith(
+                                    color: AppColors.textMuted,
+                                    fontSize: 11,
+                                  ),
+                                ),
+                                Text(
+                                  widget.nextEpisode!.episodeTitle ??
+                                      'Next episode',
+                                  style: AppTypography.bodyPrimary.copyWith(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                                Text(
+                                  'Playing in $_autoAdvanceCountdown…',
+                                  style: AppTypography.metadata.copyWith(
+                                    color: AppColors.accent,
+                                    fontSize: 11,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(width: 12),
+                            TextButton(
+                              onPressed: _cancelAutoAdvance,
+                              style: TextButton.styleFrom(
+                                foregroundColor: AppColors.textMuted,
+                                minimumSize: Size.zero,
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 8,
+                                  vertical: 4,
+                                ),
+                              ),
+                              child: const Text('Cancel'),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+
+                // Source label
+                if (_selected != null && _showControls && !_locked)
+                  Positioned(
+                    top: 60,
+                    left: 16,
+                    right: 80,
+                    child: SafeArea(
+                      bottom: false,
                       child: Text(
-                        'Resuming at ${_fmt(Duration(milliseconds: widget.resumeAtMs))}',
+                        _selected!.name,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                         style: AppTypography.metadata.copyWith(
-                          color: AppColors.textSecondary,
+                          color: AppColors.textMuted,
                           fontSize: 11,
                         ),
                       ),
                     ),
                   ),
-                ),
 
-              // Top bar. IgnorePointer is what actually disables the controls:
-              // AnimatedOpacity at 0 still hit-tests, so the invisible bar used
-              // to swallow the tap that was meant to reveal it.
-              IgnorePointer(
-                ignoring: !_showControls || _locked,
-                child: AnimatedOpacity(
-                  opacity: _showControls && !_locked ? 1 : 0,
-                  duration: const Duration(milliseconds: 200),
-                  child: Align(
-                    alignment: Alignment.topCenter,
+                // Fit toast
+                if (_fitToast != null)
+                  Center(
                     child: Container(
-                      decoration: const BoxDecoration(
-                        gradient: LinearGradient(
-                          begin: Alignment.topCenter,
-                          end: Alignment.bottomCenter,
-                          colors: [AppColors.overlay70, Colors.transparent],
-                        ),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 14,
+                        vertical: 8,
                       ),
-                      padding: const EdgeInsets.fromLTRB(8, 12, 8, 24),
-                      child: SafeArea(
-                        bottom: false,
-                        child: Row(
-                          children: [
-                            IconButton(
-                              tooltip: 'Go back',
-                              icon: const Icon(
-                                Icons.arrow_back_ios_new_rounded,
-                                size: 20,
-                                color: AppColors.textPrimary,
-                              ),
-                              onPressed: _exit,
-                              splashRadius: 20,
-                            ),
-                            const SizedBox(width: 4),
-                            Expanded(
-                              child: Text(
-                                _label(),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: AppTypography.bodyPrimary.copyWith(
-                                  fontSize: 13,
-                                ),
-                              ),
-                            ),
-                            IconButton(
-                              tooltip:
-                                  _locked ? 'Unlock controls' : 'Lock controls',
-                              icon: Icon(
-                                _locked
-                                    ? Icons.lock_outline
-                                    : Icons.lock_open_rounded,
-                                size: 20,
-                                color: AppColors.textPrimary,
-                              ),
-                              onPressed: () {
-                                final locked = !_locked;
-                                setState(() {
-                                  _locked = locked;
-                                  // Locking hides the bars; unlocking
-                                  // brings them back and re-arms the
-                                  // auto-hide timer instead of leaving
-                                  // an invisible-but-live control bar.
-                                  _showControls = !locked;
-                                });
-                                if (locked) {
-                                  _hideTimer?.cancel();
-                                } else {
-                                  _scheduleHide();
-                                }
-                              },
-                              splashRadius: 20,
-                            ),
-                          ],
+                      decoration: BoxDecoration(
+                        color: Colors.black.withValues(alpha: 0.75),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Text(
+                        _fitToast!,
+                        style: AppTypography.bodyPrimary.copyWith(fontSize: 13),
+                      ),
+                    ),
+                  ),
+
+                // Next-up card (always visible when nextEpisode available and controls showing)
+                if (widget.nextEpisode != null &&
+                    _showControls &&
+                    !_locked &&
+                    !_loadingSources &&
+                    _error == null &&
+                    !_buffering &&
+                    _autoAdvanceCountdown == 0)
+                  Positioned(
+                    bottom: 170,
+                    left: 16,
+                    right: 16,
+                    child: _NextUpCard(
+                      episode: widget.nextEpisode!,
+                      onPlay: _playNext,
+                    ),
+                  ),
+
+                // Resume-toast
+                if (widget.resumeAtMs > 5000 && !_seekedToResume && hasVideo)
+                  Positioned(
+                    top: 90,
+                    right: 20,
+                    child: SafeArea(
+                      bottom: false,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 6,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.black.withValues(alpha: 0.7),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Text(
+                          'Resuming at ${_fmt(Duration(milliseconds: widget.resumeAtMs))}',
+                          style: AppTypography.metadata.copyWith(
+                            color: AppColors.textSecondary,
+                            fontSize: 11,
+                          ),
                         ),
                       ),
                     ),
                   ),
-                ),
-              ),
 
-              // Bottom controls (same IgnorePointer rule as the top bar)
-              IgnorePointer(
-                ignoring: !_showControls || _locked,
-                child: AnimatedOpacity(
-                  opacity: _showControls && !_locked ? 1 : 0,
-                  duration: const Duration(milliseconds: 200),
-                  child: Align(
-                    alignment: Alignment.bottomCenter,
-                    child: Container(
-                      decoration: const BoxDecoration(
-                        gradient: LinearGradient(
-                          begin: Alignment.topCenter,
-                          end: Alignment.bottomCenter,
-                          colors: [Colors.transparent, AppColors.overlay70],
+                // Top bar. IgnorePointer is what actually disables the controls:
+                // AnimatedOpacity at 0 still hit-tests, so the invisible bar used
+                // to swallow the tap that was meant to reveal it.
+                IgnorePointer(
+                  ignoring: !_showControls || _locked,
+                  child: AnimatedOpacity(
+                    opacity: _showControls && !_locked ? 1 : 0,
+                    duration: const Duration(milliseconds: 200),
+                    child: Align(
+                      alignment: Alignment.topCenter,
+                      child: Container(
+                        decoration: const BoxDecoration(
+                          gradient: LinearGradient(
+                            begin: Alignment.topCenter,
+                            end: Alignment.bottomCenter,
+                            colors: [AppColors.overlay70, Colors.transparent],
+                          ),
                         ),
-                      ),
-                      padding: const EdgeInsets.fromLTRB(16, 24, 16, 12),
-                      child: SafeArea(
-                        top: false,
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            if (_seeking) _buildScrubPreview(),
-                            SliderTheme(
-                              data: SliderThemeData(
-                                trackHeight: 3,
-                                thumbShape: const RoundSliderThumbShape(
-                                  enabledThumbRadius: 6,
+                        padding: const EdgeInsets.fromLTRB(8, 12, 8, 24),
+                        child: SafeArea(
+                          bottom: false,
+                          child: Row(
+                            children: [
+                              IconButton(
+                                tooltip: 'Go back',
+                                icon: const Icon(
+                                  Icons.arrow_back_ios_new_rounded,
+                                  size: 20,
+                                  color: AppColors.textPrimary,
                                 ),
-                                overlayShape: const RoundSliderOverlayShape(
-                                  overlayRadius: 12,
-                                ),
-                                activeTrackColor: AppColors.accent,
-                                inactiveTrackColor: AppColors.surfaceElevated,
-                                thumbColor: AppColors.accent,
+                                onPressed: _exit,
+                                splashRadius: 20,
                               ),
-                              child: Slider(
-                                value: _duration.inMilliseconds == 0
-                                    ? 0
-                                    : (_position.inMilliseconds /
-                                            _duration.inMilliseconds)
-                                        .clamp(0.0, 1.0),
-                                onChangeStart: (_) {
-                                  setState(() => _seeking = true);
-                                  _hideTimer?.cancel();
-                                },
-                                onChangeEnd: (v) {
-                                  setState(() => _seeking = false);
-                                  final ap = ref.read(activePlayerProvider);
-                                  if (ap != null) {
-                                    ap.player.seek(_duration * v);
+                              const SizedBox(width: 4),
+                              Expanded(
+                                child: Text(
+                                  _label(),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: AppTypography.bodyPrimary.copyWith(
+                                    fontSize: 13,
+                                  ),
+                                ),
+                              ),
+                              IconButton(
+                                tooltip: _locked
+                                    ? 'Unlock controls'
+                                    : 'Lock controls',
+                                icon: Icon(
+                                  _locked
+                                      ? Icons.lock_outline
+                                      : Icons.lock_open_rounded,
+                                  size: 20,
+                                  color: AppColors.textPrimary,
+                                ),
+                                onPressed: () {
+                                  final locked = !_locked;
+                                  setState(() {
+                                    _locked = locked;
+                                    // Locking hides the bars; unlocking
+                                    // brings them back and re-arms the
+                                    // auto-hide timer instead of leaving
+                                    // an invisible-but-live control bar.
+                                    _showControls = !locked;
+                                  });
+                                  if (locked) {
+                                    _hideTimer?.cancel();
+                                  } else {
+                                    _scheduleHide();
                                   }
-                                  _cancelAutoAdvance();
-                                  _scheduleHide();
                                 },
-                                onChanged: (v) {
-                                  setState(() => _position = _duration * v);
-                                },
+                                splashRadius: 20,
                               ),
-                            ),
-                            Padding(
-                              // Align the labels with the slider's own track:
-                              // the Slider thumb is 12 dp wide, so an 8 dp row
-                              // inset left the times floating inside the track
-                              // ends.
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 12,
-                              ),
-                              child: Row(
-                                children: [
-                                  Text(
-                                    _fmt(_position),
-                                    style: AppTypography.metadata.copyWith(
-                                      color: AppColors.textSecondary,
-                                      fontSize: 11,
-                                    ),
-                                  ),
-                                  const Spacer(),
-                                  Text(
-                                    _fmt(_duration),
-                                    style: AppTypography.metadata.copyWith(
-                                      color: AppColors.textSecondary,
-                                      fontSize: 11,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            // Transport row: seek back, play/pause, seek
-                            // forward. Sits directly on top of the utility
-                            // row and shares its centre line, so the big
-                            // button reads as the anchor of the whole bar
-                            // instead of floating between two full-width rows.
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                _ControlButton(
-                                  tooltip: 'Back 10 seconds',
-                                  icon: Icons.replay_10_rounded,
-                                  size: 30,
-                                  onPressed: () => _seekRel(-10),
-                                ),
-                                const SizedBox(width: AppSpacing.md),
-                                IconButton(
-                                  tooltip: _completed
-                                      ? 'Replay'
-                                      : (_playing ? 'Pause' : 'Play'),
-                                  icon: Icon(
-                                    _completed
-                                        ? Icons.replay_circle_filled_rounded
-                                        : _playing
-                                            ? Icons.pause_circle_filled_rounded
-                                            : Icons.play_circle_fill_rounded,
-                                    color: AppColors.textPrimary,
-                                    size: 56,
-                                  ),
-                                  onPressed:
-                                      _selected != null ? _togglePlay : null,
-                                ),
-                                const SizedBox(width: AppSpacing.md),
-                                _ControlButton(
-                                  tooltip: 'Forward 10 seconds',
-                                  icon: Icons.forward_10_rounded,
-                                  size: 30,
-                                  onPressed: () => _seekRel(10),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: AppSpacing.xs),
-                            // Utility row: directly *below* the play button,
-                            // centred on it. Scrollable so no control is
-                            // squeezed below a usable size on narrow screens;
-                            // all 13 buttons used to share one spaceEvenly row
-                            // and skip-previous was permanently disabled.
-                            SizedBox(
-                              width: double.infinity,
-                              child: SingleChildScrollView(
-                                scrollDirection: Axis.horizontal,
-                                // Centre the strip when it fits and let it
-                                // scroll when it does not. A bare Row jammed
-                                // the whole strip against the left edge on
-                                // tablets.
-                                child: Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                  _ControlButton(
-                                    tooltip: 'Previous episode',
-                                    icon: Icons.skip_previous_rounded,
-                                    enabled: _previousEpisode() != null,
-                                    onPressed: _playPrevious,
-                                  ),
-                                  _ControlButton(
-                                    tooltip: 'Next episode',
-                                    icon: Icons.skip_next_rounded,
-                                    enabled: widget.nextEpisode != null,
-                                    onPressed: _playNext,
-                                  ),
-                                  _ControlButton(
-                                    tooltip: _isDownloaded()
-                                        ? 'Remove download'
-                                        : 'Download for offline viewing',
-                                    icon: _isDownloaded()
-                                        ? Icons.download_done_rounded
-                                        : Icons.download_outlined,
-                                    active: _isDownloaded(),
-                                    activeColor: AppColors.success,
-                                    onPressed: _toggleDownload,
-                                  ),
-                                  _ControlButton(
-                                    tooltip: 'Share this title',
-                                    icon: Icons.share_outlined,
-                                    onPressed: _shareCurrent,
-                                  ),
-                                  _ControlButton(
-                                    tooltip: 'Picture in picture',
-                                    icon: Icons.picture_in_picture_alt_rounded,
-                                    onPressed: _enterPip,
-                                  ),
-                                  _ControlButton(
-                                    tooltip: _selectedSub != null
-                                        ? 'Subtitles on'
-                                        : 'Subtitles',
-                                    icon: _selectedSub != null
-                                        ? Icons.closed_caption_rounded
-                                        : Icons.closed_caption_off_rounded,
-                                    active: _selectedSub != null,
-                                    enabled: _subs.isNotEmpty,
-                                    onPressed: _openCaptionsSheet,
-                                  ),
-                                  _ControlButton(
-                                    tooltip: 'Audio track',
-                                    icon: Icons.audiotrack_rounded,
-                                    enabled: _audios.length > 1,
-                                    onPressed: _openAudioSheet,
-                                  ),
-                                  _ControlButton(
-                                    tooltip: 'Choose source',
-                                    icon: Icons.video_settings_rounded,
-                                    enabled: _sources.length > 1,
-                                    onPressed: _openSourceSheet,
-                                  ),
-                                  _ControlButton(
-                                    tooltip: 'Playback speed',
-                                    icon: Icons.speed_rounded,
-                                    active: _rate != 1.0,
-                                    onPressed: _openSpeedSheet,
-                                  ),
-                                  _ControlButton(
-                                    tooltip: 'Resize video',
-                                    icon: Icons.fit_screen_rounded,
-                                    active: _fitIndex != 0,
-                                    onPressed: _cycleFit,
-                                  ),
-                                  ],
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-              // Locked: the bars are hidden and inert, so surface a single
-              // always-visible way out. Previously "locking" left an invisible,
-              // still-tappable unlock button and no visible affordance at all.
-              if (_locked)
-                Positioned(
-                  top: 12,
-                  right: 12,
-                  child: SafeArea(
-                    bottom: false,
-                    child: Semantics(
-                      button: true,
-                      label: 'Unlock player controls',
-                      child: Material(
-                        color: Colors.black.withValues(alpha: 0.55),
-                        shape: const CircleBorder(),
-                        clipBehavior: Clip.antiAlias,
-                        child: InkWell(
-                          onTap: () => setState(() {
-                            _locked = false;
-                            _showControls = true;
-                            _scheduleHide();
-                          }),
-                          child: const SizedBox(
-                            width: 44,
-                            height: 44,
-                            child: Icon(
-                              Icons.lock_outline,
-                              color: Colors.white,
-                              size: 20,
-                            ),
+                            ],
                           ),
                         ),
                       ),
@@ -2336,39 +2080,302 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
                   ),
                 ),
 
-              // Episode strip (TV only)
-              if (widget.details.type == MediaType.tv &&
-                  widget.season > 0 &&
-                  _showControls &&
-                  !_locked)
-                Positioned(
-                  left: 0,
-                  right: 0,
-                  bottom: 120,
-                  child: _EpisodeStrip(
-                    tvId: widget.details.id,
-                    season: widget.season,
-                    currentEpisode: widget.episode,
-                    onTap: (ep) {
-                      if (ep.episodeNumber == widget.episode) return;
-                      _persistProgress();
-                      context.pushReplacement(
-                        '/player',
-                        extra: PlayerArgs(
-                          details: widget.details,
-                          season: widget.season,
-                          episode: ep.episodeNumber,
-                          episodeTitle: ep.name,
-                          resumeAtMs: 0,
+                // Bottom controls (same IgnorePointer rule as the top bar)
+                IgnorePointer(
+                  ignoring: !_showControls || _locked,
+                  child: AnimatedOpacity(
+                    opacity: _showControls && !_locked ? 1 : 0,
+                    duration: const Duration(milliseconds: 200),
+                    child: Align(
+                      alignment: Alignment.bottomCenter,
+                      child: Container(
+                        decoration: const BoxDecoration(
+                          gradient: LinearGradient(
+                            begin: Alignment.topCenter,
+                            end: Alignment.bottomCenter,
+                            colors: [Colors.transparent, AppColors.overlay70],
+                          ),
                         ),
-                      );
-                    },
+                        padding: const EdgeInsets.fromLTRB(16, 24, 16, 12),
+                        child: SafeArea(
+                          top: false,
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              if (_seeking) _buildScrubPreview(),
+                              SliderTheme(
+                                data: SliderThemeData(
+                                  trackHeight: 3,
+                                  thumbShape: const RoundSliderThumbShape(
+                                    enabledThumbRadius: 6,
+                                  ),
+                                  overlayShape: const RoundSliderOverlayShape(
+                                    overlayRadius: 12,
+                                  ),
+                                  activeTrackColor: AppColors.accent,
+                                  inactiveTrackColor: AppColors.surfaceElevated,
+                                  thumbColor: AppColors.accent,
+                                ),
+                                child: Slider(
+                                  value: _duration.inMilliseconds == 0
+                                      ? 0
+                                      : (_position.inMilliseconds /
+                                              _duration.inMilliseconds)
+                                          .clamp(0.0, 1.0),
+                                  onChangeStart: (_) {
+                                    setState(() => _seeking = true);
+                                    _hideTimer?.cancel();
+                                  },
+                                  onChangeEnd: (v) {
+                                    setState(() => _seeking = false);
+                                    final ap = ref.read(activePlayerProvider);
+                                    if (ap != null) {
+                                      ap.player.seek(_duration * v);
+                                    }
+                                    _cancelAutoAdvance();
+                                    _scheduleHide();
+                                  },
+                                  onChanged: (v) {
+                                    setState(() => _position = _duration * v);
+                                  },
+                                ),
+                              ),
+                              Padding(
+                                // Align the labels with the slider's own track:
+                                // the Slider thumb is 12 dp wide, so an 8 dp row
+                                // inset left the times floating inside the track
+                                // ends.
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 12,
+                                ),
+                                child: Row(
+                                  children: [
+                                    Text(
+                                      _fmt(_position),
+                                      style: AppTypography.metadata.copyWith(
+                                        color: AppColors.textSecondary,
+                                        fontSize: 11,
+                                      ),
+                                    ),
+                                    const Spacer(),
+                                    Text(
+                                      _fmt(_duration),
+                                      style: AppTypography.metadata.copyWith(
+                                        color: AppColors.textSecondary,
+                                        fontSize: 11,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              // Transport row: seek back, play/pause, seek
+                              // forward. Sits directly on top of the utility
+                              // row and shares its centre line, so the big
+                              // button reads as the anchor of the whole bar
+                              // instead of floating between two full-width rows.
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  _ControlButton(
+                                    tooltip: 'Back 10 seconds',
+                                    icon: Icons.replay_10_rounded,
+                                    size: 30,
+                                    onPressed: () => _seekRel(-10),
+                                  ),
+                                  const SizedBox(width: AppSpacing.md),
+                                  IconButton(
+                                    tooltip: _completed
+                                        ? 'Replay'
+                                        : (_playing ? 'Pause' : 'Play'),
+                                    icon: Icon(
+                                      _completed
+                                          ? Icons.replay_circle_filled_rounded
+                                          : _playing
+                                              ? Icons
+                                                  .pause_circle_filled_rounded
+                                              : Icons.play_circle_fill_rounded,
+                                      color: AppColors.textPrimary,
+                                      size: 56,
+                                    ),
+                                    onPressed:
+                                        _selected != null ? _togglePlay : null,
+                                  ),
+                                  const SizedBox(width: AppSpacing.md),
+                                  _ControlButton(
+                                    tooltip: 'Forward 10 seconds',
+                                    icon: Icons.forward_10_rounded,
+                                    size: 30,
+                                    onPressed: () => _seekRel(10),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: AppSpacing.xs),
+                              // Utility row: directly *below* the play button,
+                              // centred on it. Scrollable so no control is
+                              // squeezed below a usable size on narrow screens;
+                              // all 13 buttons used to share one spaceEvenly row
+                              // and skip-previous was permanently disabled.
+                              SizedBox(
+                                width: double.infinity,
+                                child: SingleChildScrollView(
+                                  scrollDirection: Axis.horizontal,
+                                  // Centre the strip when it fits and let it
+                                  // scroll when it does not. A bare Row jammed
+                                  // the whole strip against the left edge on
+                                  // tablets.
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      _ControlButton(
+                                        tooltip: 'Previous episode',
+                                        icon: Icons.skip_previous_rounded,
+                                        enabled: _previousEpisode() != null,
+                                        onPressed: _playPrevious,
+                                      ),
+                                      _ControlButton(
+                                        tooltip: 'Next episode',
+                                        icon: Icons.skip_next_rounded,
+                                        enabled: widget.nextEpisode != null,
+                                        onPressed: _playNext,
+                                      ),
+                                      _ControlButton(
+                                        tooltip: _isDownloaded()
+                                            ? 'Remove download'
+                                            : 'Download for offline viewing',
+                                        icon: _isDownloaded()
+                                            ? Icons.download_done_rounded
+                                            : Icons.download_outlined,
+                                        active: _isDownloaded(),
+                                        activeColor: AppColors.success,
+                                        onPressed: _toggleDownload,
+                                      ),
+                                      _ControlButton(
+                                        tooltip: 'Share this title',
+                                        icon: Icons.share_outlined,
+                                        onPressed: _shareCurrent,
+                                      ),
+                                      _ControlButton(
+                                        tooltip: 'Picture in picture',
+                                        icon: Icons
+                                            .picture_in_picture_alt_rounded,
+                                        onPressed: _enterPip,
+                                      ),
+                                      _ControlButton(
+                                        tooltip: _selectedSub != null
+                                            ? 'Subtitles on'
+                                            : 'Subtitles',
+                                        icon: _selectedSub != null
+                                            ? Icons.closed_caption_rounded
+                                            : Icons.closed_caption_off_rounded,
+                                        active: _selectedSub != null,
+                                        enabled: _subs.isNotEmpty,
+                                        onPressed: _openCaptionsSheet,
+                                      ),
+                                      _ControlButton(
+                                        tooltip: 'Audio track',
+                                        icon: Icons.audiotrack_rounded,
+                                        enabled: _audios.length > 1,
+                                        onPressed: _openAudioSheet,
+                                      ),
+                                      _ControlButton(
+                                        tooltip: 'Choose source',
+                                        icon: Icons.video_settings_rounded,
+                                        enabled: _sources.length > 1,
+                                        onPressed: _openSourceSheet,
+                                      ),
+                                      _ControlButton(
+                                        tooltip: 'Playback speed',
+                                        icon: Icons.speed_rounded,
+                                        active: _rate != 1.0,
+                                        onPressed: _openSpeedSheet,
+                                      ),
+                                      _ControlButton(
+                                        tooltip: 'Resize video',
+                                        icon: Icons.fit_screen_rounded,
+                                        active: _fitIndex != 0,
+                                        onPressed: _cycleFit,
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
                   ),
                 ),
-            ],
+                // Locked: the bars are hidden and inert, so surface a single
+                // always-visible way out. Previously "locking" left an invisible,
+                // still-tappable unlock button and no visible affordance at all.
+                if (_locked)
+                  Positioned(
+                    top: 12,
+                    right: 12,
+                    child: SafeArea(
+                      bottom: false,
+                      child: Semantics(
+                        button: true,
+                        label: 'Unlock player controls',
+                        child: Material(
+                          color: Colors.black.withValues(alpha: 0.55),
+                          shape: const CircleBorder(),
+                          clipBehavior: Clip.antiAlias,
+                          child: InkWell(
+                            onTap: () => setState(() {
+                              _locked = false;
+                              _showControls = true;
+                              _scheduleHide();
+                            }),
+                            child: const SizedBox(
+                              width: 44,
+                              height: 44,
+                              child: Icon(
+                                Icons.lock_outline,
+                                color: Colors.white,
+                                size: 20,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+
+                // Episode strip (TV only)
+                if (widget.details.type == MediaType.tv &&
+                    widget.season > 0 &&
+                    _showControls &&
+                    !_locked)
+                  Positioned(
+                    left: 0,
+                    right: 0,
+                    bottom: 120,
+                    child: _EpisodeStrip(
+                      tvId: widget.details.id,
+                      season: widget.season,
+                      currentEpisode: widget.episode,
+                      onTap: (ep) {
+                        if (ep.episodeNumber == widget.episode) return;
+                        _persistProgress();
+                        context.pushReplacement(
+                          '/player',
+                          extra: PlayerArgs(
+                            details: widget.details,
+                            season: widget.season,
+                            episode: ep.episodeNumber,
+                            episodeTitle: ep.name,
+                            resumeAtMs: 0,
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+              ],
+            ),
           ),
         ),
-      ),
       ),
     );
   }
