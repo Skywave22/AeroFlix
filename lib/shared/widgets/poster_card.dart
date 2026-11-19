@@ -52,9 +52,17 @@ class _PosterCardState extends State<PosterCard> {
       },
       child: Semantics(
         button: true,
+        // One node, one label. Without `excludeSemantics` the artwork and the
+        // two text nodes below added their own unlabelled nodes, so a screen
+        // reader read the tile four times ("button", "Dune", "2021" ...).
+        container: true,
+        excludeSemantics: true,
         label: widget.metadata == null || widget.metadata!.isEmpty
             ? widget.title
             : '${widget.title}, ${widget.metadata}',
+        // The tap action has to live on this node: excluding descendant
+        // semantics also excludes the GestureDetector's own tap action.
+        onTap: widget.onTap,
         child: GestureDetector(
           onTap: widget.onTap,
           behavior: HitTestBehavior.opaque,
