@@ -256,7 +256,6 @@ class _DownloadRow extends ConsumerWidget {
         item.posterPath != null ? ApiConstants.posterUrl(item.posterPath) : '';
     final isDone = item.status == DownloadStatus.completed;
     final isActive = item.status == DownloadStatus.downloading;
-    final row = _row(context, ref, poster, isDone, isActive);
     if (editing) {
       // In edit mode the whole row is a checkbox: swiping to delete and
       // tapping play/settings at the same time is how downloads got lost.
@@ -283,7 +282,11 @@ class _DownloadRow extends ConsumerWidget {
                     onChanged: (_) => onToggleSelected(),
                   ),
                 ),
-                Expanded(child: IgnorePointer(child: row)),
+                Expanded(
+                child: IgnorePointer(
+                  child: _row(context, ref, poster, isDone, isActive),
+                ),
+              ),
               ],
             ),
           ),
@@ -305,8 +308,9 @@ class _DownloadRow extends ConsumerWidget {
       onDismissed: (_) => ref.read(downloadProvider.notifier).remove(item.key),
       child: _row(context, ref, poster, isDone, isActive),
     );
+  }
 
-    Widget _row(
+  Widget _row(
       BuildContext context,
       WidgetRef ref,
       String poster,
@@ -407,7 +411,6 @@ class _DownloadRow extends ConsumerWidget {
             ],
           ),
         );
-  }
 
   String _subtitle() {
     switch (item.status) {
