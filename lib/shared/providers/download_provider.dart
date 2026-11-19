@@ -75,7 +75,7 @@ class DownloadItem {
         season: season,
         episode: episode,
         url: url ?? this.url,
-        headers: headers.isEmpty ? this.headers : headers,
+        headers: (headers == null || headers.isEmpty) ? this.headers : headers,
         filePath: filePath ?? this.filePath,
         sizeBytes: sizeBytes ?? this.sizeBytes,
         status: status ?? this.status,

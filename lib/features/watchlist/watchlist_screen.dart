@@ -85,12 +85,12 @@ class _WatchlistScreenState extends ConsumerState<WatchlistScreen> {
                         child: Column(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            Icon(
+                            const Icon(
                               Icons.bookmark_border_rounded,
                               size: 56,
                               color: AppColors.textMuted,
                             ),
-                            SizedBox(height: AppSpacing.md),
+                            const SizedBox(height: AppSpacing.md),
                             Text(
                               'Your watchlist is empty',
                               style: AppTypography.cardTitle,
