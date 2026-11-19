@@ -40,13 +40,11 @@ jobs:
 
       - name: Verify formatting (app + vendored provider package)
         run: |
-          paths="lib test packages/tj_flutter_providers/lib packages/tj_flutter_providers/test"
-          # Report which files would change before failing: `dart format` with
-          # --set-exit-if-changed only exits 1, which gives no hint in the UI.
-          if ! dart format --output=none --set-exit-if-changed $paths; then
-            echo "::error::Formatting check failed — run 'dart format $paths' locally."
-            dart format --output=show $paths 2>/dev/null \
-              | grep -oE '(lib|test|packages)/[^ :]+' | sort -u | head -30 || true
+          if ! dart format --output=none --set-exit-if-changed \
+              lib test packages/tj_flutter_providers/lib \
+              packages/tj_flutter_providers/test; then
+            echo "::error::Formatting check failed. Run 'dart format lib test"
+            echo "packages/tj_flutter_providers/lib packages/tj_flutter_providers/test'."
             exit 1
           fi
 
@@ -66,36 +64,6 @@ jobs:
           flutter pub get
           flutter test --timeout 120s
 
-
-  format-apply:
-    # TEMPORARY: formats the tree with the exact SDK the verify job uses and
-    # commits the result back to this branch, so formatting can be applied on a
-    # machine that has no local Flutter SDK. Delete this job once the gate is
-    # green.
-    name: Format apply
-    runs-on: ubuntu-24.04
-    timeout-minutes: 15
-    permissions:
-      contents: write
-    steps:
-      - uses: actions/checkout@v4
-      - uses: subosito/flutter-action@v2
-        with:
-          flutter-version: ${{ env.FLUTTER_VERSION }}
-          channel: stable
-          cache: true
-      - name: Format and commit
-        run: |
-          dart format lib test packages/tj_flutter_providers/lib \
-            packages/tj_flutter_providers/test
-          if git diff --quiet; then
-            echo "Already formatted; nothing to commit."
-            exit 0
-          fi
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git commit -am "style: dart format (applied by CI)"
-          git push origin HEAD:${{ github.ref_name }}
 
   build-debug:
     name: Build debug APK
