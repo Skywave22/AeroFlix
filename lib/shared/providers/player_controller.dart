@@ -11,9 +11,21 @@ class ActivePlayer {
   final StreamSource source;
   ActivePlayer(this.player, this.controller, this.source);
 
+  /// Stops and releases the native player.
+  ///
+  /// Order matters. `player.stop()` makes the decoder release the audio session
+  /// and the video surface *before* `dispose()` tears the engine down; disposing
+  /// a playing engine directly is what left the previous build's audio running
+  /// after the player screen was gone, with the UI blocked behind a wedged
+  /// native call. Errors are swallowed on purpose: a disposed engine that
+  /// already crashed internally must never take the app down with it.
   Future<void> dispose() async {
-    await player.stop();
-    await player.dispose();
+    try {
+      await player.stop().timeout(const Duration(seconds: 3));
+    } catch (_) {}
+    try {
+      await player.dispose().timeout(const Duration(seconds: 3));
+    } catch (_) {}
   }
 }
 
@@ -47,7 +59,13 @@ class ActivePlayerNotifier extends StateNotifier<ActivePlayer?> {
   /// some devices do with certain HLS/mkv links.
   Future<ActivePlayer> play(StreamSource src,
       {bool softwareDecode = false}) async {
-    await state?.dispose();
+    // Detach the old player *before* awaiting its teardown, so two overlapping
+    // `play()` calls (a failover landing while the user picked a source from
+    // the sheet) cannot both think they own the screen — that used to leave
+    // two engines playing the same film a few hundred milliseconds apart.
+    final previous = state;
+    state = null;
+    await previous?.dispose();
 
     final player = Player(
       configuration: const PlayerConfiguration(
@@ -79,9 +97,19 @@ class ActivePlayerNotifier extends StateNotifier<ActivePlayer?> {
     return state!;
   }
 
+  bool _disposed = false;
+
+  /// Releases the current player when it is replaced by [play], when the screen
+  /// pops (it calls this explicitly so audio stops on the same frame), or when
+  /// the provider auto-disposes. Written to be idempotent: both of those paths
+  /// can run, and disposing a StateNotifier twice throws.
   @override
   Future<void> dispose() async {
-    await state?.dispose();
+    if (_disposed) return;
+    _disposed = true;
+    final current = state;
+    state = null;
     super.dispose();
+    await current?.dispose();
   }
 }

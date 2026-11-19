@@ -14,6 +14,10 @@ dependencies:
   flutter_riverpod: ^2.6.1
   go_router: ^14.6.2
   dio: ^5.7.0
+  # Direct dependency (was transitive via cached_network_image): the player
+  # probes stream URLs with a one-byte range request before committing to a
+  # source, so importing it directly is deliberate, not incidental.
+  http: ^1.2.2
   cached_network_image: ^3.4.1
   shimmer: ^3.0.0
   shared_preferences: ^2.3.3

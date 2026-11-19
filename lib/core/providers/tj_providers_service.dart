@@ -96,15 +96,78 @@ class EnabledProviderIdsNotifier extends Notifier<Set<String>> {
   }
 }
 
+/// Builds a `ProviderService` bound to the current enabled-id set.
+///
+/// Both the shared instance below and the per-title instances in
+/// [ProviderServicePool] are built here, so they can never disagree about the
+/// API key, the enabled providers or the time budget.
+ProviderService buildProviderService(
+  ProviderManager manager, {
+  required List<String> enabledIds,
+}) =>
+    ProviderService(
+      manager: manager,
+      tmdbApiKey: ApiConstants.tmdbApiKey,
+      enabledIds: enabledIds,
+      // TJ All-in-one fans out to every site itself, so a single title takes
+      // ~40 s on a cold run. Give it room instead of cutting it off mid-flight.
+      timeout: const Duration(seconds: 105),
+    );
+
+/// How many provider searches may run at the same time.
+///
+/// QuickJS is synchronous: while a scrape is running it occupies the thread it
+/// was started on. Provider bundles do their network calls inside that isolate,
+/// so two searches on one isolate serialise anyway — running each search on its
+/// own service keeps a title you are opening now from queueing behind the one
+/// you opened thirty seconds ago (and still want the rest of the results of).
+const int kMaxConcurrentProviderSearches = 3;
+
+/// One [ProviderService] per in-flight search, keyed by an opaque caller token.
+///
+/// The previous code shared a single service, so a second search could only
+/// start after the first one had been fully scraped — every cached-miss
+/// navigation paid the first title's remaining budget. Services are created on
+/// demand, released as soon as a search finishes, and each one gets its own
+/// budget so a slow provider set cannot silently pin a slot forever.
+class ProviderServicePool {
+  ProviderServicePool(this._manager, this._enabledIds);
+
+  final ProviderManager _manager;
+  final List<String> _enabledIds;
+  final Map<String, ProviderService> _active = {};
+
+  /// A service for [token], or null when every slot is busy.
+  ProviderService? acquire(String token) {
+    final existing = _active[token];
+    if (existing != null) return existing;
+    if (_active.length >= kMaxConcurrentProviderSearches) return null;
+    final service = buildProviderService(_manager, enabledIds: _enabledIds);
+    _active[token] = service;
+    return service;
+  }
+
+  void release(String token) => _active.remove(token);
+
+  void releaseAll() => _active.clear();
+}
+
 final providerServiceProvider = Provider<ProviderService>((ref) {
-  return ProviderService(
-    manager: ref.watch(providerManagerProvider),
-    tmdbApiKey: ApiConstants.tmdbApiKey,
+  return buildProviderService(
+    ref.watch(providerManagerProvider),
     enabledIds: ref.watch(enabledProviderIdsProvider).toList(),
-    // TJ All-in-one fans out to every site itself, so a single title takes
-    // ~40 s on a cold run. Give it room instead of cutting it off mid-flight.
-    timeout: const Duration(seconds: 105),
   );
+});
+
+/// Searches run here instead of on [providerServiceProvider], so two screens
+/// (or a re-open of the same title) never share one scrape queue.
+final providerServicePoolProvider = Provider<ProviderServicePool>((ref) {
+  final pool = ProviderServicePool(
+    ref.watch(providerManagerProvider),
+    ref.watch(enabledProviderIdsProvider).toList(),
+  );
+  ref.onDispose(pool.releaseAll);
+  return pool;
 });
 
 /// Providers currently cached on disk (id -> cached info).

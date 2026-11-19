@@ -7,6 +7,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:media_kit/media_kit.dart' as mk;
 import 'package:media_kit_video/media_kit_video.dart';
+import 'package:media_kit_video/media_kit_video_controls/no_controls/no_controls.dart'
+    show NoVideoControls;
+import 'package:http/http.dart' as http;
 import 'package:share_plus/share_plus.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
 
@@ -16,6 +19,7 @@ import '../../app/theme/app_radii.dart';
 import '../../app/theme/app_spacing.dart';
 import '../../app/theme/app_typography.dart';
 import '../../core/network/tmdb_service.dart';
+import '../../core/providers/tj_providers_service.dart';
 import '../../core/platform/pip_service.dart';
 import '../../core/platform/screen_mode.dart';
 import '../../core/utils/trailer_helper.dart';
@@ -55,6 +59,11 @@ class PlayerScreen extends ConsumerStatefulWidget {
 }
 
 class _PlayerScreenState extends ConsumerState<PlayerScreen> {
+  /// Held so `activePlayerProvider` cannot auto-dispose itself the moment the
+  /// screen stops rebuilding — which is exactly what happens during a route
+  /// transition, and is how audio used to outlive the player and wedge the UI.
+  ProviderSubscription<ActivePlayer?>? _playerKeepAlive;
+
   bool _showControls = true;
   bool _locked = false;
   Timer? _hideTimer;
@@ -77,6 +86,9 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
   StreamSubscription<ProviderResolution>? _resolveSub;
   bool _startedPlayback = false;
 
+  /// Pool slot held by the current provider search (released when it ends).
+  String? _poolSlot;
+
   /// Sources that failed to open, so retries/failover never pick them again.
   final Set<String> _deadUrls = {};
   Timer? _startWatchdog;
@@ -88,6 +100,17 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
   bool _softwareDecode = false;
   Duration _lastAdvancedPos = Duration.zero;
   DateTime _lastAdvanceAt = DateTime.now();
+
+  /// Video dimensions reported by the engine. `null` means nothing decoded yet.
+  /// The 0x0 case with audio playing is the "sound but no picture" failure.
+  int? _videoWidth;
+  int? _videoHeight;
+  StreamSubscription<mk.VideoParams>? _videoParamsSub;
+
+  /// How many times this screen has retried a link on the software decoder.
+  /// One retry is enough: a link that still renders nothing on the CPU is not
+  /// a decoder problem.
+  bool _swDecodeRetried = false;
   Timer? _stallTimer;
   Timer? _bufferingStallTimer;
   Timer? _searchTicker;
@@ -123,6 +146,9 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
     // /player, and `apply` is idempotent, so repeating it here is free — but it
     // guarantees landscape even on the first frame of a cold-start deep link.
     ScreenModeController.apply(ScreenMode.player);
+    // One listener for the whole screen lifetime: keeps the player alive and
+    // starts the object we are about to build against.
+    _playerKeepAlive = ref.listenManual(activePlayerProvider, (_, __) {});
     // Pull persisted defaults from settings once the widget is mounted.
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final s = ref.read(settingsProvider);
@@ -195,6 +221,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
   Future<void> _loadSources() async {
     await _resolveSub?.cancel();
     _resolveSub = null;
+    _releasePoolSlot();
     if (!mounted) return;
     setState(() {
       _loadingSources = true;
@@ -244,11 +271,43 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
       return;
     }
 
+    final streams = ref.read(streamServiceProvider);
+
+    // Links we resolved for this exact title/episode recently: play immediately
+    // instead of making the user wait out a fresh provider scrape. Signed CDN
+    // URLs do expire, so the scrape still runs in the background below and the
+    // normal failover path takes over if these turn out to be dead.
+    final warm = streams.cachedStreams(
+      widget.details,
+      season: widget.season,
+      episode: widget.episode,
+      maxAge: const Duration(minutes: 45),
+    );
+    if (warm != null && warm.isNotEmpty) {
+      final ordered = await _orderedForPlayback(warm);
+      if (!mounted) return;
+      if (ordered.isNotEmpty) {
+        _sources = ordered;
+        _startedPlayback = true;
+        setState(() {
+          _selected = ordered.first;
+          _loadingSources = false;
+          _stopSearchTicker();
+        });
+        unawaited(_play(ordered.first));
+      }
+    }
+
     // Providers are scraped one at a time (QuickJS is synchronous), so start
     // playing the first link that lands and let the rest keep filling the
-    // source list in the background.
-    _resolveSub = ref
-        .read(streamServiceProvider)
+    // source list in the background. Each search gets its own service so it
+    // never queues behind a title opened earlier in the session.
+    final pool = ref.read(providerServicePoolProvider);
+    final slot = 'player:${widget.details.type.name}:${widget.details.id}:'
+        '${widget.season}:${widget.episode}';
+    final service = pool.acquire(slot) ?? ref.read(providerServiceProvider);
+    _poolSlot = slot;
+    _resolveSub = StreamService(service)
         .resolveStreams(
           widget.details,
           season: widget.season,
@@ -273,18 +332,27 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
         }
         if (!_startedPlayback) {
           _startedPlayback = true;
-          final first = merged.first;
+          final candidates = merged;
           setState(() {
-            _selected = first;
             _loadingSources = false;
             _stopSearchTicker();
           });
-          _play(first).catchError((Object e) {
-            if (mounted) setState(() => _error = 'Playback failed: $e');
-          });
+          // Probe the top few links before opening mpv on one: a dead link is
+          // rejected in ~1 s instead of stalling the player for 14 s.
+          unawaited(() async {
+            final ordered = await _orderedForPlayback(candidates);
+            if (!mounted) return;
+            if (ordered.isEmpty) return;
+            final first = ordered.first;
+            setState(() => _selected = first);
+            _play(first).catchError((Object e) {
+              if (mounted) setState(() => _error = 'Playback failed: $e');
+            });
+          }());
         }
       },
       onError: (Object e) {
+        _releasePoolSlot();
         if (!mounted) return;
         setState(() {
           _loadingSources = false;
@@ -293,6 +361,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
         });
       },
       onDone: () {
+        _releasePoolSlot();
         if (!mounted) return;
         setState(() {
           _loadingSources = false;
@@ -323,6 +392,14 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
   void _stopSearchTicker() {
     _searchTicker?.cancel();
     _searchTicker = null;
+  }
+
+  /// Frees the provider-search slot so a later title can use it.
+  void _releasePoolSlot() {
+    final slot = _poolSlot;
+    if (slot == null) return;
+    _poolSlot = null;
+    ref.read(providerServicePoolProvider).release(slot);
   }
 
   Widget _buildCenterState() {
@@ -528,6 +605,79 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
     }
   }
 
+  /// Cheap reachability pre-flight for a resolved link.
+  ///
+  /// Providers hand out a dozen URLs of wildly different quality; some are
+  /// already 403/404 by the time we get them. Committing to those means mpv
+  /// sits in "buffering" until the watchdog fires ~14 s later, so the user
+  /// stares at a black screen for a quarter of a minute per dead link. A
+  /// one-byte range request answers "is this alive and is it media?" in about a
+  /// second, which turns that into a silent, sub-2-second skip.
+  ///
+  /// Deliberately conservative: any non-conclusive outcome (timeout, 405, 416,
+  /// 501, no network) counts as "try it anyway". We only reject links the CDN
+  /// itself says are gone, so a CDN that dislikes HEAD/range requests can never
+  /// make playable content unreachable.
+  Future<bool> _probe(StreamSource src, {Duration timeout = const Duration(seconds: 6)}) async {
+    if (src.providerId == 'local' || src.url.startsWith('file')) return true;
+    final uri = Uri.tryParse(src.url);
+    if (uri == null || !uri.hasScheme) return true;
+    if (uri.scheme != 'http' && uri.scheme != 'https') return true;
+    try {
+      final client = http.Client();
+      try {
+        final req = http.Request('GET', uri);
+        // Range: 0-0 is the smallest request that still proves the range is
+        // servable, and it works on CDNs that reject HEAD.
+        req.headers['Range'] = 'bytes=0-0';
+        if (src.headers.isNotEmpty) req.headers.addAll(src.headers);
+        final resp = await client.send(req).timeout(timeout);
+        // Drain so the connection is reused/closed rather than left dangling.
+        await resp.stream.drain<void>().timeout(timeout, onTimeout: () {});
+        final code = resp.statusCode;
+        if (code == 403 || code == 404 || code == 410) return false;
+        final type = resp.headers['content-type'] ?? '';
+        // An HTML error page that returns 200 is the classic expired-token
+        // response; mpv would parse it as a broken stream and hang.
+        if (type.contains('text/html')) return false;
+        return true;
+      } finally {
+        client.close();
+      }
+    } catch (_) {
+      // Inconclusive: let the player try it.
+      return true;
+    }
+  }
+
+  /// Orders candidate links so the one most likely to play immediately is
+  /// first, without waiting for the whole list.
+  ///
+  /// The first link that passes the pre-flight wins; a small head start is
+  /// enough because one probe answers in about a second. If the candidate list
+  /// is long the probe stops after [_preflightCandidates] attempts, so a slow
+  /// CDN can never delay playback by more than a few seconds — anything
+  /// unprobed is treated as "try it".
+  static const int _preflightCandidates = 3;
+
+  Future<List<StreamSource>> _orderedForPlayback(
+    List<StreamSource> candidates,
+  ) async {
+    if (candidates.length <= 1) return candidates;
+    final limit = candidates.length < _preflightCandidates
+        ? candidates.length
+        : _preflightCandidates;
+    for (var i = 0; i < limit; i++) {
+      if (await _probe(candidates[i])) {
+        if (i == 0) return candidates;
+        return [candidates[i], ...candidates]..removeAt(i + 1);
+      }
+      // Mark the dead link so failover never picks it a second time.
+      _deadUrls.add(candidates[i].url);
+    }
+    return candidates;
+  }
+
   Future<void> _play(StreamSource src) async {
     _startWatchdog?.cancel();
     _errorSub?.cancel();
@@ -559,6 +709,27 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
     _searchTicker?.cancel();
     _stallTimer = Timer.periodic(const Duration(seconds: 4), (_) {
       if (!mounted) return;
+      // Audio but no picture: mpv reports no video dimensions while the
+      // position keeps advancing, so the stream plays "successfully" and the
+      // user hears everything with a black screen. Hardware decoders on some
+      // devices do exactly this for certain HLS/H.265 links. Retry the same
+      // link on the CPU decoder once; only if that also renders nothing is the
+      // link itself the problem.
+      final audioOnly = _playing &&
+          !_completed &&
+          _videoWidth == null &&
+          _position > const Duration(seconds: 3);
+      if (audioOnly) {
+        if (!_softwareDecode && !_swDecodeRetried) {
+          _swDecodeRetried = true;
+          _softwareDecode = true;
+          _showToast('Picture not rendering — switching to software decoding');
+          unawaited(_play(src));
+          return;
+        }
+        _failover(src, 'audio plays but no video is rendered');
+        return;
+      }
       final stalledFor = DateTime.now().difference(_lastAdvanceAt);
       final noProgress = _position == _lastAdvancedPos;
       if (_playing && !_completed && noProgress && stalledFor.inSeconds >= 14) {
@@ -566,7 +737,11 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
       }
     });
 
-    _startWatchdog = Timer(const Duration(seconds: 14), () {
+    // Hard ceiling for "opened but produced nothing at all". The positional
+    // watchdog below cancels it as soon as a timestamp arrives, so this only
+    // fires for a link that never even reports a duration. 20 s is the point
+    // where a slow-but-working HLS manifest would already have answered.
+    _startWatchdog = Timer(const Duration(seconds: 20), () {
       if (!mounted || _deadUrls.contains(src.url)) return;
       if (_duration > Duration.zero || _position > Duration.zero) return;
       _failover(src, 'did not start');
@@ -596,6 +771,20 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
     _playSub?.cancel();
     _completeSub?.cancel();
     _tracksSub?.cancel();
+    _videoParamsSub?.cancel();
+    _videoWidth = null;
+    _videoHeight = null;
+    _videoParamsSub = ap.player.stream.videoParams.listen((p) {
+      if (!mounted) return;
+      final w = p.dw ?? p.w;
+      final h = p.dh ?? p.h;
+      if (w == null || h == null) return;
+      if (w == _videoWidth && h == _videoHeight) return;
+      setState(() {
+        _videoWidth = w;
+        _videoHeight = h;
+      });
+    });
     _seekedToResume = false;
     _subsLoaded = false;
     _tracksSub = ap.player.stream.tracks.listen((t) {
@@ -803,19 +992,52 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
     context.pushReplacement('/player', extra: prev);
   }
 
+  /// Single exit path for every way out of the player.
+  ///
+  /// Stops playback first, then pops. The previous build popped the route and
+  /// relied on `dispose` to stop the engine; because `dispose` only *started*
+  /// an async teardown, the audio outlived the screen and the app sat blocked
+  /// on a native call. Explicitly stopping here means one back press is enough,
+  /// and a linked episode still starts cleanly.
+  void _exit() {
+    _persistProgress();
+    final nav = ref.read(activePlayerProvider.notifier);
+    unawaited(nav.dispose());
+    if (!mounted) return;
+    if (context.canPop()) {
+      context.pop();
+    } else {
+      context.go('/home');
+    }
+  }
+
   Future<void> _enterPip() async {
     final pip = ref.read(pipServiceProvider);
+    if (!pip.supported) {
+      _showToast('Picture-in-Picture is not available on this device');
+      return;
+    }
     final ok = await pip.enterPip();
-    if (ok || !mounted) return;
+    if (!mounted) return;
     _showToast(
-      pip.supported
-          ? 'Background playback keeps running when you leave the app'
-          : 'Picture-in-Picture is not available on this device',
+      ok
+          // Entering PiP from a foreground tap is only allowed once the
+          // activity is in a state Android accepts; auto-enter on Home is the
+          // reliable path, so say what will actually happen.
+          ? 'Picture-in-Picture — press Home to keep watching while you use other apps'
+          : 'Press Home or Recents to keep watching in Picture-in-Picture',
     );
   }
 
   @override
   void dispose() {
+    // Stop audio and free the native engine *before* anything else. Awaiting
+    // here is not possible (dispose is sync), so the notifier tears down
+    // synchronously-before-await and the futures complete on their own.
+    final active = ref.read(activePlayerProvider.notifier);
+    unawaited(active.dispose());
+    _playerKeepAlive?.close();
+    _playerKeepAlive = null;
     _hideTimer?.cancel();
     _progressSaveTimer?.cancel();
     _autoAdvanceTimer?.cancel();
@@ -825,7 +1047,9 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
     _playSub?.cancel();
     _completeSub?.cancel();
     _tracksSub?.cancel();
+    _videoParamsSub?.cancel();
     _resolveSub?.cancel();
+    _releasePoolSlot();
     _startWatchdog?.cancel();
     _stallTimer?.cancel();
     _bufferingStallTimer?.cancel();
@@ -1421,8 +1645,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
         } else if (_showControls) {
           setState(() => _showControls = false);
         } else {
-          _persistProgress();
-          Navigator.of(context).maybePop();
+          _exit();
         }
         return KeyEventResult.handled;
     }
@@ -1448,7 +1671,17 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
     final active = ref.watch(activePlayerProvider);
     final hasVideo = active != null && _selected != null;
 
-    return Focus(
+    return PopScope(
+      // The system back gesture / hardware back key must run the same teardown
+      // as the on-screen back button. Letting the route pop directly disposes
+      // the screen without stopping the engine, which is the "video keeps
+      // playing / app is stuck" path.
+      canPop: false,
+      onPopInvokedWithResult: (didPop, _) {
+        if (didPop) return;
+        _exit();
+      },
+      child: Focus(
       autofocus: true,
       onKeyEvent: _handleKey,
       child: Scaffold(
@@ -1466,6 +1699,22 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
                     controller: active.controller,
                     fit: _fits[_fitIndex],
                     fill: Colors.black,
+                    // THE DEFAULT HERE IS `AdaptiveVideoControls`: media_kit
+                    // draws an entire second control surface (its own scrim,
+                    // time labels and 10 s buttons) on top of ours. That is the
+                    // duplicate bar with the dark red disc in the bottom-left
+                    // of the player. `NoVideoControls` is the documented
+                    // "no controls" value.
+                    controls: NoVideoControls,
+                    // The player screen owns wake locking; Video would enable it
+                    // a second time and release it when *it* is disposed, which
+                    // races our own enable/disable.
+                    wakelock: false,
+                    // Backgrounding while playing must keep decoding: the app
+                    // enters Picture-in-Picture (see MainActivity), and the
+                    // default pause-on-background leaves the PiP window showing
+                    // a frozen frame.
+                    pauseUponEnteringBackgroundMode: false,
                   ),
                 ),
               if ((!hasVideo || _loadingSources) &&
@@ -1776,10 +2025,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
                                 size: 20,
                                 color: AppColors.textPrimary,
                               ),
-                              onPressed: () {
-                                _persistProgress();
-                                Navigator.of(context).pop();
-                              },
+                              onPressed: _exit,
                               splashRadius: 20,
                             ),
                             const SizedBox(width: 4),
@@ -1890,8 +2136,12 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
                               ),
                             ),
                             Padding(
+                              // Align the labels with the slider's own track:
+                              // the Slider thumb is 12 dp wide, so an 8 dp row
+                              // inset left the times floating inside the track
+                              // ends.
                               padding: const EdgeInsets.symmetric(
-                                horizontal: 8,
+                                horizontal: 12,
                               ),
                               child: Row(
                                 children: [
@@ -1913,7 +2163,11 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
                                 ],
                               ),
                             ),
-                            const SizedBox(height: AppSpacing.xxs),
+                            // Transport row: seek back, play/pause, seek
+                            // forward. Sits directly on top of the utility
+                            // row and shares its centre line, so the big
+                            // button reads as the anchor of the whole bar
+                            // instead of floating between two full-width rows.
                             Row(
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
@@ -1923,7 +2177,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
                                   size: 30,
                                   onPressed: () => _seekRel(-10),
                                 ),
-                                const SizedBox(width: AppSpacing.lg),
+                                const SizedBox(width: AppSpacing.md),
                                 IconButton(
                                   tooltip: _completed
                                       ? 'Replay'
@@ -1940,7 +2194,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
                                   onPressed:
                                       _selected != null ? _togglePlay : null,
                                 ),
-                                const SizedBox(width: AppSpacing.lg),
+                                const SizedBox(width: AppSpacing.md),
                                 _ControlButton(
                                   tooltip: 'Forward 10 seconds',
                                   icon: Icons.forward_10_rounded,
@@ -1949,15 +2203,23 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
                                 ),
                               ],
                             ),
-                            // Utility row: scrollable so no control is
-                            // squeezed below a usable size on narrow
-                            // screens. All 13 buttons used to share one
-                            // spaceEvenly row, and skip-previous was
-                            // permanently disabled (a dead button).
-                            SingleChildScrollView(
-                              scrollDirection: Axis.horizontal,
-                              child: Row(
-                                children: [
+                            const SizedBox(height: AppSpacing.xs),
+                            // Utility row: directly *below* the play button,
+                            // centred on it. Scrollable so no control is
+                            // squeezed below a usable size on narrow screens;
+                            // all 13 buttons used to share one spaceEvenly row
+                            // and skip-previous was permanently disabled.
+                            SizedBox(
+                              width: double.infinity,
+                              child: SingleChildScrollView(
+                                scrollDirection: Axis.horizontal,
+                                // Centre the strip when it fits and let it
+                                // scroll when it does not. A bare Row jammed
+                                // the whole strip against the left edge on
+                                // tablets.
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
                                   _ControlButton(
                                     tooltip: 'Previous episode',
                                     icon: Icons.skip_previous_rounded,
@@ -2026,7 +2288,8 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
                                     active: _fitIndex != 0,
                                     onPressed: _cycleFit,
                                   ),
-                                ],
+                                  ],
+                                ),
                               ),
                             ),
                           ],
@@ -2105,6 +2368,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
             ],
           ),
         ),
+      ),
       ),
     );
   }
