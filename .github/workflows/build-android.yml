@@ -45,6 +45,11 @@ jobs:
               packages/tj_flutter_providers/test; then
             echo "::error::Formatting check failed. Run 'dart format lib test"
             echo "packages/tj_flutter_providers/lib packages/tj_flutter_providers/test'."
+            # Show exactly which files differ so the annotation is actionable.
+            cp -r lib /tmp/lib.bak
+            dart format --output=write lib test \
+              packages/tj_flutter_providers/lib packages/tj_flutter_providers/test
+            diff -ru /tmp/lib.bak lib | head -120 || true
             exit 1
           fi
 
