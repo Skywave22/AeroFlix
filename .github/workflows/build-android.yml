@@ -25,6 +25,10 @@ jobs:
     name: Format, analyze, test
     runs-on: ubuntu-24.04
     timeout-minutes: 20
+    # Needed by the report steps: they commit the analyzer/test output back to
+    # the branch so a failure can be triaged without downloading logs.
+    permissions:
+      contents: write
     steps:
       - uses: actions/checkout@v4
 
