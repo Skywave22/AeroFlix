@@ -154,10 +154,14 @@ void main() {
         ),
       );
 
+      // The Row itself is stretched to the strip's width by the ConstrainedBox,
+      // so centring has to be measured on the children, not on the Row.
       final strip = tester.getRect(find.byType(PlayerControlStrip));
-      final row = tester.getRect(find.byType(Row).last);
-      final leftSlack = row.left - strip.left;
-      final rightSlack = strip.right - row.right;
+      final icons = find.byType(Icon);
+      final first = tester.getRect(icons.first);
+      final last = tester.getRect(icons.last);
+      final leftSlack = first.left - strip.left;
+      final rightSlack = strip.right - last.right;
       expect(leftSlack, greaterThan(1.0), reason: 'strip is not centred');
       expect((leftSlack - rightSlack).abs(), lessThan(1.0));
     });
