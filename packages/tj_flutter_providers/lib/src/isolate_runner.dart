@@ -32,6 +32,7 @@ class IsolateProviderRunner {
     required String polyfillCode,
     required String callCode,
     required String cryptoJsCode,
+    Map<String, String>? settings,
     int? season,
     int? episode,
     Duration timeout = const Duration(seconds: 30),
@@ -45,6 +46,7 @@ class IsolateProviderRunner {
       'polyfillCode': polyfillCode,
       'callCode': callCode,
       'cryptoJsCode': cryptoJsCode,
+      'settings': settings ?? const <String, String>{},
       'season': season,
       'episode': episode,
       'token': RootIsolateToken.instance,
@@ -123,6 +125,9 @@ Future<void> _providerMain(Map<String, dynamic> message) async {
     runtime = JsRuntime(
       tmdbApiKey: args['tmdbApiKey'] as String,
       scraperId: args['providerId'] as String,
+      scraperSettings: Map<String, dynamic>.from(
+        args['settings'] as Map? ?? const {},
+      ),
       polyfillCode: args['polyfillCode'] as String,
       callCode: args['callCode'] as String,
       cryptoJsCode: args['cryptoJsCode'] as String,

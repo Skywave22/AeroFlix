@@ -29,10 +29,20 @@ class ProviderService {
   /// Change to all 25 ids from manifest if you want everything.
   final List<String> enabledIds;
 
+  /// Per-provider settings exposed to the JS bundle as `globalThis.SCRAPER_SETTINGS`
+  /// and via `getPreference(key)`. The all-in-one provider needs its unlock code
+  /// here (`tj_aio_code`) or it returns nothing.
+  final Map<String, dynamic> scraperSettings;
+
   /// Run providers on a background isolate (recommended: keeps the UI at
   /// 60 fps). Falls back to in-process execution automatically when a platform
   /// cannot host one.
   final bool useIsolate;
+
+  /// Default per-provider time budget. The TJ All-in-one bundle fans out to
+  /// every site at once and legitimately needs 40-60 s on a cold run, so the
+  /// default is generous; callers can still pass a tighter value per call.
+  final Duration timeout;
 
   bool _isolateBroken = false;
 
@@ -41,12 +51,16 @@ class ProviderService {
     this.tmdbApiKey = '',
     this.enabledIds = ProviderManager.recommendedIds,
     this.useIsolate = true,
+    this.scraperSettings = const {},
+    this.timeout = const Duration(seconds: 105),
   });
 
   /// Call on app start: fetch manifest, download new providers,
   /// auto-update changed ones. Safe to call every launch (fast if up-to-date).
   Future<UpdateCheckResult> syncOnLaunch() async {
     try {
+      // Drop bundles from other provider layouts before syncing.
+      await manager.pruneTo(enabledIds);
       return await manager.syncProviders(onlyIds: enabledIds);
     } catch (_) {
       // Offline / GitHub down: fall back to cached manifest + cached providers.
@@ -85,7 +99,7 @@ class ProviderService {
     int? season,
     int? episode,
     List<String>? onlyProviderIds,
-    Duration perProviderTimeout = const Duration(seconds: 30),
+    Duration? perProviderTimeout,
   }) async* {
     final ids = onlyProviderIds ?? enabledIds;
     for (final id in ids) {
@@ -95,7 +109,7 @@ class ProviderService {
         mediaType: mediaType,
         season: season,
         episode: episode,
-        perProviderTimeout: perProviderTimeout,
+        perProviderTimeout: perProviderTimeout ?? timeout,
       );
     }
   }
@@ -109,7 +123,7 @@ class ProviderService {
     int? season,
     int? episode,
     List<String>? onlyProviderIds,
-    Duration perProviderTimeout = const Duration(seconds: 30),
+    Duration? perProviderTimeout,
   }) async {
     final all = <StreamResult>[];
     await for (final outcome in streamStreams(
@@ -118,7 +132,7 @@ class ProviderService {
       season: season,
       episode: episode,
       onlyProviderIds: onlyProviderIds,
-      perProviderTimeout: perProviderTimeout,
+      perProviderTimeout: perProviderTimeout ?? timeout,
     )) {
       all.addAll(outcome.streams);
     }
@@ -142,7 +156,7 @@ class ProviderService {
     String mediaType = 'movie',
     int? season,
     int? episode,
-    Duration timeout = const Duration(seconds: 45),
+    Duration? timeout,
   }) {
     return _runProvider(
       id: id,
@@ -150,7 +164,7 @@ class ProviderService {
       mediaType: mediaType,
       season: season,
       episode: episode,
-      perProviderTimeout: timeout,
+      perProviderTimeout: timeout ?? this.timeout,
     );
   }
 
@@ -189,6 +203,9 @@ class ProviderService {
           polyfillCode: assets.polyfill,
           callCode: assets.call,
           cryptoJsCode: assets.cryptoJs,
+          settings: {
+            for (final e in scraperSettings.entries) e.key: '${e.value}',
+          },
           timeout: timeout,
         );
       } on IsolateUnavailable {
@@ -200,7 +217,11 @@ class ProviderService {
         // for this call and keep using the isolate next time.
       }
     }
-    final runtime = JsRuntime(tmdbApiKey: tmdbApiKey, scraperId: providerId);
+    final runtime = JsRuntime(
+      tmdbApiKey: tmdbApiKey,
+      scraperId: providerId,
+      scraperSettings: scraperSettings,
+    );
     try {
       return await runtime
           .getStreamsJson(
@@ -223,8 +244,9 @@ class ProviderService {
     required String mediaType,
     int? season,
     int? episode,
-    Duration perProviderTimeout = const Duration(seconds: 30),
+    Duration? perProviderTimeout,
   }) async {
+    final budget = perProviderTimeout ?? timeout;
     final sw = Stopwatch()..start();
     try {
       final code = await manager.readProviderCode(id);
@@ -243,7 +265,7 @@ class ProviderService {
         mediaType: mediaType,
         season: season,
         episode: episode,
-        timeout: perProviderTimeout,
+        timeout: budget,
       );
 
       final decoded = jsonDecode(jsonStr);
@@ -262,7 +284,7 @@ class ProviderService {
     } on TimeoutException {
       return ProviderOutcome(
         providerId: id,
-        error: 'timed out after ${perProviderTimeout.inSeconds}s',
+        error: 'timed out after ${budget.inSeconds}s',
         elapsed: sw.elapsed,
       );
     } catch (e) {

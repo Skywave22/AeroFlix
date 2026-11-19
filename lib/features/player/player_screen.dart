@@ -87,6 +87,8 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
   Duration _lastAdvancedPos = Duration.zero;
   DateTime _lastAdvanceAt = DateTime.now();
   Timer? _stallTimer;
+  Timer? _searchTicker;
+  DateTime? _searchStart;
   bool _playing = false;
   Duration _position = Duration.zero;
   Duration _duration = Duration.zero;
@@ -191,6 +193,12 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
     if (!mounted) return;
     setState(() {
       _loadingSources = true;
+      _searchStart = DateTime.now();
+      _searchTicker?.cancel();
+      _searchTicker = Timer.periodic(const Duration(seconds: 1), (_) {
+        if (!mounted || !_loadingSources) return;
+        setState(() {});
+      });
       _error = null;
       _completed = false;
       _progress.clear();
@@ -207,6 +215,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
         if (!mounted) return;
         setState(() {
           _loadingSources = false;
+          _stopSearchTicker();
           _error =
               'The downloaded file is missing. Remove it from Downloads and download it again.';
         });
@@ -224,6 +233,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
       if (!mounted) return;
       setState(() {
         _loadingSources = false;
+        _stopSearchTicker();
         _startedPlayback = true;
       });
       return;
@@ -259,6 +269,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
           setState(() {
             _selected = first;
             _loadingSources = false;
+            _stopSearchTicker();
           });
           _play(first).catchError((Object e) {
             if (mounted) setState(() => _error = 'Playback failed: $e');
@@ -269,6 +280,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
         if (!mounted) return;
         setState(() {
           _loadingSources = false;
+          _stopSearchTicker();
           _error = 'Provider search failed: $e';
         });
       },
@@ -276,6 +288,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
         if (!mounted) return;
         setState(() {
           _loadingSources = false;
+          _stopSearchTicker();
           _pendingFailover = false;
           if (_sources.isEmpty && _error == null) {
             final failures = _progress.entries
@@ -291,8 +304,19 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
     );
   }
 
+  String get _searchElapsed {
+    final start = _searchStart;
+    if (start == null) return '0';
+    return '${DateTime.now().difference(start).inSeconds}';
+  }
+
   /// Loading / failure panel: shows which provider is being scraped and, when
   /// nothing resolves, gives the user something that actually works.
+  void _stopSearchTicker() {
+    _searchTicker?.cancel();
+    _searchTicker = null;
+  }
+
   Widget _buildCenterState() {
     final ids = ref.read(streamServiceProvider).providers;
     if (_loadingSources) {
@@ -310,13 +334,16 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
               child: CircularProgressIndicator(
                   color: AppColors.accent, strokeWidth: 2)),
           const SizedBox(height: 14),
-          Text('Finding a working source…',
+          Text('Finding a link…',
               style: AppTypography.bodyPrimary.copyWith(
                   color: AppColors.textPrimary,
                   fontSize: 14,
                   fontWeight: FontWeight.w600)),
           const SizedBox(height: 4),
-          Text('${_progress.length} of ${ids.length} providers checked',
+          Text(
+              ids.length == 1
+                  ? 'Checking every site at once · ${_searchElapsed}s'
+                  : '${_progress.length} of ${ids.length} providers checked · ${_searchElapsed}s',
               style: AppTypography.bodyPrimary
                   .copyWith(color: AppColors.textMuted, fontSize: 12)),
           const SizedBox(height: 14),
@@ -427,6 +454,8 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
 
   static String _providerLabel(String id) {
     switch (id) {
+      case 'tjaio':
+        return 'TJ All-in-one';
       case 'cinezo':
         return 'Cinezo';
       case 'screenscape':
@@ -457,6 +486,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
     _lastAdvancedPos = Duration.zero;
     _lastAdvanceAt = DateTime.now();
     _stallTimer?.cancel();
+    _searchTicker?.cancel();
     _stallTimer = Timer.periodic(const Duration(seconds: 4), (_) {
       if (!mounted) return;
       final stalledFor = DateTime.now().difference(_lastAdvanceAt);

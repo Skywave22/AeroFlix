@@ -42,16 +42,17 @@ class ProviderManager {
     'https://raw.githack.com/Skywave22/Plugins-TJ/main',
   ];
 
-  /// Recommended starter pack (best coverage, Hindi-first).
-  /// Cinezo + ScreenScape + Nxsha cover most popular titles,
-  /// AniHype for anime, KatDrama for K-dramas.
-  static const List<String> recommendedIds = [
-    'cinezo',
-    'screenscape',
-    'nxsha',
-    'anihype',
-    'katdrama',
-  ];
+  /// Where the manifest lives inside the repo.
+  ///
+  /// AeroFlix ships the **TJ All-in-one** provider (`aio/`), which asks every
+  /// working TJ site at once and merges the results — one provider instead of
+  /// 25 separate ones.
+  static const String defaultManifestPath = 'aio/manifest.json';
+
+  /// The provider set AeroFlix uses. Just `tjaio` (TJ All-in-one): it queries
+  /// every working site itself, so one bundle covers movies, series, anime and
+  /// K-dramas.
+  static const List<String> recommendedIds = ['tjaio'];
 
   /// Preferred base URL. Mirrors are tried in order starting from this one.
   final String baseUrl;
@@ -71,6 +72,7 @@ class ProviderManager {
 
   ProviderManager({
     this.baseUrl = defaultBaseUrl,
+    this.manifestPath = defaultManifestPath,
     List<String>? mirrorBases,
     http.Client? httpClient,
     this.httpTimeout = const Duration(seconds: 20),
@@ -91,9 +93,25 @@ class ProviderManager {
     return all;
   }
 
-  String get manifestUrl => '$baseUrl/manifest.json';
+  /// Path of the manifest inside the repo (relative to a mirror root).
+  final String manifestPath;
 
-  String providerUrl(ProviderInfo info) => '$baseUrl/${info.filename}';
+  String get manifestUrl => '$baseUrl/$manifestPath';
+
+  /// Absolute or repo-relative URL of a provider bundle.
+  ///
+  /// The all-in-one manifest lists an absolute GitHub URL, so it has to be
+  /// mapped back onto the mirror that is answering.
+  String providerUrlFor(String base, ProviderInfo info) {
+    final f = info.filename;
+    if (!f.startsWith('http')) return '$base/$f';
+    const canonical =
+        'https://raw.githubusercontent.com/Skywave22/Plugins-TJ/main';
+    if (f.startsWith(canonical)) return '$base${f.substring(canonical.length)}';
+    return f;
+  }
+
+  String providerUrl(ProviderInfo info) => providerUrlFor(baseUrl, info);
 
   // ── Storage layout ──────────────────────────────────────────────────────
   // <appDocs>/tj_providers/
@@ -179,7 +197,7 @@ class ProviderManager {
     for (final base in _bases) {
       try {
         final res = await _http
-            .get(Uri.parse('$base/manifest.json'))
+            .get(Uri.parse('$base/$manifestPath'))
             .timeout(httpTimeout);
         if (res.statusCode != 200) {
           lastError = Exception('manifest HTTP ${res.statusCode} at $base');
@@ -213,7 +231,7 @@ class ProviderManager {
   Future<String> _downloadProviderCode(ProviderInfo info) async {
     Object? lastError;
     for (final base in _bases) {
-      final url = '$base/${info.filename}';
+      final url = providerUrlFor(base, info);
       try {
         final res = await _http.get(Uri.parse(url)).timeout(httpTimeout);
         if (res.statusCode != 200) {
@@ -378,6 +396,21 @@ class ProviderManager {
   /// Convenience: sync only the recommended starter pack on first launch.
   Future<UpdateCheckResult> syncRecommended() =>
       syncProviders(onlyIds: recommendedIds);
+
+  /// Deletes every cached bundle that is not in [keepIds].
+  ///
+  /// Upgrading from the 25-provider layout leaves those bundles on disk; with
+  /// the all-in-one provider they are dead weight (and dead code paths).
+  Future<int> pruneTo(List<String> keepIds) async {
+    final cached = await getCached();
+    var removed = 0;
+    for (final id in cached.keys.toList()) {
+      if (keepIds.contains(id)) continue;
+      await removeProvider(id);
+      removed++;
+    }
+    return removed;
+  }
 
   /// Remove a cached provider from disk.
   Future<void> removeProvider(String id) async {

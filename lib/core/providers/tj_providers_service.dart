@@ -39,6 +39,9 @@ final providerServiceProvider = Provider<ProviderService>((ref) {
     manager: ref.watch(providerManagerProvider),
     tmdbApiKey: ApiConstants.tmdbApiKey,
     enabledIds: ProviderManager.recommendedIds,
+    // TJ All-in-one fans out to every site itself, so a single title takes
+    // ~40 s on a cold run. Give it room instead of cutting it off mid-flight.
+    timeout: const Duration(seconds: 105),
   );
 });
 

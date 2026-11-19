@@ -7,6 +7,12 @@ import '../../core/providers/tj_providers_service.dart';
 import '../models/media_details.dart';
 import '../models/stream_source.dart';
 
+class _CachedResolution {
+  const _CachedResolution(this.sources, this.at);
+  final List<StreamSource> sources;
+  final DateTime at;
+}
+
 /// Result of one provider for one title.
 class ProviderResolution {
   const ProviderResolution({
@@ -24,8 +30,9 @@ class ProviderResolution {
   bool get ok => error == null;
 }
 
-/// Resolves playable links for a title through the TJ-Plugins providers
-/// (Cinezo, ScreenScape, Nxsha, AniHype, KatDrama by default).
+/// Resolves playable links for a title through the TJ-Plugins **All-in-one**
+/// provider (`tjaio`), which queries every working TJ site at once and merges
+/// the results — one bundle covers movies, series, anime and K-dramas.
 ///
 /// Everything here is real: provider bundles ship with the app and auto-update
 /// from GitHub, they run in QuickJS, and they return direct HLS/MP4 links with
@@ -34,6 +41,38 @@ class StreamService {
   StreamService(this._providers);
 
   final ProviderService _providers;
+
+  /// Recently resolved links, so going back into a title (or bouncing between
+  /// episodes) never pays the ~40 s provider round-trip twice.
+  static final Map<String, _CachedResolution> _cache = {};
+  static const Duration _cacheTtl = Duration(minutes: 20);
+
+  static String _key(String id, String type, int season, int episode) =>
+      '$id|$type|$season|$episode';
+
+  /// Cached links for a title, or null when there is nothing fresh.
+  List<StreamSource>? cachedStreams(MediaDetails media,
+      {int season = 0, int episode = 0}) {
+    final key = _key('${media.id}', media.type == MediaType.tv ? 'tv' : 'movie',
+        season, episode);
+    final hit = _cache[key];
+    if (hit == null) return null;
+    if (DateTime.now().difference(hit.at) > _cacheTtl) {
+      _cache.remove(key);
+      return null;
+    }
+    return hit.sources;
+  }
+
+  void _remember(String id, String type, int season, int episode,
+      List<StreamSource> sources) {
+    if (sources.isEmpty) return;
+    _cache[_key(id, type, season, episode)] =
+        _CachedResolution(sources, DateTime.now());
+    if (_cache.length > 40) {
+      _cache.remove(_cache.keys.first);
+    }
+  }
 
   /// Which providers will be queried, in order.
   List<String> get providers => _providers.enabledIds;
@@ -48,6 +87,15 @@ class StreamService {
     List<String>? onlyProviderIds,
   }) async* {
     final isTv = media.type == MediaType.tv;
+    final cached = cachedStreams(media, season: season, episode: episode);
+    if (cached != null) {
+      yield ProviderResolution(
+        providerId: 'cache',
+        sources: cached,
+        elapsed: Duration.zero,
+      );
+      return;
+    }
     await for (final outcome in _providers.streamStreams(
       tmdbId: '${media.id}',
       mediaType: isTv ? 'tv' : 'movie',
@@ -55,9 +103,18 @@ class StreamService {
       episode: isTv && episode > 0 ? episode : null,
       onlyProviderIds: onlyProviderIds,
     )) {
+      final mapped = _map(outcome.streams);
+      if (mapped.isNotEmpty) {
+        _remember(
+            '${media.id}',
+            isTv ? 'tv' : 'movie',
+            isTv && season > 0 ? season : 0,
+            isTv && episode > 0 ? episode : 0,
+            mapped);
+      }
       yield ProviderResolution(
         providerId: outcome.providerId,
-        sources: _map(outcome.streams),
+        sources: mapped,
         error: outcome.error,
         elapsed: outcome.elapsed,
       );
@@ -75,6 +132,8 @@ class StreamService {
     List<String>? onlyProviderIds,
   }) async {
     final isTv = media.type == MediaType.tv;
+    final cached = cachedStreams(media, season: season, episode: episode);
+    if (cached != null) return cached;
     final results = await _providers.getStreams(
       tmdbId: '${media.id}',
       mediaType: isTv ? 'tv' : 'movie',
@@ -82,7 +141,14 @@ class StreamService {
       episode: isTv && episode > 0 ? episode : null,
       onlyProviderIds: onlyProviderIds,
     );
-    return _map(results);
+    final mapped = _map(results);
+    _remember(
+        '${media.id}',
+        isTv ? 'tv' : 'movie',
+        isTv && season > 0 ? season : 0,
+        isTv && episode > 0 ? episode : 0,
+        mapped);
+    return mapped;
   }
 
   List<StreamSource> _map(List<StreamResult> results) {
