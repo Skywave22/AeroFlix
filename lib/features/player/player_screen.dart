@@ -2219,76 +2219,74 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
                               // and skip-previous was permanently disabled.
                               PlayerControlStrip(
                                 children: [
-                                        _ControlButton(
-                                          tooltip: 'Previous episode',
-                                          icon: Icons.skip_previous_rounded,
-                                          enabled: _previousEpisode() != null,
-                                          onPressed: _playPrevious,
-                                        ),
-                                        _ControlButton(
-                                          tooltip: 'Next episode',
-                                          icon: Icons.skip_next_rounded,
-                                          enabled: widget.nextEpisode != null,
-                                          onPressed: _playNext,
-                                        ),
-                                        _ControlButton(
-                                          tooltip: _isDownloaded()
-                                              ? 'Remove download'
-                                              : 'Download for offline viewing',
-                                          icon: _isDownloaded()
-                                              ? Icons.download_done_rounded
-                                              : Icons.download_outlined,
-                                          active: _isDownloaded(),
-                                          activeColor: AppColors.success,
-                                          onPressed: _toggleDownload,
-                                        ),
-                                        _ControlButton(
-                                          tooltip: 'Share this title',
-                                          icon: Icons.share_outlined,
-                                          onPressed: _shareCurrent,
-                                        ),
-                                        _ControlButton(
-                                          tooltip: 'Picture in picture',
-                                          icon: Icons
-                                              .picture_in_picture_alt_rounded,
-                                          onPressed: _enterPip,
-                                        ),
-                                        _ControlButton(
-                                          tooltip: _selectedSub != null
-                                              ? 'Subtitles on'
-                                              : 'Subtitles',
-                                          icon: _selectedSub != null
-                                              ? Icons.closed_caption_rounded
-                                              : Icons
-                                                  .closed_caption_off_rounded,
-                                          active: _selectedSub != null,
-                                          enabled: _subs.isNotEmpty,
-                                          onPressed: _openCaptionsSheet,
-                                        ),
-                                        _ControlButton(
-                                          tooltip: 'Audio track',
-                                          icon: Icons.audiotrack_rounded,
-                                          enabled: _audios.length > 1,
-                                          onPressed: _openAudioSheet,
-                                        ),
-                                        _ControlButton(
-                                          tooltip: 'Choose source',
-                                          icon: Icons.video_settings_rounded,
-                                          enabled: _sources.length > 1,
-                                          onPressed: _openSourceSheet,
-                                        ),
-                                        _ControlButton(
-                                          tooltip: 'Playback speed',
-                                          icon: Icons.speed_rounded,
-                                          active: _rate != 1.0,
-                                          onPressed: _openSpeedSheet,
-                                        ),
-                                        _ControlButton(
-                                          tooltip: 'Resize video',
-                                          icon: Icons.fit_screen_rounded,
-                                          active: _fitIndex != 0,
-                                          onPressed: _cycleFit,
-                                        ),
+                                  _ControlButton(
+                                    tooltip: 'Previous episode',
+                                    icon: Icons.skip_previous_rounded,
+                                    enabled: _previousEpisode() != null,
+                                    onPressed: _playPrevious,
+                                  ),
+                                  _ControlButton(
+                                    tooltip: 'Next episode',
+                                    icon: Icons.skip_next_rounded,
+                                    enabled: widget.nextEpisode != null,
+                                    onPressed: _playNext,
+                                  ),
+                                  _ControlButton(
+                                    tooltip: _isDownloaded()
+                                        ? 'Remove download'
+                                        : 'Download for offline viewing',
+                                    icon: _isDownloaded()
+                                        ? Icons.download_done_rounded
+                                        : Icons.download_outlined,
+                                    active: _isDownloaded(),
+                                    activeColor: AppColors.success,
+                                    onPressed: _toggleDownload,
+                                  ),
+                                  _ControlButton(
+                                    tooltip: 'Share this title',
+                                    icon: Icons.share_outlined,
+                                    onPressed: _shareCurrent,
+                                  ),
+                                  _ControlButton(
+                                    tooltip: 'Picture in picture',
+                                    icon: Icons.picture_in_picture_alt_rounded,
+                                    onPressed: _enterPip,
+                                  ),
+                                  _ControlButton(
+                                    tooltip: _selectedSub != null
+                                        ? 'Subtitles on'
+                                        : 'Subtitles',
+                                    icon: _selectedSub != null
+                                        ? Icons.closed_caption_rounded
+                                        : Icons.closed_caption_off_rounded,
+                                    active: _selectedSub != null,
+                                    enabled: _subs.isNotEmpty,
+                                    onPressed: _openCaptionsSheet,
+                                  ),
+                                  _ControlButton(
+                                    tooltip: 'Audio track',
+                                    icon: Icons.audiotrack_rounded,
+                                    enabled: _audios.length > 1,
+                                    onPressed: _openAudioSheet,
+                                  ),
+                                  _ControlButton(
+                                    tooltip: 'Choose source',
+                                    icon: Icons.video_settings_rounded,
+                                    enabled: _sources.length > 1,
+                                    onPressed: _openSourceSheet,
+                                  ),
+                                  _ControlButton(
+                                    tooltip: 'Playback speed',
+                                    icon: Icons.speed_rounded,
+                                    active: _rate != 1.0,
+                                    onPressed: _openSpeedSheet,
+                                  ),
+                                  _ControlButton(
+                                    tooltip: 'Resize video',
+                                    icon: Icons.fit_screen_rounded,
+                                    active: _fitIndex != 0,
+                                    onPressed: _cycleFit,
+                                  ),
                                 ],
                               ),
                             ],
