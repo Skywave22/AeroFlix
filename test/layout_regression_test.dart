@@ -134,11 +134,12 @@ void main() {
 
   group('grid columns adapt to the viewport', () {
     testWidgets('phone stays at 3 columns, TV grows', (tester) async {
-      for (final entry in const {
-        Size(360, 640): 3,
-        Size(411, 891): 3,
-        Size(760, 1024): 5,
-        Size(1920, 1080): 8,
+      // `Size` overrides `==`, so it cannot be a key in a *const* map.
+      for (final entry in <Size, int>{
+        const Size(360, 640): 3,
+        const Size(411, 891): 3,
+        const Size(760, 1024): 5,
+        const Size(1920, 1080): 8,
       }.entries) {
         late int cols;
         await tester.pumpWidget(

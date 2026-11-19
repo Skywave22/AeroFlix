@@ -80,7 +80,7 @@ class _WatchlistScreenState extends ConsumerState<WatchlistScreen> {
                       'Titles you save for later will show up here.',
                       style: AppTypography.body,
                     ),
-                    const Expanded(
+                    Expanded(
                       child: Center(
                         child: Column(
                           mainAxisSize: MainAxisSize.min,
