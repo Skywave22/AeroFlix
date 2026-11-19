@@ -39,22 +39,21 @@ jobs:
         run: flutter pub get
 
       - name: Verify formatting (app + vendored provider package)
-        # NOTE: no `set -e` interference here — every command runs and the step
-        # decides its own exit status. The previous version relied on
-        # `--set-exit-if-changed` inside an `if !` and reported failures that
-        # the very same command did not reproduce elsewhere.
         run: |
           set +e
           out=$(dart format --output=none --set-exit-if-changed lib test \
                   packages/tj_flutter_providers/lib \
                   packages/tj_flutter_providers/test 2>&1)
           code=$?
-          if [ -n "$out" ]; then echo "$out"; fi
-          echo "dart format exit=$code"
+          echo "$out"
+          echo "exit=$code"
           if [ "$code" -ne 0 ]; then
-            echo "::error::Formatting check failed (exit $code). Run 'dart format lib test packages/tj_flutter_providers/lib packages/tj_flutter_providers/test'."
+            # Emit the formatter's own output as an annotation so the failure is
+            # actionable from the UI and the API.
+            echo "::error title=Format check output::$out"
+            git status --short | head -20
+            exit 1
           fi
-          exit "$code"
 
       - name: Analyze (fatal on errors/warnings)
         run: flutter analyze --no-pub
