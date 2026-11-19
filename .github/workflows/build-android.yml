@@ -173,7 +173,11 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 45
     needs: verify
-    if: github.ref == 'refs/heads/main'
+    # Also build on PRs: R8/minification and the release-only signing path fail
+    # in ways a debug build never surfaces. Without a keystore the build falls
+    # back to the debug key (see android/app/build.gradle), so this is only a
+    # compile+package check — real signing stays on main.
+    if: github.ref == 'refs/heads/main' || github.event_name == 'pull_request'
     steps:
       - uses: actions/checkout@v4
 
