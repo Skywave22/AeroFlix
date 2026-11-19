@@ -23,12 +23,36 @@ class _WatchlistScreenState extends ConsumerState<WatchlistScreen> {
     return _cache.putIfAbsent(key, () async {
       final parts = key.split(':');
       final type = parts[0] == 'tv' ? MediaType.tv : MediaType.movie;
-      final id = int.parse(parts[1]);
+      // "movie:123" — a corrupt entry must not crash the whole tab.
+      final id = int.tryParse(parts.length > 1 ? parts[1] : '');
+      if (id == null) {
+        return MediaDetails(type: type, id: 0, title: 'Unavailable');
+      }
       final svc = ref.read(tmdbServiceProvider);
       return type == MediaType.movie
           ? svc.getMovieDetails(id)
           : svc.getTvDetails(id);
     });
+  }
+
+  Future<bool> _confirmClear(BuildContext context) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Clear watchlist?'),
+        content: const Text(
+            'Every saved title will be removed from this device. This cannot be undone.'),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Cancel')),
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              child: const Text('Clear')),
+        ],
+      ),
+    );
+    return ok ?? false;
   }
 
   @override
@@ -58,15 +82,13 @@ class _WatchlistScreenState extends ConsumerState<WatchlistScreen> {
                                     size: 56, color: AppColors.textMuted),
                                 SizedBox(height: AppSpacing.md),
                                 Text('Your watchlist is empty',
-                                    style: TextStyle(
-                                        color: AppColors.textSecondary,
-                                        fontSize: 16)),
-                                SizedBox(height: AppSpacing.xs),
+                                    style: AppTypography.cardTitle),
+                                const SizedBox(height: AppSpacing.xs),
                                 Text(
                                     'Tap the bookmark icon on any title to save it.',
-                                    style: TextStyle(
-                                        color: AppColors.textMuted,
-                                        fontSize: 13)),
+                                    textAlign: TextAlign.center,
+                                    style: AppTypography.metadata.copyWith(
+                                        color: AppColors.textMuted)),
                               ]))),
                         ]))
                 : CustomScrollView(
@@ -86,9 +108,12 @@ class _WatchlistScreenState extends ConsumerState<WatchlistScreen> {
                                   color: AppColors.surface,
                                   shape: RoundedRectangleBorder(
                                       borderRadius: AppRadii.mdRadius),
-                                  onSelected: (v) {
-                                    if (v == 'clear') {
-                                      ref
+                                  onSelected: (v) async {
+                                    if (v != 'clear') return;
+                                    final ok = await _confirmClear(context);
+                                    if (!ok) return;
+                                    if (context.mounted) {
+                                      await ref
                                           .read(watchlistProvider.notifier)
                                           .clear();
                                     }
@@ -113,11 +138,13 @@ class _WatchlistScreenState extends ConsumerState<WatchlistScreen> {
                                 horizontal: AppSpacing.horizontalPadding),
                             sliver: SliverGrid(
                                 gridDelegate:
-                                    const SliverGridDelegateWithFixedCrossAxisCount(
-                                        crossAxisCount: 3,
+                                    SliverGridDelegateWithFixedCrossAxisCount(
+                                        crossAxisCount:
+                                            AppSpacing.posterColumnsFor(context),
                                         crossAxisSpacing: AppSpacing.sm,
                                         mainAxisSpacing: AppSpacing.md,
-                                        childAspectRatio: 2 / 3.3),
+                                        mainAxisExtent:
+                                            AppSpacing.posterRowFor(context) - 16),
                                 delegate: SliverChildBuilderDelegate(
                                     (context, i) => _WatchlistCell(
                                           key: ValueKey(items[i]),
@@ -133,7 +160,9 @@ class _WatchlistScreenState extends ConsumerState<WatchlistScreen> {
                                                       items[i].split(':')[1])),
                                         ),
                                     childCount: items.length))),
-                        const SliverToBoxAdapter(child: SizedBox(height: 80)),
+                        SliverToBoxAdapter(
+                            child: SizedBox(
+                                height: 24 + MediaQuery.paddingOf(context).bottom)),
                       ])));
   }
 }
@@ -181,13 +210,18 @@ class _WatchlistCell extends StatelessWidget {
                     color: Colors.black45,
                     shape: const CircleBorder(),
                     clipBehavior: Clip.antiAlias,
-                    child: IconButton(
-                        iconSize: 14,
-                        padding: const EdgeInsets.all(2),
-                        constraints:
-                            const BoxConstraints(minWidth: 24, minHeight: 24),
-                        icon: const Icon(Icons.close, color: Colors.white),
-                        onPressed: onRemove))),
+                    // 48 dp: the old 24 dp square was under the touch
+                    // minimum and a near-miss opened the title instead.
+                    child: Semantics(
+                      button: true,
+                      label: 'Remove from watchlist',
+                      child: InkWell(
+                          onTap: onRemove,
+                          child: const SizedBox(
+                              width: 44,
+                              height: 44,
+                              child: Icon(Icons.close,
+                                  color: Colors.white, size: 18)))))),
           ]);
         });
   }

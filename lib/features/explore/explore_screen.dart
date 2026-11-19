@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import '../../app/theme/app_colors.dart';
 import '../../app/theme/app_spacing.dart';
 import '../../app/theme/app_typography.dart';
+import '../../shared/widgets/section_placeholder.dart';
 import '../../core/network/tmdb_service.dart';
 import '../../shared/models/movie.dart';
 import '../../shared/models/tv_show.dart';
@@ -106,37 +107,25 @@ class _ExploreScreenState extends ConsumerState<ExploreScreen> {
                       child: Padding(
                           padding: const EdgeInsets.symmetric(
                               horizontal: AppSpacing.horizontalPadding),
-                          child: Row(children: [
-                            _toggle('Movies', !_tvMode,
-                                () => setState(() => _tvMode = false)),
-                            const SizedBox(width: AppSpacing.sm),
-                            _toggle('TV Shows', _tvMode,
-                                () => setState(() => _tvMode = true)),
-                          ]))),
+                          child: SegmentedButton<bool>(
+                            segments: const [
+                              ButtonSegment(value: false, label: Text('Movies')),
+                              ButtonSegment(
+                                  value: true, label: Text('TV Shows')),
+                            ],
+                            selected: {_tvMode},
+                            showSelectedIcon: false,
+                            // Full width, so the segmented control lines up
+                            // with the chips above and the grid below.
+                            expandedInsets: EdgeInsets.zero,
+                            onSelectionChanged: (sel) =>
+                                setState(() => _tvMode = sel.first),
+                          ))),
                   const SliverToBoxAdapter(
                       child: SizedBox(height: AppSpacing.md)),
                   _buildContent(),
                   const SliverToBoxAdapter(child: SizedBox(height: 80)),
                 ])));
-  }
-
-  Widget _toggle(String label, bool sel, VoidCallback onTap) {
-    return Expanded(
-        child: Material(
-            color: sel ? AppColors.accent : AppColors.surface,
-            borderRadius: BorderRadius.circular(10),
-            clipBehavior: Clip.antiAlias,
-            child: InkWell(
-                onTap: onTap,
-                child: Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 10),
-                    child: Center(
-                        child: Text(label,
-                            style: AppTypography.button.copyWith(
-                                color: sel
-                                    ? Colors.white
-                                    : AppColors.textSecondary,
-                                fontSize: 13)))))));
   }
 
   Widget _buildContent() {
@@ -168,6 +157,8 @@ class _ExploreScreenState extends ConsumerState<ExploreScreen> {
       _sectionTitle('Popular'),
       const SizedBox(height: AppSpacing.sm),
       _horizontal(popAsync, _tvMode),
+      const SizedBox(height: AppSpacing.md),
+      const _ExploreFooter(),
     ]));
   }
 
@@ -178,7 +169,7 @@ class _ExploreScreenState extends ConsumerState<ExploreScreen> {
 
   Widget _horizontal(AsyncValue<List<dynamic>> async, bool isTv) {
     return SizedBox(
-        height: AppSpacing.posterHeight + 56,
+        height: AppSpacing.posterRowFor(context),
         child: async.when(
             data: (items) => ListView.separated(
                 scrollDirection: Axis.horizontal,
@@ -210,10 +201,9 @@ class _ExploreScreenState extends ConsumerState<ExploreScreen> {
                     padding: EdgeInsets.all(24),
                     child: CircularProgressIndicator(
                         color: AppColors.accent, strokeWidth: 2))),
-            error: (e, _) => Padding(
-                padding: const EdgeInsets.all(24),
-                child: Text('Failed to load: $e',
-                    style: const TextStyle(color: AppColors.textMuted)))));
+            error: (_, __) => const Center(
+                child: SectionErrorState(
+                    message: 'Could not load these titles'))));
   }
 
   Widget _sliverGridAsync(AsyncValue<List<dynamic>> async, bool isTv) {
@@ -222,11 +212,14 @@ class _ExploreScreenState extends ConsumerState<ExploreScreen> {
             horizontal: AppSpacing.horizontalPadding),
         sliver: async.when(
             data: (items) => SliverGrid(
-                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: 3,
+                // Columns follow the viewport (3 on a phone, 5-7 on a TV) and
+                // the aspect ratio leaves room for the two text lines under the
+                // art, including when the OS text scale is raised.
+                gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: AppSpacing.posterColumnsFor(context),
                     crossAxisSpacing: AppSpacing.sm,
                     mainAxisSpacing: AppSpacing.md,
-                    childAspectRatio: 2 / 3.3),
+                    mainAxisExtent: AppSpacing.posterRowFor(context) - 16),
                 delegate: SliverChildBuilderDelegate((c, i) {
                   final it = items[i];
                   if (isTv) {
@@ -249,15 +242,14 @@ class _ExploreScreenState extends ConsumerState<ExploreScreen> {
                     child: CircularProgressIndicator(
                         color: AppColors.accent, strokeWidth: 2))),
             error: (_, __) => SliverFillRemaining(
-                    child: Center(
-                        child:
-                            Column(mainAxisSize: MainAxisSize.min, children: [
-                  const Icon(Icons.error_outline_rounded,
-                      color: AppColors.textMuted, size: 40),
-                  const SizedBox(height: 12),
-                  Text('Could not load results',
-                      style: AppTypography.bodyPrimary),
-                ])))));
+                child: Center(
+                    child: SectionErrorState(
+                        message: 'Could not load results',
+                        onRetry: () => ref.invalidate(
+                            _tvMode
+                                ? _exploreTvProvider(_selGenreId!)
+                                : _exploreMoviesProvider(_selGenreId!)),
+                    )))));
   }
 }
 
@@ -265,4 +257,23 @@ class _Preset {
   final String label;
   final int? id;
   const _Preset({required this.label, this.id});
+}
+
+/// Footer under the default Explore view: an explicit way to keep browsing
+/// instead of the page simply stopping after page 1 of each row.
+class _ExploreFooter extends StatelessWidget {
+  const _ExploreFooter();
+
+  @override
+  Widget build(BuildContext context) => Padding(
+        padding: const EdgeInsets.symmetric(
+            horizontal: AppSpacing.horizontalPadding, vertical: AppSpacing.lg),
+        child: OutlinedButton.icon(
+          onPressed: () => context.go('/search'),
+          icon: const Icon(Icons.search_rounded, size: 18),
+          label: const Text('Search the full catalogue'),
+          style: OutlinedButton.styleFrom(
+              minimumSize: const Size(double.infinity, 48)),
+        ),
+      );
 }

@@ -5,6 +5,15 @@ plugins {
     id "dev.flutter.flutter-gradle-plugin"
 }
 
+// Optional release keystore, see README "Signing a release build".
+def keystorePropertiesFile = rootProject.file('key.properties')
+def keystoreProperties = new Properties()
+if (keystorePropertiesFile.exists()) {
+    keystorePropertiesFile.withInputStream { keystoreProperties.load(it) }
+}
+def hasReleaseKeystore = keystorePropertiesFile.exists() &&
+        keystoreProperties['storeFile'] != null
+
 android {
     namespace = "com.aeroflix.aeroflix"
     // media_kit_video 2.x and quickjs_engine both build native code for SDK 36 / NDK 27.
@@ -24,6 +33,19 @@ android {
         versionName = flutter.versionName
     }
 
+    // Real release signing, when key.properties is present. The properties
+    // file is git-ignored; CI materialises it from repository secrets.
+    signingConfigs {
+        release {
+            if (hasReleaseKeystore) {
+                keyAlias keystoreProperties['keyAlias']
+                keyPassword keystoreProperties['keyPassword']
+                storeFile file(keystoreProperties['storeFile'])
+                storePassword keystoreProperties['storePassword']
+            }
+        }
+    }
+
     // Release lint (lintVital) currently crashes on url_launcher_android's
     // analyzer pass; Flutter's own analyze/test job is our lint gate instead.
     lint {
@@ -33,9 +55,16 @@ android {
 
     buildTypes {
         release {
-            // Debug keys for now so `flutter build apk --release` produces a
-            // sideloadable APK without extra signing secrets.
-            signingConfig = signingConfigs.debug
+            // Signing: prefer a real upload keystore supplied through
+            // `android/key.properties` (or the CI secrets that generate it).
+            // Without one we still fall back to the debug keystore so a plain
+            // `flutter build apk --release` keeps producing a sideloadable APK
+            // — but an artifact signed with the debug key cannot be updated in
+            // place by a properly signed build, and Google Play rejects it.
+            // The CI release job warns loudly when it has to use the fallback.
+            signingConfig = hasReleaseKeystore
+                    ? signingConfigs.release
+                    : signingConfigs.debug
         }
     }
 }

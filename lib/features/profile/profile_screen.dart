@@ -201,9 +201,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
 
             _SectionHeader('About'),
             _ListTile(
-              icon: Icons.info_outline_rounded,
+              icon: Icons.numbers_rounded,
               title: 'Version',
-              subtitle: '$_version ($_buildNumber)',
+              subtitle: 'AeroFlix $_version (build $_buildNumber)',
             ),
             _ListTile(
               icon: Icons.ios_share_rounded,
@@ -212,19 +212,21 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
               onTap: _shareApp,
             ),
             _ListTile(
-              icon: Icons.info_outline_rounded,
+              icon: Icons.privacy_tip_outlined,
               title: 'About, privacy & terms',
               subtitle: 'What this app does and what it stores',
               onTap: () => AboutSheet.show(context,
                   version: _version, build: _buildNumber),
+              trailing: const Icon(Icons.chevron_right_rounded,
+                  color: AppColors.textMuted),
             ),
-            const SizedBox(height: 48),
+            const SizedBox(height: AppSpacing.lg),
 
             Center(
                 child: Text('Built with ♥ for cinema fans',
                     style: AppTypography.metadata
                         .copyWith(color: AppColors.textMuted, fontSize: 11))),
-            const SizedBox(height: 20),
+            SizedBox(height: 20 + MediaQuery.paddingOf(context).bottom),
           ])),
     );
   }
@@ -297,7 +299,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
       context: context,
       backgroundColor: AppColors.surface,
       shape: const RoundedRectangleBorder(
-          borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+          borderRadius: AppRadii.sheetRadius),
       builder: (ctx) => SafeArea(
         child: Column(mainAxisSize: MainAxisSize.min, children: [
           const SizedBox(height: 12),
@@ -346,17 +348,40 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
 
   void _openProviders() {
     Navigator.of(context).push(MaterialPageRoute(
-        builder: (_) =>
-            ProvidersScreen(service: ref.read(providerServiceProvider))));
+        builder: (_) => ProvidersScreen(
+              service: ref.read(providerServiceProvider),
+              initialEnabled: ref.read(enabledProviderIdsProvider),
+              onEnabledChanged: (ids) {
+                final notifier = ref.read(enabledProviderIdsProvider.notifier);
+                for (final id in ids) {
+                  notifier.setEnabled(id, true);
+                }
+                for (final id in ref
+                    .read(enabledProviderIdsProvider)
+                    .where((id) => !ids.contains(id))
+                    .toList()) {
+                  notifier.setEnabled(id, false);
+                }
+                ref.invalidate(providerServiceProvider);
+              },
+            )));
   }
 
   Future<void> _shareApp() async {
-    final messenger = ScaffoldMessenger.of(context);
-    await Share.share(
+    // Share.share reports the outcome; it used to `hideCurrentSnackBar()`
+    // without ever showing one, which is a no-op that reads like feedback.
+    final result = await Share.share(
         'AeroFlix — movies, series and anime with real sources. '
         'https://github.com/Skywave22/AeroFlix',
         subject: 'AeroFlix');
-    messenger.hideCurrentSnackBar();
+    if (!mounted) return;
+    if (result.status == ShareResultStatus.unavailable) {
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(const SnackBar(
+            content: Text('No app available to share with'),
+            duration: Duration(seconds: 2)));
+    }
   }
 
   /// Real viewing history, built from the continue-watching store.

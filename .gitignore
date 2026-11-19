@@ -41,8 +41,11 @@ android/gradlew
 android/gradlew.bat
 android/local.properties
 android/**/GeneratedPluginRegistrant.java
+
+# Release signing (see README "Signing a release build").
 android/key.properties
 *.jks
+*.keystore
 
 # iOS
 ios/Pods/

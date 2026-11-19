@@ -92,3 +92,50 @@ class SectionEmptyState extends StatelessWidget {
         Text(message, style: AppTypography.body, textAlign: TextAlign.center),
       ]));
 }
+
+/// One-line failure notice for a single row/section.
+///
+/// Rows used to fail silently (`SizedBox.shrink()`), so a whole carousel could
+/// vanish with no explanation, or leak a raw exception string. This keeps the
+/// row's footprint and offers a retry.
+class InlineErrorRow extends StatelessWidget {
+  final String message;
+  final VoidCallback? onRetry;
+  const InlineErrorRow({super.key, required this.message, this.onRetry});
+
+  @override
+  Widget build(BuildContext context) => Padding(
+        padding: const EdgeInsets.symmetric(
+            horizontal: AppSpacing.horizontalPadding,
+            vertical: AppSpacing.md),
+        child: Container(
+          padding: const EdgeInsets.symmetric(
+              horizontal: AppSpacing.md, vertical: AppSpacing.sm),
+          decoration: BoxDecoration(
+            color: AppColors.surface,
+            borderRadius: AppRadii.mdRadius,
+          ),
+          child: Row(children: [
+            const Icon(Icons.cloud_off_rounded,
+                color: AppColors.textMuted, size: 18),
+            const SizedBox(width: AppSpacing.sm),
+            Expanded(
+              child: Text(message,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: AppTypography.metadata),
+            ),
+            if (onRetry != null)
+              TextButton(
+                onPressed: onRetry,
+                style: TextButton.styleFrom(
+                    minimumSize: Size.zero,
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: AppSpacing.xs, vertical: 4),
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap),
+                child: const Text('Retry'),
+              ),
+          ]),
+        ),
+      );
+}

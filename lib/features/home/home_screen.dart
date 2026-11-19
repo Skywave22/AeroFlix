@@ -21,28 +21,6 @@ import '../../shared/widgets/poster_card.dart';
 import '../../shared/widgets/section_placeholder.dart';
 import '../providers/provider_diagnostics_screen.dart';
 
-// Curated ids for the "Hindi Blockbusters" row — all real catalogue titles,
-// playable through the providers like everything else.
-const List<int> _kHindiRow = [
-  1010581, // Animal
-  872906, // Jawan
-  792307, // Poor Things (world cinema in the Hindi row is intentional-free)
-  640146, // Ant-Man and the Wasp: Quantumania (multi-audio)
-  502356, // The Super Mario Bros. Movie (multi-audio)
-  298618, // The Flash (multi-audio)
-];
-
-/// Fetches a list of MediaDetails for the given movie ids in parallel.
-final movieDetailsBulkProvider =
-    FutureProvider.family<List<MediaDetails>, List<int>>((ref, ids) async {
-  final svc = ref.watch(tmdbServiceProvider);
-  final futures = ids.map((id) => svc.getMovieDetails(id));
-  return Future.wait(futures);
-});
-
-String _year(String? date) =>
-    (date != null && date.length >= 4) ? date.substring(0, 4) : '';
-
 class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
   @override
@@ -126,7 +104,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     SliverToBoxAdapter(
                         child: HorizontalCarousel(
                             title: 'Continue Watching',
-                            height: 160,
+                            height: AppSpacing.continueRowFor(context),
                             itemCount: continueList.length,
                             itemBuilder: (_, i) => ContinueCard(
                                   item: continueList[i],
@@ -142,64 +120,29 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     SliverToBoxAdapter(child: _continueEmpty()),
                   const SliverToBoxAdapter(
                       child: SizedBox(height: AppSpacing.lg)),
-                  // Hindi-first cinema row (real TMDB catalogue; playback comes
-                  // from the TJ providers like every other title).
-                  SliverToBoxAdapter(
-                      child: Consumer(builder: (context, ref, _) {
-                    final freeAsync =
-                        ref.watch(movieDetailsBulkProvider(_kHindiRow));
-                    return freeAsync.when(
-                      loading: () => const SizedBox(
-                          height: 200,
-                          child: Center(
-                              child:
-                                  CircularProgressIndicator(strokeWidth: 2))),
-                      error: (_, __) => const SizedBox.shrink(),
-                      data: (items) => HorizontalCarousel(
-                        title: 'Hindi Blockbusters',
-                        height: 200,
-                        itemCount: items.length,
-                        itemBuilder: (_, i) {
-                          final it = items[i];
-                          return PosterCard(
-                            imageUrl: it.posterUrlW500,
-                            title: it.title,
-                            metadata: _year(it.releaseDate),
-                            onTap: () => _openMovieId(
-                                it.id, it.posterUrlW500, MediaType.movie),
-                          );
-                        },
-                      ),
-                    );
-                  })),
+                  _sliverMovies(trending, 'Trending Now', source: trendingMoviesProvider),
                   const SliverToBoxAdapter(
                       child: SizedBox(height: AppSpacing.lg)),
-                  _sliverMovies(trending, 'Trending Now'),
+                  _sliverMovies(hindi, 'Hindi Cinema', source: hindiMoviesProvider),
                   const SliverToBoxAdapter(
                       child: SizedBox(height: AppSpacing.lg)),
+                  _sliverMovies(popular, 'Popular Movies', source: popularMoviesProvider),
                   const SliverToBoxAdapter(
                       child: SizedBox(height: AppSpacing.lg)),
-                  _sliverMovies(hindi, 'Hindi Cinema'),
+                  _sliverTv(trendingTv, 'Trending TV Shows', source: trendingTvProvider),
                   const SliverToBoxAdapter(
                       child: SizedBox(height: AppSpacing.lg)),
-                  _sliverMovies(popular, 'Popular Movies'),
+                  _sliverMovies(topRated, 'Top Rated',
+                      rating: true, source: topRatedMoviesProvider),
                   const SliverToBoxAdapter(
                       child: SizedBox(height: AppSpacing.lg)),
-                  _sliverTv(trendingTv, 'Trending TV Shows'),
-                  const SliverToBoxAdapter(
-                      child: SizedBox(height: AppSpacing.lg)),
-                  _sliverMovies(topRated, 'Top Rated', rating: true),
-                  const SliverToBoxAdapter(
-                      child: SizedBox(height: AppSpacing.lg)),
-                  _sliverMovies(nowPlaying, 'Now Playing'),
+                  _sliverMovies(nowPlaying, 'Now Playing', source: nowPlayingMoviesProvider),
                   const SliverToBoxAdapter(child: SizedBox(height: 100)),
                 ])));
   }
 
   void _openMovie(Movie m) => context.push(
       '/details/movie/${m.id}?poster=${Uri.encodeComponent(m.posterUrlW342)}');
-  void _openMovieId(int id, String posterUrl, MediaType type) => context.push(
-      '/details/${type.name}/$id?poster=${Uri.encodeComponent(posterUrl)}');
   void _openTv(TvShow s) => context.push(
       '/details/tv/${s.id}?poster=${Uri.encodeComponent(s.posterUrlW342)}');
 
@@ -207,10 +150,17 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       Set<String> watchlistKeys) {
     final ms = movies.valueOrNull ?? const <Movie>[];
     final ts = tv.valueOrNull ?? const <TvShow>[];
-    final hero = <HeroItem>[
-      ...ms.take(5).map(HeroItem.fromMovie),
-      ...ts.take(3).map(HeroItem.fromTv),
-    ]..shuffle();
+    // Deterministic ordering: a shuffle here re-ordered the banner on every
+    // rebuild (watchlist toggle, continue-watching update) and fought the
+    // rotator's own index. Interleave movies and TV instead, and let the
+    // rotator handle motion.
+    final movies = ms.take(5).map(HeroItem.fromMovie).toList();
+    final shows = ts.take(3).map(HeroItem.fromTv).toList();
+    final hero = <HeroItem>[];
+    for (var i = 0; i < 5; i++) {
+      if (i < movies.length) hero.add(movies[i]);
+      if (i < shows.length) hero.add(shows[i]);
+    }
     if (hero.isEmpty) return const SizedBox(height: 380);
     return HeroRotator(
       items: hero,
@@ -261,35 +211,42 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   String _metaRating(Movie m) => '★ ${m.rating} · ${m.year ?? ""}';
 
   Widget _sliverMovies(AsyncValue<List<Movie>> prov, String title,
-          {bool rating = false}) =>
+          {bool rating = false, ProviderListenable<Object?>? source}) =>
       SliverToBoxAdapter(
           child: prov.when(
               data: (ms) => HorizontalCarousel(
                   title: title,
                   itemCount: ms.length,
-                  height: AppSpacing.posterHeight + 56,
+                  height: AppSpacing.posterRowFor(context),
                   itemBuilder: (_, i) => PosterCard(
                       imageUrl: ms[i].posterUrlW342,
                       title: ms[i].title,
                       metadata: rating ? _metaRating(ms[i]) : ms[i].year,
                       onTap: () => _openMovie(ms[i]))),
               loading: () => const SectionLoadingPlaceholder(),
-              error: (_, __) => const SizedBox.shrink()));
+              error: (_, __) => InlineErrorRow(
+                  message: 'Could not load “$title”',
+                  onRetry:
+                      source == null ? null : () => ref.invalidate(source))));
 
-  Widget _sliverTv(AsyncValue<List<TvShow>> prov, String title) =>
+  Widget _sliverTv(AsyncValue<List<TvShow>> prov, String title,
+          {ProviderListenable<Object?>? source}) =>
       SliverToBoxAdapter(
           child: prov.when(
               data: (shows) => HorizontalCarousel(
                   title: title,
                   itemCount: shows.length,
-                  height: AppSpacing.posterHeight + 56,
+                  height: AppSpacing.posterRowFor(context),
                   itemBuilder: (_, i) => PosterCard(
                       imageUrl: shows[i].posterUrlW342,
                       title: shows[i].name,
                       metadata: shows[i].year,
                       onTap: () => _openTv(shows[i]))),
               loading: () => const SectionLoadingPlaceholder(),
-              error: (_, __) => const SizedBox.shrink()));
+              error: (_, __) => InlineErrorRow(
+                  message: 'Could not load “$title”',
+                  onRetry:
+                      source == null ? null : () => ref.invalidate(source))));
 
   Widget _continueEmpty() => Padding(
       padding: AppSpacing.screenHorizontal,

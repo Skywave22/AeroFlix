@@ -56,16 +56,19 @@ class _AeroFlixAppState extends State<AeroFlixApp> {
                     title: 'AeroFlix',
                     debugShowCheckedModeBanner: false,
                     theme: AppTheme.dark(),
-                    // Never let an extreme system font scale make the UI unreadable
-                    // (0.9x) or break layouts (1.35x). The base type scale is already
-                    // larger than Material defaults after the legibility pass.
+                    // System font scaling is honoured (clamped only at the very
+                    // top of the accessibility range, where the layout would
+                    // become unusable). Rows and cards size themselves from
+                    // MediaQuery.textScalerOf instead of assuming 1.0x, so
+                    // raising the scale grows the text block rather than
+                    // clipping it.
                     builder: (context, child) {
                       final mq = MediaQuery.of(context);
                       return MediaQuery(
                         data: mq.copyWith(
                           textScaler: mq.textScaler.clamp(
-                            minScaleFactor: 0.9,
-                            maxScaleFactor: 1.35,
+                            minScaleFactor: 0.8,
+                            maxScaleFactor: 2.0,
                           ),
                         ),
                         child: child ?? const SizedBox.shrink(),

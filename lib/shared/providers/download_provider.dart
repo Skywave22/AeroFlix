@@ -21,6 +21,11 @@ class DownloadItem {
   /// AeroFlix never fakes a download.
   final String? url;
 
+  /// HTTP headers the provider said this stream needs (`Referer`, `Origin`,
+  /// `User-Agent`…). Dropping them made every header-gated CDN answer 403 even
+  /// though the same link played fine in the player.
+  final Map<String, String> headers;
+
   /// Local file path, set once the download completes.
   final String? filePath;
   final int sizeBytes;
@@ -38,6 +43,7 @@ class DownloadItem {
     required this.season,
     required this.episode,
     this.url,
+    this.headers = const {},
     this.filePath,
     this.sizeBytes = 0,
     this.status = DownloadStatus.queued,
@@ -50,6 +56,7 @@ class DownloadItem {
     String? subtitle,
     String? posterPath,
     String? url,
+    Map<String, String>? headers,
     String? filePath,
     int? sizeBytes,
     DownloadStatus? status,
@@ -67,6 +74,7 @@ class DownloadItem {
         season: season,
         episode: episode,
         url: url ?? this.url,
+        headers: headers.isEmpty ? this.headers : headers,
         filePath: filePath ?? this.filePath,
         sizeBytes: sizeBytes ?? this.sizeBytes,
         status: status ?? this.status,
@@ -84,6 +92,7 @@ class DownloadItem {
         'season': season,
         'episode': episode,
         'url': url,
+        'headers': headers,
         'filePath': filePath,
         'sizeBytes': sizeBytes,
         'status': status.name,
@@ -103,6 +112,9 @@ class DownloadItem {
       season: (j['season'] as int?) ?? 0,
       episode: (j['episode'] as int?) ?? 0,
       url: j['url'] as String?,
+      headers: (j['headers'] as Map?)?.map(
+              (k, v) => MapEntry(k.toString(), v.toString())) ??
+          const {},
       filePath: j['filePath'] as String?,
       sizeBytes: (j['sizeBytes'] as int?) ?? 0,
       status: DownloadStatus.values.firstWhere((s) => s.name == statusName,
@@ -201,6 +213,22 @@ class DownloadNotifier extends StateNotifier<List<DownloadItem>> {
       d.status == DownloadStatus.downloading ||
       d.status == DownloadStatus.queued);
 
+  /// Re-point a failed item at a fresh URL + headers and retry it.
+  Future<void> rearm(String key, String url,
+      {Map<String, String> headers = const {}}) async {
+    final i = state.indexWhere((d) => d.key == key);
+    if (i < 0) return;
+    state = _replace(state[i].copyWith(
+      url: url,
+      headers: headers,
+      status: DownloadStatus.queued,
+      progress: 0,
+      clearError: true,
+    ));
+    await _persist();
+    _kickOff();
+  }
+
   Future<bool> enqueue(DownloadItem item) async {
     await _ready;
     final url = item.url;
@@ -262,6 +290,9 @@ class DownloadNotifier extends StateNotifier<List<DownloadItem>> {
         url,
         file.path,
         cancelToken: token,
+        // The provider's headers are part of the request, not decoration:
+        // without Referer/Origin these hosts 403.
+        options: Options(headers: item.headers.isEmpty ? null : item.headers),
         onReceiveProgress: (received, total) {
           if (total <= 0) return;
           final p = (received / total).clamp(0.0, 1.0);

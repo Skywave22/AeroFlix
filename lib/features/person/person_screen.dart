@@ -6,6 +6,7 @@ import 'package:intl/intl.dart';
 import '../../app/theme/app_colors.dart';
 import '../../app/theme/app_spacing.dart';
 import '../../app/theme/app_typography.dart';
+import '../../shared/widgets/section_placeholder.dart';
 import '../../core/constants/api_constants.dart';
 import '../../core/network/tmdb_service.dart';
 import '../../shared/models/person.dart';
@@ -54,6 +55,7 @@ class _PersonScreenState extends ConsumerState<PersonScreen> {
                   SliverAppBar(
                       pinned: true,
                       leading: IconButton(
+                          tooltip: 'Back',
                           icon: const Icon(Icons.arrow_back_ios_new_rounded,
                               size: 20),
                           onPressed: () => context.pop())),
@@ -68,15 +70,16 @@ class _PersonScreenState extends ConsumerState<PersonScreen> {
                   SliverAppBar(
                       pinned: true,
                       leading: IconButton(
+                          tooltip: 'Back',
                           icon: const Icon(Icons.arrow_back_ios_new_rounded,
                               size: 20),
                           onPressed: () => context.pop())),
                   SliverFillRemaining(
                       child: Center(
-                          child: FilledButton.tonal(
-                              onPressed: () =>
-                                  setState(() => _future = _load()),
-                              child: const Text('Retry')))),
+                          // Bare "Retry" with no explanation: say what failed.
+                          child: SectionErrorState(
+                              message: 'Could not load this person',
+                              onRetry: () => setState(() => _future = _load())))),
                 ]);
               }
               final d = snap.data!;
@@ -125,6 +128,7 @@ class _Content extends StatelessWidget {
           expandedHeight: 300,
           backgroundColor: AppColors.background,
           leading: IconButton(
+              tooltip: 'Back',
               icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 20),
               onPressed: () => Navigator.of(context).pop(),
               splashRadius: 20),
@@ -177,7 +181,7 @@ class _Content extends StatelessWidget {
         const SliverToBoxAdapter(child: SizedBox(height: AppSpacing.sm)),
         SliverToBoxAdapter(
             child: SizedBox(
-                height: AppSpacing.posterHeight + 56,
+                height: AppSpacing.posterRowFor(context),
                 child: ListView.separated(
                     scrollDirection: Axis.horizontal,
                     padding: AppSpacing.screenHorizontal,
@@ -204,7 +208,7 @@ class _Content extends StatelessWidget {
         const SliverToBoxAdapter(child: SizedBox(height: AppSpacing.sm)),
         SliverToBoxAdapter(
             child: SizedBox(
-                height: AppSpacing.posterHeight + 56,
+                height: AppSpacing.posterRowFor(context),
                 child: ListView.separated(
                     scrollDirection: Axis.horizontal,
                     padding: AppSpacing.screenHorizontal,

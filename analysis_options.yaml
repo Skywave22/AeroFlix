@@ -12,12 +12,13 @@ analyzer:
     - build/**
     - android/**
   errors:
-    # Flutter 3.47+ deprecated `package:flutter/material.dart` in favour of the
-    # new `material_ui` package. Migrating the whole widget tree is a large,
-    # breaking change, so we stay on material.dart (still fully supported in
-    # 3.50) and mute only that specific deprecation rather than hiding every
-    # deprecation report.
-    deprecated_member_use: ignore
+    # Downgrade, don't hide. `ignore` silences *every* deprecated member in the
+    # app — including ones that will break on the next Flutter upgrade — which
+    # is the opposite of what the previous comment claimed. `info` keeps
+    # `flutter analyze` green (it is only fatal on errors and warnings) while
+    # still listing each deprecation so they can be migrated deliberately.
+    deprecated_member_use: info
+    deprecated_member_use_from_same_package: info
 
 include: package:flutter_lints/flutter.yaml
 

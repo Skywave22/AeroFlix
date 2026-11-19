@@ -97,6 +97,29 @@ class AppTheme {
           margin: EdgeInsets.zero,
           shape: RoundedRectangleBorder(borderRadius: AppRadii.mdRadius),
           clipBehavior: Clip.antiAlias),
+      // One sheet shape for every modal in the app (was 14/16/18/20 mixed).
+      bottomSheetTheme: const BottomSheetThemeData(
+        backgroundColor: AppColors.surface,
+        surfaceTintColor: Colors.transparent,
+        modalBackgroundColor: AppColors.surface,
+        shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.vertical(top: Radius.circular(AppRadii.lg))),
+      ),
+      dialogTheme: DialogThemeData(
+        backgroundColor: AppColors.surface,
+        surfaceTintColor: Colors.transparent,
+        shape: RoundedRectangleBorder(borderRadius: AppRadii.lgRadius),
+      ),
+      segmentedButtonTheme: SegmentedButtonThemeData(
+        style: SegmentedButton.styleFrom(
+          backgroundColor: AppColors.surface,
+          foregroundColor: AppColors.textSecondary,
+          selectedBackgroundColor: AppColors.accent,
+          selectedForegroundColor: Colors.white,
+          side: BorderSide.none,
+          textStyle: AppTypography.button.copyWith(fontSize: 13),
+        ),
+      ),
       dividerTheme: const DividerThemeData(
           color: AppColors.outline, thickness: 1, space: 1),
       chipTheme: ChipThemeData(

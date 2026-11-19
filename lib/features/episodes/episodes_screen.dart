@@ -7,6 +7,7 @@ import '../../app/theme/app_colors.dart';
 import '../../app/theme/app_radii.dart';
 import '../../app/theme/app_spacing.dart';
 import '../../app/theme/app_typography.dart';
+import '../../shared/widgets/section_placeholder.dart';
 import '../../core/network/tmdb_service.dart';
 import '../../shared/models/media_details.dart';
 import '../../shared/providers/continue_watching_provider.dart';
@@ -113,6 +114,7 @@ class _EpisodesScreenState extends ConsumerState<EpisodesScreen> {
                   expandedHeight: 120,
                   backgroundColor: AppColors.surface,
                   leading: IconButton(
+                      tooltip: 'Back',
                       icon: const Icon(Icons.arrow_back_ios_new_rounded,
                           size: 20),
                       onPressed: () => context.pop(),
@@ -165,12 +167,23 @@ class _EpisodesScreenState extends ConsumerState<EpisodesScreen> {
                                     color: AppColors.accent, strokeWidth: 2)));
                       }
                       if (snap.hasError || !snap.hasData) {
+                        // Was a dead-end message with no way to recover.
                         return SliverFillRemaining(
                             child: Center(
-                                child: Text('Failed to load episodes',
-                                    style: AppTypography.bodyPrimary)));
+                                child: SectionErrorState(
+                                    message:
+                                        'Could not load this season’s episodes',
+                                    onRetry: () => _load(_seasonNum))));
                       }
                       final eps = snap.data!;
+                      if (eps.isEmpty) {
+                        return const SliverFillRemaining(
+                            child: Center(
+                                child: SectionEmptyState(
+                                    message:
+                                        'No episodes listed for this season.',
+                                    icon: Icons.live_tv_outlined)));
+                      }
                       return SliverList(
                           delegate: SliverChildBuilderDelegate((c, i) {
                         final ep = eps[i];

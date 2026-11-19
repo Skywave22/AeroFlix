@@ -33,13 +33,17 @@ class ContinueCard extends StatelessWidget {
     final sub = item.episodeTitle != null && item.episodeTitle!.isNotEmpty
         ? item.episodeTitle!
         : item.title;
-    return GestureDetector(
-      onTap: onTap,
-      behavior: HitTestBehavior.opaque,
-      child: SizedBox(
-          width: width,
-          child:
-              Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+    return Semantics(
+      button: true,
+      label: '${item.title}, $label, ${(item.progress * 100).round()} percent watched',
+      child: GestureDetector(
+        onTap: onTap,
+        behavior: HitTestBehavior.opaque,
+        child: SizedBox(
+            width: width,
+            child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
             Stack(children: [
               ClipRRect(
                   borderRadius: AppRadii.mdRadius,
@@ -77,21 +81,30 @@ class ContinueCard extends StatelessWidget {
                       child: Icon(Icons.play_circle_filled_rounded,
                           color: Colors.white70, size: 48))),
               if (onRemove != null)
+                // 48 dp target, inside a dark circle so it stays visible over a
+                // bright still. The old 28 dp square was under the touch
+                // minimum and a near-miss opened the title instead.
                 Positioned(
-                    top: 6,
-                    right: 6,
-                    child: Material(
-                        color: Colors.black38,
+                    top: 4,
+                    right: 4,
+                    child: Semantics(
+                      button: true,
+                      label: 'Remove ${item.title} from Continue Watching',
+                      child: Material(
+                        color: Colors.black.withValues(alpha: 0.55),
                         shape: const CircleBorder(),
                         clipBehavior: Clip.antiAlias,
-                        child: IconButton(
-                            iconSize: 16,
-                            padding: const EdgeInsets.all(4),
-                            constraints: const BoxConstraints(
-                                minWidth: 28, minHeight: 28),
-                            icon: const Icon(Icons.close_rounded,
-                                color: Colors.white),
-                            onPressed: onRemove))),
+                        child: InkWell(
+                          onTap: onRemove,
+                          child: const SizedBox(
+                            width: 48,
+                            height: 48,
+                            child: Icon(Icons.close_rounded,
+                                color: Colors.white, size: 20),
+                          ),
+                        ),
+                      ),
+                    )),
               Positioned(
                   left: 8,
                   top: 8,
@@ -112,7 +125,7 @@ class ContinueCard extends StatelessWidget {
                   bottom: 0,
                   child: ClipRRect(
                       borderRadius: const BorderRadius.vertical(
-                          bottom: Radius.circular(12)),
+                          bottom: Radius.circular(AppRadii.md)),
                       child: LinearProgressIndicator(
                           value: item.progress,
                           minHeight: 4,
@@ -126,11 +139,14 @@ class ContinueCard extends StatelessWidget {
                 overflow: TextOverflow.ellipsis,
                 style: AppTypography.cardTitle.copyWith(fontSize: 13)),
             const SizedBox(height: 2),
-            Text(sub,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: AppTypography.metadata),
-          ])),
+            Flexible(
+              child: Text(sub,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: AppTypography.metadata),
+            ),
+                ])),
+      ),
     );
   }
 }

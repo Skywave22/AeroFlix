@@ -3,6 +3,7 @@ import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:tj_flutter_providers/tj_providers.dart';
 
@@ -34,11 +35,72 @@ final providerManagerProvider = Provider<ProviderManager>((ref) {
   return manager;
 });
 
+/// Provider ids the user has switched on.
+///
+/// The Providers screen used to keep its switches in local widget state: the
+/// toggles looked interactive, changed nothing, and reset on every visit, while
+/// every stream request still ran the hard-coded `recommendedIds`. This
+/// provider is the single source of truth, persisted to SharedPreferences and
+/// watched by [providerServiceProvider] so a toggle takes effect immediately.
+final enabledProviderIdsProvider =
+    NotifierProvider<EnabledProviderIdsNotifier, Set<String>>(
+  EnabledProviderIdsNotifier.new,
+);
+
+class EnabledProviderIdsNotifier extends Notifier<Set<String>> {
+  static const _prefKey = 'enabled_provider_ids';
+
+  @override
+  Set<String> build() {
+    _restore();
+    return ProviderManager.recommendedIds.toSet();
+  }
+
+  Future<void> _restore() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final saved = prefs.getStringList(_prefKey);
+      if (saved == null) return;
+      // Never restore an empty set: that would make the app unplayable with no
+      // explanation if the manifest ever contained only unknown ids.
+      if (saved.isEmpty) return;
+      state = saved.toSet();
+    } catch (_) {
+      // Corrupt or unavailable prefs: keep the recommended defaults.
+    }
+  }
+
+  Future<void> setEnabled(String id, bool enabled) async {
+    final next = {...state};
+    if (enabled) {
+      next.add(id);
+    } else {
+      next.remove(id);
+    }
+    if (next.isEmpty) return; // keep at least one provider resolvable
+    state = next;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setStringList(_prefKey, next.toList());
+    } catch (_) {
+      // Persistence is best-effort; the in-memory toggle still applies.
+    }
+  }
+
+  Future<void> reset() async {
+    state = ProviderManager.recommendedIds.toSet();
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove(_prefKey);
+    } catch (_) {}
+  }
+}
+
 final providerServiceProvider = Provider<ProviderService>((ref) {
   return ProviderService(
     manager: ref.watch(providerManagerProvider),
     tmdbApiKey: ApiConstants.tmdbApiKey,
-    enabledIds: ProviderManager.recommendedIds,
+    enabledIds: ref.watch(enabledProviderIdsProvider).toList(),
     // TJ All-in-one fans out to every site itself, so a single title takes
     // ~40 s on a cold run. Give it room instead of cutting it off mid-flight.
     timeout: const Duration(seconds: 105),
@@ -181,8 +243,8 @@ class ProviderStatusNotifier extends Notifier<ProviderStatus> {
     String? error;
     try {
       final before = await manager.getCached();
-      final result = await manager
-          .syncProviders(onlyIds: ProviderManager.recommendedIds)
+      final result = await manager.syncProviders(
+          onlyIds: ref.read(enabledProviderIdsProvider).toList())
           .timeout(const Duration(seconds: 60));
       final after = await manager.getCached();
       updated = after.entries
@@ -222,7 +284,7 @@ final providerStatusProvider =
 Future<UpdateCheckResult> refreshProviders(WidgetRef ref) async {
   final manager = ref.read(providerManagerProvider);
   final result = await manager.syncProviders(
-    onlyIds: ProviderManager.recommendedIds,
+    onlyIds: ref.read(enabledProviderIdsProvider).toList(),
   );
   ref.invalidate(installedProvidersProvider);
   await ref.read(providerStatusProvider.notifier).refresh();

@@ -87,6 +87,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
   Duration _lastAdvancedPos = Duration.zero;
   DateTime _lastAdvanceAt = DateTime.now();
   Timer? _stallTimer;
+  Timer? _bufferingStallTimer;
   Timer? _searchTicker;
   DateTime? _searchStart;
   bool _playing = false;
@@ -474,10 +475,23 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
   Future<void> _play(StreamSource src) async {
     _startWatchdog?.cancel();
     _errorSub?.cancel();
+    _bufferingStallTimer?.cancel();
     _bufferingSub?.cancel();
+    // Clear the previous failure: picking a source from the sheet after "every
+    // source failed" used to leave the error panel painted over live video.
+    if (mounted && _error != null) {
+      setState(() {
+        _error = null;
+        _completed = false;
+        _buffering = true;
+      });
+    }
     final ap = await ref
         .read(activePlayerProvider.notifier)
         .play(src, softwareDecode: _softwareDecode);
+    // `play()` awaits an open, and the user can leave mid-open — that is the
+    // exact case the watchdog exists for. Nothing below may run after dispose.
+    if (!mounted) return;
     ap.player.setRate(_rate);
 
     // A provider link that opens but never produces a frame (403 from the CDN,
@@ -508,10 +522,13 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
     _bufferingSub = ap.player.stream.buffering.listen((b) {
       if (!mounted) return;
       setState(() => _buffering = b);
+      // One timer per stall episode, cancelled as soon as buffering ends or the
+      // source changes. Previously a fresh 25 s Timer was created on *every*
+      // buffering event and never cancelled, so a flapping stream queued up
+      // failovers that could fire long after the user had moved on.
+      _bufferingStallTimer?.cancel();
       if (!b) return;
-      // Still buffering with nothing played for 25 s on this source? Give up on
-      // it rather than spinning forever.
-      Timer(const Duration(seconds: 25), () {
+      _bufferingStallTimer = Timer(const Duration(seconds: 25), () {
         if (!mounted) return;
         if (_selected?.url != src.url) return;
         if (_position > Duration.zero) return;
@@ -677,6 +694,64 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
     context.pushReplacement('/player', extra: next);
   }
 
+  /// The episode before the current one, when this is a TV title.
+  ///
+  /// Derived from the same cached season list the episode strip uses, so it
+  /// costs nothing extra. "Previous" is either the previous item of this
+  /// season, or the last episode of the previous season.
+  PlayerArgs? _previousEpisode() {
+    if (widget.details.type != MediaType.tv || widget.season <= 0) return null;
+    final episodes = ref
+        .read(seasonEpisodesProvider('${widget.details.id}:${widget.season}'))
+        .valueOrNull;
+    if (episodes != null && episodes.isNotEmpty) {
+      final sorted = [...episodes]
+        ..sort((a, b) => a.episodeNumber.compareTo(b.episodeNumber));
+      for (var i = 0; i < sorted.length; i++) {
+        if (sorted[i].episodeNumber != widget.episode) continue;
+        if (i > 0) {
+          final prev = sorted[i - 1];
+          return PlayerArgs(
+            details: widget.details,
+            season: widget.season,
+            episode: prev.episodeNumber,
+            episodeTitle: prev.name,
+          );
+        }
+        break;
+      }
+    }
+    // First episode of this season — step back into the previous season.
+    final seasons = [...widget.details.seasons]
+      ..sort((a, b) => a.seasonNumber.compareTo(b.seasonNumber));
+    final idx = seasons.lastIndexWhere((s) => s.seasonNumber < widget.season);
+    if (idx < 0 || seasons[idx].episodeCount <= 0) return null;
+    final prevSeason = seasons[idx];
+    return PlayerArgs(
+      details: widget.details,
+      season: prevSeason.seasonNumber,
+      episode: prevSeason.episodeCount,
+      episodeTitle: 'S${prevSeason.seasonNumber}E${prevSeason.episodeCount}',
+    );
+  }
+
+  void _playPrevious() {
+    final prev = _previousEpisode();
+    if (prev == null || !mounted) return;
+    _autoAdvanceTimer?.cancel();
+    _persistProgress();
+    context.pushReplacement('/player', extra: prev);
+  }
+
+  Future<void> _enterPip() async {
+    final pip = ref.read(pipServiceProvider);
+    final ok = await pip.enterPip();
+    if (ok || !mounted) return;
+    _showToast(pip.supported
+        ? 'Background playback keeps running when you leave the app'
+        : 'Picture-in-Picture is not available on this device');
+  }
+
   @override
   void dispose() {
     _hideTimer?.cancel();
@@ -691,6 +766,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
     _resolveSub?.cancel();
     _startWatchdog?.cancel();
     _stallTimer?.cancel();
+    _bufferingStallTimer?.cancel();
     _errorSub?.cancel();
     _bufferingSub?.cancel();
     final pip = ref.read(pipServiceProvider);
@@ -715,11 +791,21 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
   void _togglePlay() {
     final ap = ref.read(activePlayerProvider);
     if (ap == null) return;
-    ap.player.playOrPause();
-    if (_completed && widget.nextEpisode != null) {
-      _playNext();
+    // The centre button shows a replay icon once playback has finished, so it
+    // must restart this title. It used to fall through to _playNext(), i.e.
+    // pressing "replay" skipped to the next episode.
+    if (_completed) {
+      _cancelAutoAdvance();
+      ap.player.seek(Duration.zero);
+      ap.player.play();
+      setState(() {
+        _completed = false;
+        _position = Duration.zero;
+      });
+      _scheduleHide();
       return;
     }
+    ap.player.playOrPause();
     _cancelAutoAdvance();
     _scheduleHide();
   }
@@ -736,6 +822,10 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
   }
 
   void _onTap() {
+    // While locked the bars are hidden and inert; a background tap used to flip
+    // _showControls anyway, which re-armed the auto-hide timer and made the
+    // "locked" state leak (bars faded in on the next unlock tick).
+    if (_locked) return;
     setState(() => _showControls = !_showControls);
     if (_showControls) _scheduleHide();
   }
@@ -810,6 +900,8 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
       return;
     }
     final url = direct.url;
+    // enqueue() returns false when the item already exists; the old code
+    // always claimed "Downloading…" even when nothing was queued.
     n.enqueue(DownloadItem(
       key: key,
       title: title,
@@ -820,8 +912,13 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
       season: widget.season,
       episode: widget.episode,
       url: url,
-    ));
-    _showToast('Downloading $title');
+      headers: direct.headers,
+    )).then((added) {
+      if (!mounted) return;
+      _showToast(added
+          ? 'Downloading $title'
+          : '$title is already in your downloads');
+    });
   }
 
   void _showToast(String msg) {
@@ -907,7 +1004,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
       context: context,
       backgroundColor: AppColors.surface,
       shape: const RoundedRectangleBorder(
-          borderRadius: BorderRadius.vertical(top: Radius.circular(16))),
+          borderRadius: AppRadii.sheetRadius),
       builder: (_) => SafeArea(
           child: Column(mainAxisSize: MainAxisSize.min, children: [
         Padding(
@@ -946,7 +1043,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
       context: context,
       backgroundColor: AppColors.surface,
       shape: const RoundedRectangleBorder(
-          borderRadius: BorderRadius.vertical(top: Radius.circular(16))),
+          borderRadius: AppRadii.sheetRadius),
       builder: (_) => SafeArea(
           child: Column(mainAxisSize: MainAxisSize.min, children: [
         Padding(
@@ -1028,7 +1125,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
       context: context,
       backgroundColor: AppColors.surface,
       shape: const RoundedRectangleBorder(
-          borderRadius: BorderRadius.vertical(top: Radius.circular(16))),
+          borderRadius: AppRadii.sheetRadius),
       builder: (_) => SafeArea(
           child: Column(mainAxisSize: MainAxisSize.min, children: [
         Padding(
@@ -1068,7 +1165,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
       context: context,
       backgroundColor: AppColors.surface,
       shape: const RoundedRectangleBorder(
-          borderRadius: BorderRadius.vertical(top: Radius.circular(16))),
+          borderRadius: AppRadii.sheetRadius),
       builder: (_) => SafeArea(
           child: Column(
               mainAxisSize: MainAxisSize.min,
@@ -1141,6 +1238,12 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
   /// up/down = show controls, back = leave (handled by the router).
   KeyEventResult _handleKey(FocusNode node, KeyEvent event) {
     if (event is KeyUpEvent) return KeyEventResult.ignored;
+    // While the bars are on screen the remote must be able to move between the
+    // buttons. This handler sits on an ancestor of them and used to eat every
+    // arrow press for seeking, so on Android TV the controls could be shown but
+    // never reached. Arrows only seek while the bars are hidden (or locked,
+    // when they are inert anyway).
+    final barsActive = _showControls && !_locked;
     switch (event.logicalKey) {
       case LogicalKeyboardKey.select:
       case LogicalKeyboardKey.enter:
@@ -1150,16 +1253,35 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
         return KeyEventResult.handled;
       case LogicalKeyboardKey.arrowLeft:
       case LogicalKeyboardKey.mediaRewind:
+        if (barsActive) return KeyEventResult.ignored;
         _seekRelative(const Duration(seconds: -10));
         return KeyEventResult.handled;
       case LogicalKeyboardKey.arrowRight:
       case LogicalKeyboardKey.mediaFastForward:
+        if (barsActive) return KeyEventResult.ignored;
         _seekRelative(const Duration(seconds: 10));
         return KeyEventResult.handled;
       case LogicalKeyboardKey.arrowUp:
       case LogicalKeyboardKey.arrowDown:
-        setState(() => _showControls = true);
-        _scheduleHide();
+        if (barsActive) return KeyEventResult.ignored;
+        if (!_locked) {
+          setState(() => _showControls = true);
+          _scheduleHide();
+        }
+        return KeyEventResult.handled;
+      case LogicalKeyboardKey.escape:
+      case LogicalKeyboardKey.goBack:
+        if (_locked) {
+          setState(() {
+            _locked = false;
+            _showControls = true;
+          });
+        } else if (_showControls) {
+          setState(() => _showControls = false);
+        } else {
+          _persistProgress();
+          Navigator.of(context).maybePop();
+        }
         return KeyEventResult.handled;
     }
     return KeyEventResult.ignored;
@@ -1209,6 +1331,32 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
                         child: Image.network(widget.details.backdropUrlW1280,
                             fit: BoxFit.cover))),
 
+              // Double-tap seek zones (left = -10s, right = +10s).
+              //
+              // Inserted *before* the control bars on purpose: later children of
+              // a Stack paint and hit-test on top, and this layer used to be
+              // last, so a double-tap on download/share/PiP seeked instead of
+              // pressing the button, while single taps on those buttons waited
+              // out the double-tap timeout. The band also stops short of both
+              // bars, and locking disables seeking entirely.
+              if (!_locked && _showControls)
+                Positioned(
+                    top: 96,
+                    bottom: 210,
+                    left: 0,
+                    right: 0,
+                    child: Row(children: [
+                      Expanded(
+                          child: _DoubleTapZone(
+                              icon: Icons.replay_10_rounded,
+                              onDoubleTap: () => _seekRel(-10))),
+                      const Expanded(child: SizedBox()),
+                      Expanded(
+                          child: _DoubleTapZone(
+                              icon: Icons.forward_10_rounded,
+                              onDoubleTap: () => _seekRel(10))),
+                    ])),
+
               // Buffering pill (a source that plays but starves)
               if (hasVideo && _buffering && !_loadingSources && _error == null)
                 Positioned(
@@ -1240,6 +1388,14 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
                 Positioned.fill(
                     child: Center(
                         child: IconButton(
+                            // The big centre button is decorative while the
+                            // bars are hidden: leave it inert and untargetable
+                            // instead of a 64 dp invisible tap target.
+                            tooltip: _showControls
+                                ? (_completed
+                                    ? 'Replay'
+                                    : (_playing ? 'Pause' : 'Play'))
+                                : null,
                             icon: Icon(
                                 _completed
                                     ? Icons.replay_rounded
@@ -1365,292 +1521,315 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
                                     color: AppColors.textSecondary,
                                     fontSize: 11))))),
 
-              // Top bar
-              AnimatedOpacity(
-                  opacity: _showControls && !_locked ? 1 : 0,
-                  duration: const Duration(milliseconds: 200),
-                  child: Align(
-                      alignment: Alignment.topCenter,
-                      child: Container(
-                        decoration: const BoxDecoration(
-                            gradient: LinearGradient(
-                                begin: Alignment.topCenter,
-                                end: Alignment.bottomCenter,
-                                colors: [
-                              AppColors.overlay70,
-                              Colors.transparent
-                            ])),
-                        padding: const EdgeInsets.fromLTRB(8, 12, 8, 24),
-                        child: SafeArea(
-                            bottom: false,
-                            child: Row(children: [
-                              IconButton(
-                                  tooltip: 'Go back',
-                                  icon: const Icon(
-                                      Icons.arrow_back_ios_new_rounded,
-                                      size: 20,
-                                      color: AppColors.textPrimary),
-                                  onPressed: () {
-                                    _persistProgress();
-                                    Navigator.of(context).pop();
-                                  },
-                                  splashRadius: 20),
-                              const SizedBox(width: 4),
-                              Expanded(
-                                  child: Text(_label(),
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                      style: AppTypography.bodyPrimary
-                                          .copyWith(fontSize: 13))),
-                              IconButton(
-                                  tooltip: _locked
-                                      ? 'Unlock controls'
-                                      : 'Lock controls',
-                                  icon: Icon(
-                                      _locked
-                                          ? Icons.lock_outline
-                                          : Icons.lock_open_rounded,
-                                      size: 20,
-                                      color: AppColors.textPrimary),
-                                  onPressed: () =>
-                                      setState(() => _locked = !_locked),
-                                  splashRadius: 20),
-                            ])),
-                      ))),
+              // Top bar. IgnorePointer is what actually disables the controls:
+              // AnimatedOpacity at 0 still hit-tests, so the invisible bar used
+              // to swallow the tap that was meant to reveal it.
+              IgnorePointer(
+                ignoring: !_showControls || _locked,
+                child:
+                  AnimatedOpacity(
+                    opacity: _showControls && !_locked ? 1 : 0,
+                    duration: const Duration(milliseconds: 200),
+                    child: Align(
+                        alignment: Alignment.topCenter,
+                        child: Container(
+                          decoration: const BoxDecoration(
+                              gradient: LinearGradient(
+                                  begin: Alignment.topCenter,
+                                  end: Alignment.bottomCenter,
+                                  colors: [
+                                AppColors.overlay70,
+                                Colors.transparent
+                              ])),
+                          padding: const EdgeInsets.fromLTRB(8, 12, 8, 24),
+                          child: SafeArea(
+                              bottom: false,
+                              child: Row(children: [
+                                IconButton(
+                                    tooltip: 'Go back',
+                                    icon: const Icon(
+                                        Icons.arrow_back_ios_new_rounded,
+                                        size: 20,
+                                        color: AppColors.textPrimary),
+                                    onPressed: () {
+                                      _persistProgress();
+                                      Navigator.of(context).pop();
+                                    },
+                                    splashRadius: 20),
+                                const SizedBox(width: 4),
+                                Expanded(
+                                    child: Text(_label(),
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: AppTypography.bodyPrimary
+                                            .copyWith(fontSize: 13))),
+                                IconButton(
+                                    tooltip: _locked
+                                        ? 'Unlock controls'
+                                        : 'Lock controls',
+                                    icon: Icon(
+                                        _locked
+                                            ? Icons.lock_outline
+                                            : Icons.lock_open_rounded,
+                                        size: 20,
+                                        color: AppColors.textPrimary),
+                                    onPressed: () {
+                                      final locked = !_locked;
+                                      setState(() {
+                                        _locked = locked;
+                                        // Locking hides the bars; unlocking
+                                        // brings them back and re-arms the
+                                        // auto-hide timer instead of leaving
+                                        // an invisible-but-live control bar.
+                                        _showControls = !locked;
+                                      });
+                                      if (locked) {
+                                        _hideTimer?.cancel();
+                                      } else {
+                                        _scheduleHide();
+                                      }
+                                    },
+                                    splashRadius: 20),
+                              ])),
+                        )))),
 
-              // Bottom controls
-              AnimatedOpacity(
-                  opacity: _showControls && !_locked ? 1 : 0,
-                  duration: const Duration(milliseconds: 200),
-                  child: Align(
-                      alignment: Alignment.bottomCenter,
-                      child: Container(
-                        decoration: const BoxDecoration(
-                            gradient: LinearGradient(
-                                begin: Alignment.topCenter,
-                                end: Alignment.bottomCenter,
-                                colors: [
-                              Colors.transparent,
-                              AppColors.overlay70
-                            ])),
-                        padding: const EdgeInsets.fromLTRB(16, 24, 16, 12),
-                        child: SafeArea(
-                            top: false,
-                            child: Column(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  if (_seeking) _buildScrubPreview(),
-                                  SliderTheme(
-                                      data: SliderThemeData(
-                                        trackHeight: 3,
-                                        thumbShape: const RoundSliderThumbShape(
-                                            enabledThumbRadius: 6),
-                                        overlayShape:
-                                            const RoundSliderOverlayShape(
-                                                overlayRadius: 12),
-                                        activeTrackColor: AppColors.accent,
-                                        inactiveTrackColor:
-                                            AppColors.surfaceElevated,
-                                        thumbColor: AppColors.accent,
-                                      ),
-                                      child: Slider(
-                                        value: _duration.inMilliseconds == 0
-                                            ? 0
-                                            : (_position.inMilliseconds /
-                                                    _duration.inMilliseconds)
-                                                .clamp(0.0, 1.0),
-                                        onChangeStart: (_) {
-                                          setState(() => _seeking = true);
-                                          _hideTimer?.cancel();
-                                        },
-                                        onChangeEnd: (v) {
-                                          setState(() => _seeking = false);
-                                          final ap =
-                                              ref.read(activePlayerProvider);
-                                          if (ap != null) {
-                                            ap.player.seek(_duration * v);
-                                          }
-                                          _cancelAutoAdvance();
-                                          _scheduleHide();
-                                        },
-                                        onChanged: (v) {
-                                          setState(
-                                              () => _position = _duration * v);
-                                        },
-                                      )),
-                                  Padding(
-                                      padding: const EdgeInsets.symmetric(
-                                          horizontal: 8),
-                                      child: Row(children: [
-                                        Text(_fmt(_position),
-                                            style: AppTypography.metadata
-                                                .copyWith(
-                                                    color:
-                                                        AppColors.textSecondary,
-                                                    fontSize: 11)),
-                                        const Spacer(),
-                                        Text(_fmt(_duration),
-                                            style: AppTypography.metadata
-                                                .copyWith(
-                                                    color:
-                                                        AppColors.textSecondary,
-                                                    fontSize: 11)),
-                                      ])),
-                                  const SizedBox(height: 4),
-                                  Row(
+              // Bottom controls (same IgnorePointer rule as the top bar)
+              IgnorePointer(
+                ignoring: !_showControls || _locked,
+                child:
+                  AnimatedOpacity(
+                    opacity: _showControls && !_locked ? 1 : 0,
+                    duration: const Duration(milliseconds: 200),
+                    child: Align(
+                        alignment: Alignment.bottomCenter,
+                        child: Container(
+                          decoration: const BoxDecoration(
+                              gradient: LinearGradient(
+                                  begin: Alignment.topCenter,
+                                  end: Alignment.bottomCenter,
+                                  colors: [
+                                Colors.transparent,
+                                AppColors.overlay70
+                              ])),
+                          padding: const EdgeInsets.fromLTRB(16, 24, 16, 12),
+                          child: SafeArea(
+                              top: false,
+                              child: Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    if (_seeking) _buildScrubPreview(),
+                                    SliderTheme(
+                                        data: SliderThemeData(
+                                          trackHeight: 3,
+                                          thumbShape: const RoundSliderThumbShape(
+                                              enabledThumbRadius: 6),
+                                          overlayShape:
+                                              const RoundSliderOverlayShape(
+                                                  overlayRadius: 12),
+                                          activeTrackColor: AppColors.accent,
+                                          inactiveTrackColor:
+                                              AppColors.surfaceElevated,
+                                          thumbColor: AppColors.accent,
+                                        ),
+                                        child: Slider(
+                                          value: _duration.inMilliseconds == 0
+                                              ? 0
+                                              : (_position.inMilliseconds /
+                                                      _duration.inMilliseconds)
+                                                  .clamp(0.0, 1.0),
+                                          onChangeStart: (_) {
+                                            setState(() => _seeking = true);
+                                            _hideTimer?.cancel();
+                                          },
+                                          onChangeEnd: (v) {
+                                            setState(() => _seeking = false);
+                                            final ap =
+                                                ref.read(activePlayerProvider);
+                                            if (ap != null) {
+                                              ap.player.seek(_duration * v);
+                                            }
+                                            _cancelAutoAdvance();
+                                            _scheduleHide();
+                                          },
+                                          onChanged: (v) {
+                                            setState(
+                                                () => _position = _duration * v);
+                                          },
+                                        )),
+                                    Padding(
+                                        padding: const EdgeInsets.symmetric(
+                                            horizontal: 8),
+                                        child: Row(children: [
+                                          Text(_fmt(_position),
+                                              style: AppTypography.metadata
+                                                  .copyWith(
+                                                      color:
+                                                          AppColors.textSecondary,
+                                                      fontSize: 11)),
+                                          const Spacer(),
+                                          Text(_fmt(_duration),
+                                              style: AppTypography.metadata
+                                                  .copyWith(
+                                                      color:
+                                                          AppColors.textSecondary,
+                                                      fontSize: 11)),
+                                        ])),
+                                    const SizedBox(height: AppSpacing.xxs),
+                                    Row(
                                       mainAxisAlignment:
-                                          MainAxisAlignment.spaceEvenly,
+                                          MainAxisAlignment.center,
                                       children: [
+                                        _ControlButton(
+                                          tooltip: 'Back 10 seconds',
+                                          icon: Icons.replay_10_rounded,
+                                          size: 30,
+                                          onPressed: () => _seekRel(-10),
+                                        ),
+                                        const SizedBox(width: AppSpacing.lg),
                                         IconButton(
-                                            tooltip: 'Back 10 seconds',
-                                            icon: const Icon(
-                                                Icons.replay_10_rounded,
-                                                color: AppColors.textPrimary,
-                                                size: 28),
-                                            onPressed: () => _seekRel(-10)),
-                                        IconButton(
-                                            icon: const Icon(
-                                                Icons.skip_previous_rounded,
-                                                color: AppColors.textMuted,
-                                                size: 28),
-                                            onPressed: null),
-                                        IconButton(
-                                            icon: Icon(
-                                                _completed
+                                          tooltip: _completed
+                                              ? 'Replay'
+                                              : (_playing ? 'Pause' : 'Play'),
+                                          icon: Icon(
+                                            _completed
+                                                ? Icons
+                                                    .replay_circle_filled_rounded
+                                                : _playing
                                                     ? Icons
-                                                        .replay_circle_filled_rounded
-                                                    : _playing
-                                                        ? Icons
-                                                            .pause_circle_filled_rounded
-                                                        : Icons
-                                                            .play_circle_fill_rounded,
-                                                color: AppColors.textPrimary,
-                                                size: 48),
-                                            onPressed: _selected != null
-                                                ? _togglePlay
-                                                : null),
-                                        IconButton(
-                                            icon: Icon(Icons.skip_next_rounded,
-                                                color:
-                                                    widget.nextEpisode != null
-                                                        ? AppColors.textPrimary
-                                                        : AppColors.textMuted,
-                                                size: 28),
-                                            onPressed:
-                                                widget.nextEpisode != null
-                                                    ? _playNext
-                                                    : null),
-                                        IconButton(
-                                            tooltip: 'Forward 10 seconds',
-                                            icon: const Icon(
-                                                Icons.forward_10_rounded,
-                                                color: AppColors.textPrimary,
-                                                size: 28),
-                                            onPressed: () => _seekRel(10)),
-                                        const Spacer(),
-                                        IconButton(
-                                            tooltip:
-                                                'Download for offline viewing',
-                                            icon: Icon(Icons.download_outlined,
-                                                color: _isDownloaded()
-                                                    ? AppColors.success
-                                                    : AppColors.textPrimary,
-                                                size: 22),
-                                            onPressed: _toggleDownload),
-                                        IconButton(
-                                            tooltip: 'Share this title',
-                                            icon: const Icon(
-                                                Icons.share_outlined,
-                                                color: AppColors.textPrimary,
-                                                size: 22),
-                                            onPressed: _shareCurrent),
-                                        IconButton(
-                                            tooltip: 'Picture in picture',
-                                            icon: const Icon(
-                                                Icons
-                                                    .picture_in_picture_alt_rounded,
-                                                color: AppColors.textPrimary,
-                                                size: 22),
-                                            onPressed: () async {
-                                              final pip =
-                                                  ref.read(pipServiceProvider);
-                                              final ok = await pip.enterPip();
-                                              if (!ok && mounted) {
-                                                _showToast(pip.supported
-                                                    ? 'Background playback is enabled'
-                                                    : 'Picture-in-Picture not available on this device');
-                                              }
-                                            }),
-                                        IconButton(
-                                            tooltip: 'Subtitles',
-                                            icon: Icon(
-                                                _selectedSub != null
-                                                    ? Icons
-                                                        .closed_caption_rounded
+                                                        .pause_circle_filled_rounded
                                                     : Icons
-                                                        .closed_caption_off_rounded,
-                                                color: _selectedSub != null ||
-                                                        _subs.isNotEmpty
-                                                    ? (_selectedSub != null
-                                                        ? AppColors.accent
-                                                        : AppColors.textPrimary)
-                                                    : AppColors.textMuted,
-                                                size: 22),
-                                            onPressed: _subs.isNotEmpty
-                                                ? _openCaptionsSheet
-                                                : null),
-                                        IconButton(
-                                            tooltip: 'Audio track',
-                                            icon: Icon(Icons.audiotrack_rounded,
-                                                color: _audios.length > 1
-                                                    ? AppColors.textPrimary
-                                                    : AppColors.textMuted,
-                                                size: 22),
-                                            onPressed: _audios.length > 1
-                                                ? _openAudioSheet
-                                                : null),
-                                        IconButton(
-                                            tooltip: 'Choose source',
-                                            icon: const Icon(
-                                                Icons.video_settings_rounded,
-                                                color: AppColors.textPrimary,
-                                                size: 22),
-                                            onPressed: _sources.length > 1
-                                                ? _openSourceSheet
-                                                : null),
-                                        IconButton(
-                                            tooltip: 'Playback speed',
-                                            icon: Icon(Icons.speed_rounded,
-                                                color: _rate != 1.0
-                                                    ? AppColors.accent
-                                                    : AppColors.textPrimary,
-                                                size: 22),
-                                            onPressed: _openSpeedSheet),
-                                        IconButton(
-                                            tooltip: 'Resize video',
-                                            icon: Icon(Icons.fit_screen_rounded,
-                                                color: _fitIndex != 0
-                                                    ? AppColors.accent
-                                                    : AppColors.textPrimary,
-                                                size: 22),
-                                            onPressed: _cycleFit),
+                                                        .play_circle_fill_rounded,
+                                            color: AppColors.textPrimary,
+                                            size: 56,
+                                          ),
+                                          onPressed: _selected != null
+                                              ? _togglePlay
+                                              : null,
+                                        ),
+                                        const SizedBox(width: AppSpacing.lg),
+                                        _ControlButton(
+                                          tooltip: 'Forward 10 seconds',
+                                          icon: Icons.forward_10_rounded,
+                                          size: 30,
+                                          onPressed: () => _seekRel(10),
+                                        ),
+                                      ],
+                                    ),
+                                    // Utility row: scrollable so no control is
+                                    // squeezed below a usable size on narrow
+                                    // screens. All 13 buttons used to share one
+                                    // spaceEvenly row, and skip-previous was
+                                    // permanently disabled (a dead button).
+                                    SingleChildScrollView(
+                                      scrollDirection: Axis.horizontal,
+                                      child: Row(children: [
+                                        _ControlButton(
+                                          tooltip: 'Previous episode',
+                                          icon: Icons.skip_previous_rounded,
+                                          enabled: _previousEpisode() != null,
+                                          onPressed: _playPrevious,
+                                        ),
+                                        _ControlButton(
+                                          tooltip: 'Next episode',
+                                          icon: Icons.skip_next_rounded,
+                                          enabled: widget.nextEpisode != null,
+                                          onPressed: _playNext,
+                                        ),
+                                        _ControlButton(
+                                          tooltip: _isDownloaded()
+                                              ? 'Remove download'
+                                              : 'Download for offline viewing',
+                                          icon: _isDownloaded()
+                                              ? Icons.download_done_rounded
+                                              : Icons.download_outlined,
+                                          active: _isDownloaded(),
+                                          activeColor: AppColors.success,
+                                          onPressed: _toggleDownload,
+                                        ),
+                                        _ControlButton(
+                                          tooltip: 'Share this title',
+                                          icon: Icons.share_outlined,
+                                          onPressed: _shareCurrent,
+                                        ),
+                                        _ControlButton(
+                                          tooltip: 'Picture in picture',
+                                          icon: Icons
+                                              .picture_in_picture_alt_rounded,
+                                          onPressed: _enterPip,
+                                        ),
+                                        _ControlButton(
+                                          tooltip: _selectedSub != null
+                                              ? 'Subtitles on'
+                                              : 'Subtitles',
+                                          icon: _selectedSub != null
+                                              ? Icons.closed_caption_rounded
+                                              : Icons
+                                                  .closed_caption_off_rounded,
+                                          active: _selectedSub != null,
+                                          enabled: _subs.isNotEmpty,
+                                          onPressed: _openCaptionsSheet,
+                                        ),
+                                        _ControlButton(
+                                          tooltip: 'Audio track',
+                                          icon: Icons.audiotrack_rounded,
+                                          enabled: _audios.length > 1,
+                                          onPressed: _openAudioSheet,
+                                        ),
+                                        _ControlButton(
+                                          tooltip: 'Choose source',
+                                          icon: Icons.video_settings_rounded,
+                                          enabled: _sources.length > 1,
+                                          onPressed: _openSourceSheet,
+                                        ),
+                                        _ControlButton(
+                                          tooltip: 'Playback speed',
+                                          icon: Icons.speed_rounded,
+                                          active: _rate != 1.0,
+                                          onPressed: _openSpeedSheet,
+                                        ),
+                                        _ControlButton(
+                                          tooltip: 'Resize video',
+                                          icon: Icons.fit_screen_rounded,
+                                          active: _fitIndex != 0,
+                                          onPressed: _cycleFit,
+                                        ),
                                       ]),
-                                ])),
-                      ))),
-              // Double-tap seek zones (left = -10s, right = +10s)
-              if (_showControls || !_locked)
-                Positioned.fill(
-                    child: Row(children: [
-                  Expanded(
-                      child: _DoubleTapZone(
-                          icon: Icons.replay_10_rounded,
-                          onDoubleTap: () => _seekRel(-10))),
-                  const Expanded(child: SizedBox()),
-                  Expanded(
-                      child: _DoubleTapZone(
-                          icon: Icons.forward_10_rounded,
-                          onDoubleTap: () => _seekRel(10))),
-                ])),
+                                    ),
+                                  ])),
+                        )))),
+              // Locked: the bars are hidden and inert, so surface a single
+              // always-visible way out. Previously "locking" left an invisible,
+              // still-tappable unlock button and no visible affordance at all.
+              if (_locked)
+                Positioned(
+                    top: 12,
+                    right: 12,
+                    child: SafeArea(
+                      bottom: false,
+                      child: Semantics(
+                        button: true,
+                        label: 'Unlock player controls',
+                        child: Material(
+                          color: Colors.black.withValues(alpha: 0.55),
+                          shape: const CircleBorder(),
+                          clipBehavior: Clip.antiAlias,
+                          child: InkWell(
+                            onTap: () => setState(() {
+                              _locked = false;
+                              _showControls = true;
+                              _scheduleHide();
+                            }),
+                            child: const SizedBox(
+                              width: 44,
+                              height: 44,
+                              child: Icon(Icons.lock_outline,
+                                  color: Colors.white, size: 20),
+                            ),
+                          ),
+                        ),
+                      ),
+                    )),
+
               // Episode strip (TV only)
               if (widget.details.type == MediaType.tv &&
                   widget.season > 0 &&
@@ -1679,6 +1858,42 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
           ),
         ));
   }
+}
+
+/// One player utility button: mandatory tooltip, 48 dp target and a consistent
+/// active / disabled treatment.
+class _ControlButton extends StatelessWidget {
+  const _ControlButton({
+    required this.tooltip,
+    required this.icon,
+    this.onPressed,
+    this.enabled = true,
+    this.active = false,
+    this.activeColor = AppColors.accent,
+    this.size = 22,
+  });
+
+  final String tooltip;
+  final IconData icon;
+  final VoidCallback? onPressed;
+  final bool enabled;
+  final bool active;
+  final Color activeColor;
+  final double size;
+
+  @override
+  Widget build(BuildContext context) => IconButton(
+        tooltip: tooltip,
+        onPressed: enabled ? onPressed : null,
+        constraints: const BoxConstraints(minWidth: 48, minHeight: 48),
+        icon: Icon(
+          icon,
+          size: size,
+          color: !enabled
+              ? AppColors.textMuted.withValues(alpha: 0.45)
+              : (active ? activeColor : AppColors.textPrimary),
+        ),
+      );
 }
 
 class _NextUpCard extends StatelessWidget {
@@ -1742,6 +1957,7 @@ class _NextUpCard extends StatelessWidget {
                         .copyWith(color: AppColors.textMuted, fontSize: 11)),
               ])),
           IconButton(
+              tooltip: 'Play this episode now',
               onPressed: onPlay,
               icon: const Icon(Icons.play_circle_fill_rounded,
                   color: AppColors.textPrimary, size: 36),
@@ -1817,8 +2033,12 @@ class _EpisodeStripState extends ConsumerState<_EpisodeStrip> {
         data: (eps) {
           if (eps.length < 2) return const SizedBox(height: 80);
           final controller = _scroll ??= ScrollController(
-              initialScrollOffset:
-                  (widget.currentEpisode - 1).clamp(0, eps.length - 1) * 110.0);
+              // 120 dp thumb + 12 dp separator = 132 dp stride. The previous
+              // 110 was wrong from episode ~5 onward, so the current episode
+              // drifted out of view.
+              initialScrollOffset: (widget.currentEpisode - 1)
+                  .clamp(0, eps.length - 1) *
+                  132.0);
           return SizedBox(
               height: 92,
               child: ListView.separated(
@@ -1840,25 +2060,52 @@ class _EpisodeStripState extends ConsumerState<_EpisodeStrip> {
   }
 }
 
-class _EpisodeThumb extends StatelessWidget {
+class _EpisodeThumb extends StatefulWidget {
   final Episode ep;
   final bool active;
   final VoidCallback onTap;
   const _EpisodeThumb(
       {required this.ep, required this.active, required this.onTap});
   @override
+  State<_EpisodeThumb> createState() => _EpisodeThumbState();
+}
+
+class _EpisodeThumbState extends State<_EpisodeThumb> {
+  bool _focused = false;
+
+  Episode get ep => widget.ep;
+  bool get active => widget.active;
+  VoidCallback get onTap => widget.onTap;
+
+  @override
   Widget build(BuildContext context) {
-    return GestureDetector(
+    // Focusable (and announced) so an Android TV remote can reach the strip:
+    // it used to be a bare GestureDetector, unreachable with a D-pad.
+    return FocusableActionDetector(
+      onShowFocusHighlight: (f) {
+        if (f != _focused) setState(() => _focused = f);
+      },
+      actions: <Type, Action<Intent>>{
+        ActivateIntent: CallbackAction<ActivateIntent>(onInvoke: (_) {
+          onTap();
+          return null;
+        }),
+      },
+      child: Semantics(
+        button: true,
+        selected: active,
+        label: 'Episode ${ep.episodeNumber}, ${ep.name}',
+        child: GestureDetector(
         onTap: onTap,
         child: Container(
             width: 120,
             decoration: BoxDecoration(
                 borderRadius: AppRadii.smRadius,
                 border: Border.all(
-                    color: active
+                    color: active || _focused
                         ? AppColors.accent
                         : Colors.white.withValues(alpha: 0.08),
-                    width: active ? 2 : 1)),
+                    width: active || _focused ? 2 : 1)),
             clipBehavior: Clip.antiAlias,
             child: Stack(fit: StackFit.expand, children: [
               if (ep.stillUrl.isNotEmpty)
@@ -1901,6 +2148,8 @@ class _EpisodeThumb extends StatelessWidget {
                                 fontSize: 11,
                                 fontWeight: FontWeight.w600)),
                       ])),
-            ])));
+            ]))),
+      ),
+    );
   }
 }

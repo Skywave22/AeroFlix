@@ -3,13 +3,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:share_plus/share_plus.dart';
-import 'package:url_launcher/url_launcher.dart';
 import '../../app/router.dart';
 import '../../app/theme/app_colors.dart';
 import '../../app/theme/app_radii.dart';
 import '../../app/theme/app_spacing.dart';
 import '../../app/theme/app_typography.dart';
 import '../../core/network/tmdb_service.dart';
+import '../../core/utils/trailer_helper.dart';
 import '../../shared/models/media_details.dart';
 import '../../shared/models/stream_source.dart';
 import '../../shared/providers/continue_watching_provider.dart';
@@ -102,6 +102,7 @@ class _DetailsScreenState extends ConsumerState<DetailsScreen> {
   SliverAppBar _appBar(BuildContext context) => SliverAppBar(
         pinned: true,
         leading: IconButton(
+            tooltip: 'Back',
             icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 20),
             onPressed: () => context.pop(),
             splashRadius: 20),
@@ -113,6 +114,18 @@ class _DetailsScreenState extends ConsumerState<DetailsScreen> {
 
 void _toggleDownload(
     BuildContext context, MediaDetails d, WidgetRef ref) async {
+  // A series has no single downloadable file: send the user to the episode
+  // list, where the player's per-episode download key is used. The old
+  // `tv:id` key collided with nothing and produced a season-0 download entry.
+  if (d.type == MediaType.tv) {
+    final sorted = [...d.seasons]
+      ..sort((a, b) => a.seasonNumber.compareTo(b.seasonNumber));
+    context.push('/episodes',
+        extra: EpisodesArgs(
+            details: d,
+            initialSeason: sorted.isNotEmpty ? sorted.first.seasonNumber : 1));
+    return;
+  }
   final key = '${d.type.name}:${d.id}';
   final n = ref.read(downloadProvider.notifier);
   if (n.has(key)) {
@@ -167,6 +180,9 @@ void _toggleDownload(
     season: 0,
     episode: 0,
     url: url,
+    // Keep the provider's Referer/Origin/UA: the same file plays in the
+    // player because those headers are sent there.
+    headers: direct.headers,
   ));
   if (!context.mounted) return;
   ScaffoldMessenger.of(context)
@@ -197,6 +213,13 @@ class _DetailsContent extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final continueList = ref.watch(continueWatchingProvider);
+    final downloads = ref.watch(downloadProvider);
+    final downloadedKey = details.type == MediaType.tv
+        ? null // a series is downloaded per episode
+        : '${details.type.name}:${details.id}';
+    final downloaded = downloadedKey != null &&
+        downloads.any((d) =>
+            d.key == downloadedKey && d.status == DownloadStatus.completed);
     final genres = details.genreNames.take(3).join('  ·  ');
     final metaParts = <String>[];
     if (details.year != null) metaParts.add(details.year!);
@@ -212,14 +235,20 @@ class _DetailsContent extends ConsumerWidget {
       // Backdrop header
       SliverAppBar(
         pinned: true,
-        expandedHeight: 320,
+        // Was a fixed 320 dp: a letterboxed sliver on a TV, and too short on a
+        // tall phone with the text scale raised. Size it from the viewport and
+        // clamp to a sane band.
+        expandedHeight:
+            (MediaQuery.sizeOf(context).height * 0.42).clamp(220.0, 520.0),
         backgroundColor: AppColors.background,
         leading: IconButton(
+            tooltip: 'Back',
             icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 20),
             onPressed: () => Navigator.of(context).pop(),
             splashRadius: 20),
         actions: [
           IconButton(
+            tooltip: inWatchlist ? 'Remove from watchlist' : 'Add to watchlist',
             icon: Icon(inWatchlist ? Icons.bookmark : Icons.bookmark_border),
             color: inWatchlist ? AppColors.accent : AppColors.textPrimary,
             onPressed: () => ref
@@ -358,7 +387,13 @@ class _DetailsContent extends ConsumerWidget {
                               .toggle(details.type, details.id)),
                       const SizedBox(width: AppSpacing.sm),
                       _IconPill(
-                          icon: Icons.download_outlined,
+                          icon: downloaded
+                              ? Icons.download_done_rounded
+                              : Icons.download_outlined,
+                          active: downloaded,
+                          tooltip: downloaded
+                              ? 'Downloaded — tap to remove'
+                              : 'Download for offline viewing',
                           onTap: () => _toggleDownload(context, details, ref)),
                       const SizedBox(width: AppSpacing.sm),
                       _IconPill(
@@ -376,9 +411,7 @@ class _DetailsContent extends ConsumerWidget {
                       const SizedBox(height: AppSpacing.md),
                       TextButton.icon(
                           onPressed: () async {
-                            final u = details.trailers.first.youtubeUrl;
-                            final ok = await launchUrl(Uri.parse(u),
-                                mode: LaunchMode.externalApplication);
+                            final ok = await openTrailer(details);
                             if (!ok && context.mounted) {
                               ScaffoldMessenger.of(context)
                                 ..hideCurrentSnackBar()
@@ -544,7 +577,7 @@ class _DetailsContent extends ConsumerWidget {
             child: HorizontalCarousel(
                 title: 'More Like This',
                 itemCount: details.similar.length,
-                height: AppSpacing.posterHeight + 56,
+                height: AppSpacing.posterRowFor(context),
                 itemBuilder: (_, i) {
                   final s = details.similar[i];
                   return PosterCard(
@@ -565,17 +598,24 @@ class _IconPill extends StatelessWidget {
   final IconData icon;
   final VoidCallback? onTap;
   final bool active;
-  const _IconPill({required this.icon, this.onTap, this.active = false});
+  final String? tooltip;
+  const _IconPill(
+      {required this.icon, this.onTap, this.active = false, this.tooltip});
   @override
-  Widget build(BuildContext context) => Material(
-      color: AppColors.surface,
-      borderRadius: AppRadii.lgRadius,
-      clipBehavior: Clip.antiAlias,
-      child: InkWell(
-          onTap: onTap,
-          child: Padding(
-              padding: const EdgeInsets.all(14),
-              child: Icon(icon,
-                  size: 20,
-                  color: active ? AppColors.accent : AppColors.textPrimary))));
+  Widget build(BuildContext context) {
+    final pill = Material(
+        color: active ? AppColors.accent.withValues(alpha: 0.16) : AppColors.surface,
+        borderRadius: AppRadii.lgRadius,
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+            onTap: onTap,
+            child: Padding(
+                padding: const EdgeInsets.all(14),
+                child: Icon(icon,
+                    size: 20,
+                    color: active ? AppColors.accent : AppColors.textPrimary))));
+    return tooltip == null
+        ? pill
+        : Tooltip(message: tooltip!, child: Semantics(button: true, label: tooltip, child: pill));
+  }
 }

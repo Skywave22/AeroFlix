@@ -110,9 +110,36 @@
          https://developer.android.com/reference/android/content/Intent#ACTION_PROCESS_TEXT.
 
          In particular, this is used by the Flutter engine in io.flutter.plugin.text.ProcessTextPlugin. -->
+    <!-- Android 11+ package visibility. Without these, canLaunchUrl()/
+         launchUrl() for https and market:// return false even when a browser
+         or the YouTube app is installed, which is what the trailer button and
+         the share sheet rely on. -->
     <queries>
         <intent>
             <action android:name="android.intent.action.PROCESS_TEXT"/>
+            <data android:mimeType="text/plain"/>
+        </intent>
+        <!-- Browsers / any app that can open a link (trailers, TMDB, share). -->
+        <intent>
+            <action android:name="android.intent.action.VIEW"/>
+            <data android:scheme="https"/>
+        </intent>
+        <intent>
+            <action android:name="android.intent.action.VIEW"/>
+            <data android:scheme="http"/>
+        </intent>
+        <!-- YouTube app / Play Store (trailer fallback, rate-the-app links). -->
+        <intent>
+            <action android:name="android.intent.action.VIEW"/>
+            <data android:scheme="vnd.youtube"/>
+        </intent>
+        <intent>
+            <action android:name="android.intent.action.VIEW"/>
+            <data android:scheme="market"/>
+        </intent>
+        <!-- Share sheet (share_plus) needs to see installed targets. -->
+        <intent>
+            <action android:name="android.intent.action.SEND"/>
             <data android:mimeType="text/plain"/>
         </intent>
     </queries>

@@ -3,13 +3,19 @@ import 'app_colors.dart';
 
 class AppTypography {
   AppTypography._();
-  static const String _fontFamily =
-      'Inter'; // bundled asset fallback to platform sans
-  static TextStyle get _base => const TextStyle(
-      fontFamily: _fontFamily,
-      color: AppColors.textPrimary,
-      letterSpacing: 0,
-      fontFamilyFallback: ['Roboto', 'sans-serif']);
+
+  /// No custom font is bundled: naming a family that ships with the app but is
+  /// missing from `pubspec.yaml` only hid the fact that every style was being
+  /// rendered in the platform default. Until Inter is added as a real asset,
+  /// fall back explicitly so the intent is honest and predictable.
+  static const String? _fontFamily = null;
+
+  static TextStyle get _base => TextStyle(
+        fontFamily: _fontFamily,
+        color: AppColors.textPrimary,
+        letterSpacing: 0,
+        fontFamilyFallback: const ['Roboto', 'sans-serif'],
+      );
   static TextStyle get display =>
       _base.copyWith(fontSize: 34, fontWeight: FontWeight.w800, height: 1.12);
   static TextStyle get screenHeading =>
@@ -30,6 +36,14 @@ class AppTypography {
       fontWeight: FontWeight.w400,
       height: 1.38,
       color: AppColors.textSecondary);
+
+  /// Smallest legible label. Previously every screen re-invented this with an
+  /// ad-hoc `copyWith(fontSize: 10 | 11 | 12)`.
+  static TextStyle get micro => _base.copyWith(
+      fontSize: 11,
+      fontWeight: FontWeight.w600,
+      height: 1.25,
+      color: AppColors.textMuted);
   static TextStyle get button =>
       _base.copyWith(fontSize: 16.5, fontWeight: FontWeight.w600, height: 1.2);
   static TextStyle get appBarTitle =>

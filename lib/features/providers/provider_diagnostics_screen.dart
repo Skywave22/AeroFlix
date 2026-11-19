@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:tj_flutter_providers/tj_providers.dart';
 
 import '../../app/theme/app_colors.dart';
+import '../../app/theme/app_radii.dart';
 import '../../app/theme/app_spacing.dart';
 import '../../app/theme/app_typography.dart';
 import '../../core/providers/tj_providers_service.dart';
@@ -49,14 +50,15 @@ class _ProviderDiagnosticsScreenState
   Widget build(BuildContext context) {
     final status = ref.watch(providerStatusProvider);
     final cached = ref.watch(installedProvidersProvider);
-    final service = ref.read(providerServiceProvider);
+    // Watch so a toggle / sync rebuild updates the ids shown below.
+    final service = ref.watch(providerServiceProvider);
 
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
           backgroundColor: AppColors.background,
           foregroundColor: AppColors.textPrimary,
-          title: const Text('Provider status')),
+          title: Text('Provider status', style: AppTypography.cardTitle)),
       body: ListView(
         padding: const EdgeInsets.fromLTRB(
             AppSpacing.lg, AppSpacing.sm, AppSpacing.lg, AppSpacing.xxl),
@@ -68,6 +70,7 @@ class _ProviderDiagnosticsScreenState
               _Row('Summary', status.summary),
               _Row('Bundled seed', '${status.seeded} installed from APK'),
               _Row('Providers on device', '${status.installed}'),
+              _Row('Enabled for playback', '${service.enabledIds.join(', ')}'),
               _Row('Mirror', status.mirror ?? '—'),
               _Row(
                   'Last check',
@@ -91,9 +94,39 @@ class _ProviderDiagnosticsScreenState
               SizedBox(
                 width: double.infinity,
                 child: OutlinedButton.icon(
+                  onPressed: () async {
+                    await ref.read(enabledProviderIdsProvider.notifier).reset();
+                    ref.invalidate(providerServiceProvider);
+                  },
+                  icon: const Icon(Icons.restart_alt_rounded, size: 18),
+                  label: const Text('Reset to recommended providers'),
+                ),
+              ),
+              const SizedBox(height: 8),
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton.icon(
                   onPressed: () => Navigator.of(context).push(MaterialPageRoute(
                       builder: (_) => ProvidersScreen(
-                          service: ref.read(providerServiceProvider)))),
+                          service: ref.read(providerServiceProvider),
+                          initialEnabled:
+                              ref.read(enabledProviderIdsProvider),
+                          // Persist toggles and rebuild the service so the
+                          // change reaches the next stream request.
+                          onEnabledChanged: (ids) async {
+                            final notifier =
+                                ref.read(enabledProviderIdsProvider.notifier);
+                            for (final id in ids) {
+                              await notifier.setEnabled(id, true);
+                            }
+                            for (final id in ref
+                                .read(enabledProviderIdsProvider)
+                                .where((id) => !ids.contains(id))
+                                .toList()) {
+                              await notifier.setEnabled(id, false);
+                            }
+                            ref.invalidate(providerServiceProvider);
+                          }))),
                   icon: const Icon(Icons.extension_rounded, size: 18),
                   label: const Text('Manage providers'),
                 ),
@@ -172,7 +205,7 @@ class _Card extends StatelessWidget {
       padding: const EdgeInsets.all(AppSpacing.md),
       decoration: BoxDecoration(
         color: AppColors.surface,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: AppRadii.mdRadius,
       ),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Text(title, style: AppTypography.sectionHeading),
