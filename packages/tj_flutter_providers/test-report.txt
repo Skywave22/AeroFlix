@@ -1,7 +1,5 @@
 
 ::group::⏭️ Skipped tests
-⏭️ /home/runner/work/AeroFlix/AeroFlix/packages/tj_flutter_providers/test/js_runtime_live_test.dart: JS runtime executes a provider through every Dart bridge (skipped)
-Skip: set TJ_LIVE_TESTS=1 to run (needs network + quickjs host lib)
 ⏭️ /home/runner/work/AeroFlix/AeroFlix/packages/tj_flutter_providers/test/real_provider_live_test.dart: real provider returns playable streams (skipped)
 Skip: set TJ_PROVIDER_DIR to a Plugins-TJ/providers folder to run
 ::endgroup::
@@ -23,6 +21,12 @@ test/provider_manager_test.dart 58:9                main.<fn>.<fn>
 ✅ /home/runner/work/AeroFlix/AeroFlix/packages/tj_flutter_providers/test/provider_manager_test.dart: StreamResult parsing (provider getStreams output) parses a full stream object
 ✅ /home/runner/work/AeroFlix/AeroFlix/packages/tj_flutter_providers/test/provider_manager_test.dart: StreamResult parsing (provider getStreams output) tolerates missing optional fields
 ✅ /home/runner/work/AeroFlix/AeroFlix/packages/tj_flutter_providers/test/provider_manager_test.dart: StreamResult parsing (provider getStreams output) coerces non-string header values and drops nested ones
+::endgroup::
+::group::⏭️ Skipped tests
+⏭️ /home/runner/work/AeroFlix/AeroFlix/packages/tj_flutter_providers/test/js_runtime_live_test.dart: JS runtime executes a provider through every Dart bridge (skipped)
+Skip: set TJ_LIVE_TESTS=1 to run (needs network + quickjs host lib)
+::endgroup::
+::group::✅ Passing tests
 ✅ /home/runner/work/AeroFlix/AeroFlix/packages/tj_flutter_providers/test/provider_manager_test.dart: ProviderManager auto-update first sync downloads only the requested providers
 ✅ /home/runner/work/AeroFlix/AeroFlix/packages/tj_flutter_providers/test/provider_manager_test.dart: ProviderManager auto-update second sync with same manifest downloads nothing
 ✅ /home/runner/work/AeroFlix/AeroFlix/packages/tj_flutter_providers/test/provider_manager_test.dart: ProviderManager auto-update detects a version bump and re-downloads just that provider
