@@ -2216,17 +2216,25 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
                               // squeezed below a usable size on narrow screens;
                               // all 13 buttons used to share one spaceEvenly row
                               // and skip-previous was permanently disabled.
-                              SizedBox(
-                                width: double.infinity,
-                                child: SingleChildScrollView(
+                              LayoutBuilder(
+                                builder: (context, bar) =>
+                                    SingleChildScrollView(
                                   scrollDirection: Axis.horizontal,
                                   // Centre the strip when it fits and let it
-                                  // scroll when it does not. A bare Row jammed
-                                  // the whole strip against the left edge on
-                                  // tablets.
-                                  child: Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
+                                  // scroll when it does not. A plain
+                                  // SingleChildScrollView left-aligns its child
+                                  // and a bare Row jammed the strip against the
+                                  // left edge on tablets; minWidth + centre is
+                                  // what actually centres it.
+                                  child: ConstrainedBox(
+                                    constraints: BoxConstraints(
+                                      minWidth: bar.maxWidth,
+                                    ),
+                                    child: Row(
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.center,
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
                                       _ControlButton(
                                         tooltip: 'Previous episode',
                                         icon: Icons.skip_previous_rounded,
@@ -2296,7 +2304,8 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
                                         active: _fitIndex != 0,
                                         onPressed: _cycleFit,
                                       ),
-                                    ],
+                                      ],
+                                    ),
                                   ),
                                 ),
                               ),
