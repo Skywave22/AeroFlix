@@ -1,0 +1,31 @@
+# TEMPORARY: formats the tree with the exact Dart SDK the verify job uses and
+# uploads the result, so a machine without a local SDK can apply it.
+# Delete this file once the formatting gate is green.
+name: Format apply
+on:
+  workflow_dispatch:
+
+jobs:
+  format:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: 3.50.0
+          channel: stable
+          cache: true
+      - name: pub get
+        run: flutter pub get
+      - name: Format
+        run: |
+          dart format lib test packages/tj_flutter_providers/lib packages/tj_flutter_providers/test
+      - name: Package
+        run: |
+          tar czf formatted.tgz lib test packages/tj_flutter_providers/lib packages/tj_flutter_providers/test
+      - uses: actions/upload-artifact@v4
+        with:
+          name: formatted-tree
+          path: formatted.tgz
+          if-no-files-found: error

@@ -283,10 +283,10 @@ class ProviderService {
       final decoded = jsonDecode(jsonStr);
       final streams = decoded is List
           ? decoded
-                .whereType<Map>()
-                .map((e) => StreamResult.fromJson(Map<String, dynamic>.from(e)))
-                .where((s) => s.url.isNotEmpty)
-                .toList()
+              .whereType<Map>()
+              .map((e) => StreamResult.fromJson(Map<String, dynamic>.from(e)))
+              .where((s) => s.url.isNotEmpty)
+              .toList()
           : <StreamResult>[];
       return ProviderOutcome(
         providerId: id,

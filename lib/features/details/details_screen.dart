@@ -604,7 +604,8 @@ class _IconPill extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final pill = Material(
-        color: active ? AppColors.accent.withValues(alpha: 0.16) : AppColors.surface,
+        color:
+            active ? AppColors.accent.withValues(alpha: 0.16) : AppColors.surface,
         borderRadius: AppRadii.lgRadius,
         clipBehavior: Clip.antiAlias,
         child: InkWell(
@@ -614,8 +615,12 @@ class _IconPill extends StatelessWidget {
                 child: Icon(icon,
                     size: 20,
                     color: active ? AppColors.accent : AppColors.textPrimary))));
-    return tooltip == null
-        ? pill
-        : Tooltip(message: tooltip!, child: Semantics(button: true, label: tooltip, child: pill));
+    if (tooltip == null) return pill;
+    // A tooltip on an icon-only control is the only affordance for what it
+    // does; pair it with a semantics label for screen readers.
+    return Tooltip(
+      message: tooltip!,
+      child: Semantics(button: true, label: tooltip, child: pill),
+    );
   }
 }

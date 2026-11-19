@@ -103,7 +103,8 @@ class AppTheme {
         surfaceTintColor: Colors.transparent,
         modalBackgroundColor: AppColors.surface,
         shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.vertical(top: Radius.circular(AppRadii.lg))),
+            borderRadius:
+                BorderRadius.vertical(top: Radius.circular(AppRadii.lg))),
       ),
       dialogTheme: DialogThemeData(
         backgroundColor: AppColors.surface,

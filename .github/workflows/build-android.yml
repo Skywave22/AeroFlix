@@ -39,7 +39,16 @@ jobs:
         run: flutter pub get
 
       - name: Verify formatting (app + vendored provider package)
-        run: dart format --output=none --set-exit-if-changed lib test packages/tj_flutter_providers/lib packages/tj_flutter_providers/test
+        run: |
+          paths="lib test packages/tj_flutter_providers/lib packages/tj_flutter_providers/test"
+          # Report which files would change before failing: `dart format` with
+          # --set-exit-if-changed only exits 1, which gives no hint in the UI.
+          if ! dart format --output=none --set-exit-if-changed $paths; then
+            echo "::error::Formatting check failed — run 'dart format $paths' locally."
+            dart format --output=show $paths 2>/dev/null \
+              | grep -oE '(lib|test|packages)/[^ :]+' | sort -u | head -30 || true
+            exit 1
+          fi
 
       - name: Analyze (fatal on errors/warnings)
         run: flutter analyze --no-pub
