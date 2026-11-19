@@ -25,10 +25,6 @@ jobs:
     name: Format, analyze, test
     runs-on: ubuntu-24.04
     timeout-minutes: 20
-    # Needed by the report steps: they commit the analyzer/test output back to
-    # the branch so a failure can be triaged without downloading logs.
-    permissions:
-      contents: write
     steps:
       - uses: actions/checkout@v4
 
@@ -42,70 +38,25 @@ jobs:
       - name: Install dependencies
         run: flutter pub get
 
-      # The report steps below push to the same branch that `format-apply`
-      # also pushes to, so a bare `git push` loses that race and the report is
-      # silently discarded. Rebase onto the remote tip first.
-      - name: Configure git for report commits
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-
+      # Keep this a single command: the runner shell uses `set -eo pipefail`,
+      # so any diagnostic block after a failing `dart format` never runs.
+      # `dart format` prints "Changed <path>" itself, which is the useful part.
       - name: Verify formatting (app + vendored provider package)
         run: |
-          set +e
-          out=$(dart format --output=none --set-exit-if-changed lib test \
-                  packages/tj_flutter_providers/lib \
-                  packages/tj_flutter_providers/test 2>&1)
-          code=$?
-          echo "$out"
-          echo "exit=$code"
-          if [ "$code" -ne 0 ]; then
-            # Emit the formatter's own output as an annotation so the failure is
-            # actionable from the UI and the API.
-            echo "::error title=Format check output::$out"
-            git status --short | head -20
-            exit 1
-          fi
+          dart format --output=none --set-exit-if-changed \
+            lib \
+            test \
+            packages/tj_flutter_providers/lib \
+            packages/tj_flutter_providers/test
 
+      # `flutter analyze` exits non-zero for infos as well, so the one
+      # intentional deprecation (the flutter/material import) is muted in
+      # analysis_options.yaml. Everything else is a gate.
       - name: Analyze (fatal on errors/warnings)
-        # `flutter analyze` exits non-zero for infos too, so capture the report
-        # first and only then let the step fail.
-        run: |
-          flutter analyze --no-pub > analyze-report.txt 2>&1 || true
-          echo "---- analyze report ----"
-          cat analyze-report.txt
-          echo "------------------------"
-          if grep -qE '^\s*(error|warning)' analyze-report.txt; then
-            # GitHub keeps only the first 10 annotations per step, so emit the
-            # count plus as much of the report as fits in one annotation.
-            bad=$(grep -cE '^\s*(error|warning)' analyze-report.txt)
-            echo "::error title=flutter analyze ($bad errors/warnings)::$(grep -E '^\s*(error|warning)' analyze-report.txt | head -6 | tr '\n' ';' | cut -c1-900)"
-            exit 1
-          fi
+        run: flutter analyze --no-pub
 
       - name: Run app tests
-        run: |
-          set +e
-          flutter test --no-pub --timeout 120s > test-report.txt 2>&1
-          code=$?
-          tail -60 test-report.txt
-          # Commit the report too: annotation payloads are capped and get
-          # dropped when they are too long.
-          cp test-report.txt /tmp/test-report.txt
-          git add -f test-report.txt && git commit -m "chore: record test report" || true
-          git fetch origin ${{ github.ref_name }} || true
-          git rebase FETCH_HEAD || true
-          git push origin HEAD:${{ github.ref_name }} || true
-          if [ "$code" -ne 0 ]; then
-            # Always emit something: an empty annotation is dropped by GitHub
-            # and the failure then looks unexplainable. Keep the context lines
-            # after each failing test, which is where the reason lives.
-            summary=$(grep -nE '^[0-9]+:[0-9]+ \+[0-9]+.*-[0-9]+|❌|Expected:|Actual:|Which:|Exception|Test failed' test-report.txt \
-              | tail -20 | cut -c1-1100 | tr '\n' '|')
-            [ -z "$summary" ] && summary=$(tail -25 test-report.txt | tr '\n' '|' | cut -c1-1500)
-            echo "::error title=flutter test failures (exit $code)::$summary"
-          fi
-          exit "$code"
+        run: flutter test --no-pub --timeout 120s
 
       # packages/tj_flutter_providers has its own offline
       # (provider_manager_test.dart) tests. They were never executed in CI, so
@@ -114,22 +65,18 @@ jobs:
       - name: Run provider package tests
         working-directory: packages/tj_flutter_providers
         run: |
-          set +e
           flutter pub get
-          flutter test --timeout 120s > test-report.txt 2>&1
-          code=$?
-          tail -60 test-report.txt
-          git add -f test-report.txt && git commit -m "chore: record provider test report" || true
-          git fetch origin ${{ github.ref_name }} || true
-          git rebase FETCH_HEAD || true
-          git push origin HEAD:${{ github.ref_name }} || true
-          exit "$code"
+          flutter test --timeout 120s
 
 
   format-apply:
-    # ON-DEMAND maintenance job: applies `dart format` with the exact SDK the
-    # verify gate uses and pushes the result. Useful when a change was written
-    # on a machine without a local Flutter SDK. It never runs automatically.
+    # On-demand maintenance job: formats the tree with the exact SDK the verify
+    # gate uses, and pushes the result. Useful when a change was written on a
+    # machine without a local Flutter SDK. Never runs automatically.
+    #
+    # `flutter pub get` MUST run first: `dart format` picks its style from the
+    # package's resolved language version, and without it the formatter silently
+    # applies the legacy short style to the whole tree.
     name: Format apply
     if: github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-24.04
@@ -138,16 +85,15 @@ jobs:
       contents: write
     steps:
       - uses: actions/checkout@v4
-      - uses: subosito/flutter-action@v2
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
         with:
           flutter-version: ${{ env.FLUTTER_VERSION }}
           channel: stable
           cache: true
-      # `dart format` picks its style from the package's *language version*,
-      # which it only learns from the resolved package config. Without this the
-      # formatter silently applies the legacy (short) style and rewrites the
-      # whole tree into something the verify gate then rejects.
-      - name: Install dependencies (needed for the correct format style)
+
+      - name: Install dependencies
         run: |
           flutter pub get
           (cd packages/tj_flutter_providers && flutter pub get)
@@ -158,31 +104,13 @@ jobs:
             packages/tj_flutter_providers/test
           if git diff --quiet; then
             echo "Already formatted; nothing to commit."
-          else
-            git diff --stat
-            git config user.name "github-actions[bot]"
-            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-            git commit -am "style: dart format (applied by CI)"
-            git push origin HEAD:${{ github.ref_name }}
+            exit 0
           fi
-
-      # Maintainer helper: writes the formatter's actual diff to format.diff so
-      # the change can be applied (or understood) without a local SDK.
-      - name: Record format diff
-        run: |
-          set +e
-          dart format lib test packages/tj_flutter_providers/lib \
-            packages/tj_flutter_providers/test > /dev/null 2>&1
-          git diff > format.diff
-          wc -l format.diff
-          if [ -s format.diff ]; then
-            git config user.name "github-actions[bot]"
-            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-            git checkout -- .
-            git add format.diff
-            git commit -m "chore: record dart format diff" || true
-            git push origin HEAD:${{ github.ref_name }} || true
-          fi
+          git diff --stat
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -am "style: dart format (applied by CI)"
+          git push origin HEAD:${{ github.ref_name }}
 
   build-debug:
     name: Build debug APK
