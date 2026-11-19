@@ -1,5 +1,4 @@
 import 'package:equatable/equatable.dart';
-
 import '../../core/constants/api_constants.dart';
 import 'movie.dart';
 import 'tv_show.dart';

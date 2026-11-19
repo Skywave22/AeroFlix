@@ -1,7 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:media_kit/media_kit.dart';
 import 'package:media_kit_video/media_kit_video.dart';
-
 import '../../shared/models/stream_source.dart';
 
 /// Holds an active media_kit Player + VideoController bound to a selected
@@ -20,8 +19,7 @@ class ActivePlayer {
 
 final activePlayerProvider =
     StateNotifierProvider.autoDispose<ActivePlayerNotifier, ActivePlayer?>(
-      (ref) => ActivePlayerNotifier(),
-    );
+        (ref) => ActivePlayerNotifier());
 
 class ActivePlayerNotifier extends StateNotifier<ActivePlayer?> {
   ActivePlayerNotifier() : super(null);
@@ -39,8 +37,7 @@ class ActivePlayerNotifier extends StateNotifier<ActivePlayer?> {
     'demuxer-max-back-bytes': '32MiB',
     'demuxer-readahead-secs': '30',
     'network-timeout': '30',
-    'stream-lavf-o':
-        'reconnect=1,reconnect_on_network_error=1,'
+    'stream-lavf-o': 'reconnect=1,reconnect_on_network_error=1,'
         'reconnect_streamed=1,reconnect_delay_max=5',
     'audio-stream-silence': 'yes',
   };
@@ -48,10 +45,8 @@ class ActivePlayerNotifier extends StateNotifier<ActivePlayer?> {
   /// [softwareDecode] forces CPU decoding — the fallback when hardware
   /// decoding (MediaCodec) can open a stream but never renders a frame, which
   /// some devices do with certain HLS/mkv links.
-  Future<ActivePlayer> play(
-    StreamSource src, {
-    bool softwareDecode = false,
-  }) async {
+  Future<ActivePlayer> play(StreamSource src,
+      {bool softwareDecode = false}) async {
     await state?.dispose();
 
     final player = Player(

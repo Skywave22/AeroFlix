@@ -1,8 +1,6 @@
 import 'dart:convert';
-
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-
 import '../../core/constants/app_constants.dart';
 import '../models/media_details.dart';
 
@@ -46,25 +44,23 @@ class ContinueWatchingItem {
       '${t.name}:$id:${s}x${e.toString().padLeft(2, '0')}';
 
   Map<String, dynamic> toJson() => {
-    'type': type.name,
-    'id': id,
-    'title': title,
-    'posterPath': posterPath,
-    'backdropPath': backdropPath,
-    'season': season,
-    'episode': episode,
-    'episodeTitle': episodeTitle,
-    'positionMs': positionMs,
-    'durationMs': durationMs,
-    'updatedAt': updatedAt,
-  };
+        'type': type.name,
+        'id': id,
+        'title': title,
+        'posterPath': posterPath,
+        'backdropPath': backdropPath,
+        'season': season,
+        'episode': episode,
+        'episodeTitle': episodeTitle,
+        'positionMs': positionMs,
+        'durationMs': durationMs,
+        'updatedAt': updatedAt,
+      };
 
   factory ContinueWatchingItem.fromJson(Map<String, dynamic> j) =>
       ContinueWatchingItem(
-        type: MediaType.values.firstWhere(
-          (t) => t.name == j['type'],
-          orElse: () => MediaType.movie,
-        ),
+        type: MediaType.values.firstWhere((t) => t.name == j['type'],
+            orElse: () => MediaType.movie),
         id: (j['id'] as int?) ?? 0,
         title: (j['title'] ?? '') as String,
         posterPath: j['posterPath'] as String?,
@@ -84,19 +80,20 @@ class ContinueWatchingItem {
     String? episodeTitle,
     String? posterPath,
     String? backdropPath,
-  }) => ContinueWatchingItem(
-    type: type,
-    id: id,
-    title: title,
-    posterPath: posterPath ?? this.posterPath,
-    backdropPath: backdropPath ?? this.backdropPath,
-    season: season,
-    episode: episode,
-    episodeTitle: episodeTitle ?? this.episodeTitle,
-    positionMs: positionMs ?? this.positionMs,
-    durationMs: durationMs ?? this.durationMs,
-    updatedAt: updatedAt ?? this.updatedAt,
-  );
+  }) =>
+      ContinueWatchingItem(
+        type: type,
+        id: id,
+        title: title,
+        posterPath: posterPath ?? this.posterPath,
+        backdropPath: backdropPath ?? this.backdropPath,
+        season: season,
+        episode: episode,
+        episodeTitle: episodeTitle ?? this.episodeTitle,
+        positionMs: positionMs ?? this.positionMs,
+        durationMs: durationMs ?? this.durationMs,
+        updatedAt: updatedAt ?? this.updatedAt,
+      );
 }
 
 class ContinueWatchingNotifier
@@ -133,12 +130,8 @@ class ContinueWatchingNotifier
     await prefs.setString(_key, jsonEncode(list));
   }
 
-  ContinueWatchingItem? findFor(
-    MediaType t,
-    int id, {
-    int season = 0,
-    int episode = 0,
-  }) {
+  ContinueWatchingItem? findFor(MediaType t, int id,
+      {int season = 0, int episode = 0}) {
     final k = ContinueWatchingItem._keyFor(t, id, season, episode);
     for (final i in state) {
       if (i.key == k) return i;
@@ -200,12 +193,8 @@ class ContinueWatchingNotifier
     await _save();
   }
 
-  Future<void> remove(
-    MediaType t,
-    int id, {
-    int season = 0,
-    int episode = 0,
-  }) async {
+  Future<void> remove(MediaType t, int id,
+      {int season = 0, int episode = 0}) async {
     await _ready;
     final k = ContinueWatchingItem._keyFor(t, id, season, episode);
     state = state.where((i) => i.key != k).toList();
@@ -222,5 +211,4 @@ class ContinueWatchingNotifier
 
 final continueWatchingProvider =
     StateNotifierProvider<ContinueWatchingNotifier, List<ContinueWatchingItem>>(
-      (ref) => ContinueWatchingNotifier(),
-    );
+        (ref) => ContinueWatchingNotifier());

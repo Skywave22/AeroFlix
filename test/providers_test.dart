@@ -45,36 +45,32 @@ void main() {
 
     test('sizeLabel formats bytes', () {
       const zero = DownloadItem(
-        key: 'k',
-        title: 't',
-        subtitle: 's',
-        posterPath: null,
-        kind: 'movie',
-        mediaId: 1,
-        season: 0,
-        episode: 0,
-      );
+          key: 'k',
+          title: 't',
+          subtitle: 's',
+          posterPath: null,
+          kind: 'movie',
+          mediaId: 1,
+          season: 0,
+          episode: 0);
       expect(zero.sizeLabel, '—');
       expect(zero.copyWith(sizeBytes: 2048).sizeLabel, '2.0 KB');
       expect(zero.copyWith(sizeBytes: 5 * 1024 * 1024).sizeLabel, '5.0 MB');
       expect(
-        zero.copyWith(sizeBytes: 2 * 1024 * 1024 * 1024).sizeLabel,
-        '2.0 GB',
-      );
+          zero.copyWith(sizeBytes: 2 * 1024 * 1024 * 1024).sizeLabel, '2.0 GB');
     });
 
     test('copyWith clears error only when asked', () {
       const item = DownloadItem(
-        key: 'k',
-        title: 't',
-        subtitle: 's',
-        posterPath: null,
-        kind: 'movie',
-        mediaId: 1,
-        season: 0,
-        episode: 0,
-        error: 'boom',
-      );
+          key: 'k',
+          title: 't',
+          subtitle: 's',
+          posterPath: null,
+          kind: 'movie',
+          mediaId: 1,
+          season: 0,
+          episode: 0,
+          error: 'boom');
       expect(item.copyWith().error, 'boom');
       expect(item.copyWith(clearError: true).error, isNull);
     });

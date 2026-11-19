@@ -1,7 +1,5 @@
 import 'dart:async';
-
 import 'package:flutter/material.dart';
-
 import '../../app/theme/app_colors.dart';
 import 'cinematic_hero_banner.dart';
 import 'hero_item.dart';
@@ -44,11 +42,9 @@ class _HeroRotatorState extends State<HeroRotator> {
     _t = Timer.periodic(const Duration(seconds: 6), (_) {
       if (!mounted) return;
       final next = (_i + 1) % widget.items.length;
-      _pc.animateToPage(
-        next,
-        duration: const Duration(milliseconds: 650),
-        curve: Curves.easeOutCubic,
-      );
+      _pc.animateToPage(next,
+          duration: const Duration(milliseconds: 650),
+          curve: Curves.easeOutCubic);
     });
   }
 
@@ -82,78 +78,68 @@ class _HeroRotatorState extends State<HeroRotator> {
   Widget build(BuildContext context) {
     if (widget.items.isEmpty) {
       return Container(
-        height: MediaQuery.sizeOf(context).height * 0.58,
-        color: AppColors.surface,
-      );
+          height: MediaQuery.sizeOf(context).height * 0.58,
+          color: AppColors.surface);
     }
     return NotificationListener<ScrollStartNotification>(
-      onNotification: (_) {
-        _paused = true;
-        _t?.cancel();
-        return false;
-      },
-      child: NotificationListener<ScrollEndNotification>(
         onNotification: (_) {
-          Future.delayed(const Duration(seconds: 10), () {
-            if (mounted) {
-              setState(() => _paused = false);
-              _schedule();
-            }
-          });
+          _paused = true;
+          _t?.cancel();
           return false;
         },
-        child: SizedBox(
-          height: MediaQuery.sizeOf(context).height * 0.58,
-          child: Stack(
-            children: [
-              Positioned.fill(
-                child: PageView.builder(
-                  controller: _pc,
-                  itemCount: widget.items.length,
-                  onPageChanged: (i) => setState(() => _i = i),
-                  itemBuilder: (c, i) {
-                    final m = widget.items[i];
-                    final inWl = widget.isInWatchlist(m);
-                    return CinematicHeroBanner(
-                      backdropUrl: m.backdropUrl,
-                      title: m.title,
-                      metadata: _meta(m),
-                      description: m.overview,
-                      isInWatchlist: inWl,
-                      onPlay: () => widget.onPlay(m),
-                      onDetails: () => widget.onDetails(m),
-                      onWatchlist: () => widget.onWatchlist(m, inWl),
-                    );
-                  },
-                ),
-              ),
-              Positioned(
-                bottom: 18,
-                left: 0,
-                right: 0,
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    for (var k = 0; k < widget.items.length; k++)
-                      AnimatedContainer(
-                        duration: const Duration(milliseconds: 250),
-                        margin: const EdgeInsets.symmetric(horizontal: 3),
-                        width: k == _i ? 16 : 6,
-                        height: 6,
-                        decoration: BoxDecoration(
-                          color: k == _i
-                              ? AppColors.accent
-                              : Colors.white.withValues(alpha: 0.4),
-                          borderRadius: BorderRadius.circular(3),
-                        ),
-                      ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
+        child: NotificationListener<ScrollEndNotification>(
+            onNotification: (_) {
+              Future.delayed(const Duration(seconds: 10), () {
+                if (mounted) {
+                  setState(() => _paused = false);
+                  _schedule();
+                }
+              });
+              return false;
+            },
+            child: SizedBox(
+                height: MediaQuery.sizeOf(context).height * 0.58,
+                child: Stack(children: [
+                  Positioned.fill(
+                      child: PageView.builder(
+                          controller: _pc,
+                          itemCount: widget.items.length,
+                          onPageChanged: (i) => setState(() => _i = i),
+                          itemBuilder: (c, i) {
+                            final m = widget.items[i];
+                            final inWl = widget.isInWatchlist(m);
+                            return CinematicHeroBanner(
+                              backdropUrl: m.backdropUrl,
+                              title: m.title,
+                              metadata: _meta(m),
+                              description: m.overview,
+                              isInWatchlist: inWl,
+                              onPlay: () => widget.onPlay(m),
+                              onDetails: () => widget.onDetails(m),
+                              onWatchlist: () => widget.onWatchlist(m, inWl),
+                            );
+                          })),
+                  Positioned(
+                      bottom: 18,
+                      left: 0,
+                      right: 0,
+                      child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            for (var k = 0; k < widget.items.length; k++)
+                              AnimatedContainer(
+                                duration: const Duration(milliseconds: 250),
+                                margin:
+                                    const EdgeInsets.symmetric(horizontal: 3),
+                                width: k == _i ? 16 : 6,
+                                height: 6,
+                                decoration: BoxDecoration(
+                                    color: k == _i
+                                        ? AppColors.accent
+                                        : Colors.white.withValues(alpha: 0.4),
+                                    borderRadius: BorderRadius.circular(3)),
+                              )
+                          ])),
+                ]))));
   }
 }

@@ -31,16 +31,17 @@ class StreamSource extends Equatable {
     String? size,
     Map<String, String>? headers,
     List<SubtitleTrack>? subtitles,
-  }) => StreamSource(
-    url: url ?? this.url,
-    name: name ?? this.name,
-    providerId: providerId ?? this.providerId,
-    quality: quality ?? this.quality,
-    language: language ?? this.language,
-    size: size ?? this.size,
-    headers: headers ?? this.headers,
-    subtitles: subtitles ?? this.subtitles,
-  );
+  }) =>
+      StreamSource(
+        url: url ?? this.url,
+        name: name ?? this.name,
+        providerId: providerId ?? this.providerId,
+        quality: quality ?? this.quality,
+        language: language ?? this.language,
+        size: size ?? this.size,
+        headers: headers ?? this.headers,
+        subtitles: subtitles ?? this.subtitles,
+      );
 
   @override
   List<Object?> get props => [url, name, quality, language];
@@ -50,16 +51,13 @@ class SubtitleTrack extends Equatable {
   final String url;
   final String language;
   final String label;
-  const SubtitleTrack({
-    required this.url,
-    required this.language,
-    required this.label,
-  });
+  const SubtitleTrack(
+      {required this.url, required this.language, required this.label});
   factory SubtitleTrack.fromJson(Map<String, dynamic> j) => SubtitleTrack(
-    url: j['url'] as String? ?? '',
-    language: (j['language'] ?? j['lang'] ?? 'Unknown') as String,
-    label: (j['label'] ?? j['name'] ?? 'Subtitles') as String,
-  );
+        url: j['url'] as String? ?? '',
+        language: (j['language'] ?? j['lang'] ?? 'Unknown') as String,
+        label: (j['label'] ?? j['name'] ?? 'Subtitles') as String,
+      );
   @override
   List<Object?> get props => [url, language];
 }

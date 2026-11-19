@@ -1,6 +1,5 @@
 import 'package:flutter/widgets.dart';
 import 'package:media_kit/media_kit.dart';
-
 import 'app/app.dart';
 import 'core/platform/screen_mode.dart';
 

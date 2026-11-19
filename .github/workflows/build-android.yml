@@ -89,6 +89,15 @@ jobs:
           flutter-version: ${{ env.FLUTTER_VERSION }}
           channel: stable
           cache: true
+      # `dart format` picks its style from the package's *language version*,
+      # which it only learns from the resolved package config. Without this the
+      # formatter silently applies the legacy (short) style and rewrites the
+      # whole tree into something the verify gate then rejects.
+      - name: Install dependencies (needed for the correct format style)
+        run: |
+          flutter pub get
+          (cd packages/tj_flutter_providers && flutter pub get)
+
       - name: Format and commit
         run: |
           dart format lib test packages/tj_flutter_providers/lib \

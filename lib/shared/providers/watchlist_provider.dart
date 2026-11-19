@@ -1,6 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-
 import '../../core/constants/app_constants.dart';
 import '../models/media_details.dart';
 import '../models/movie.dart';
@@ -70,11 +69,10 @@ class WatchlistNotifier extends StateNotifier<Set<String>> {
   }
 }
 
-final watchlistProvider = StateNotifierProvider<WatchlistNotifier, Set<String>>(
-  (ref) {
-    return WatchlistNotifier();
-  },
-);
+final watchlistProvider =
+    StateNotifierProvider<WatchlistNotifier, Set<String>>((ref) {
+  return WatchlistNotifier();
+});
 
 final isInWatchlistProvider = Provider.family<bool, String>((ref, key) {
   final wl = ref.watch(watchlistProvider);

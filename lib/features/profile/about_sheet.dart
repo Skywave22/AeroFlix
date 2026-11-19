@@ -7,27 +7,21 @@ import '../../app/theme/app_typography.dart';
 
 /// Real, in-app "About / Privacy" content. No external page, no dead link.
 class AboutSheet extends StatelessWidget {
-  const AboutSheet({
-    super.key,
-    required this.version,
-    required this.buildNumber,
-  });
+  const AboutSheet(
+      {super.key, required this.version, required this.buildNumber});
 
   final String version;
   final String buildNumber;
 
-  static Future<void> show(
-    BuildContext context, {
-    required String version,
-    required String build,
-  }) {
+  static Future<void> show(BuildContext context,
+      {required String version, required String build}) {
     return showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
       backgroundColor: AppColors.surface,
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(AppRadii.lg)),
-      ),
+          borderRadius:
+              BorderRadius.vertical(top: Radius.circular(AppRadii.lg))),
       builder: (_) => AboutSheet(version: version, buildNumber: build),
     );
   }
@@ -48,68 +42,52 @@ class AboutSheet extends StatelessWidget {
               height: 4,
               margin: const EdgeInsets.only(bottom: AppSpacing.lg),
               decoration: BoxDecoration(
-                color: AppColors.outline,
-                borderRadius: BorderRadius.circular(2),
-              ),
+                  color: AppColors.outline,
+                  borderRadius: BorderRadius.circular(2)),
             ),
           ),
-          Row(
-            children: [
-              Image.asset('assets/images/logo_mark.png', width: 48, height: 48),
-              const SizedBox(width: AppSpacing.md),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'AeroFlix',
-                      style: AppTypography.sectionHeading.copyWith(
-                        fontSize: 24,
-                      ),
-                    ),
-                    Text(
-                      'Version $version ($buildNumber)',
-                      style: AppTypography.caption,
-                    ),
-                  ],
-                ),
+          Row(children: [
+            Image.asset('assets/images/logo_mark.png', width: 48, height: 48),
+            const SizedBox(width: AppSpacing.md),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('AeroFlix',
+                      style:
+                          AppTypography.sectionHeading.copyWith(fontSize: 24)),
+                  Text('Version $version ($buildNumber)',
+                      style: AppTypography.caption),
+                ],
               ),
-            ],
-          ),
+            ),
+          ]),
           const SizedBox(height: AppSpacing.lg),
           _Heading('What this app does'),
-          _Body(
-            'AeroFlix is a catalogue browser for movies, series and anime. '
-            'Posters, ratings, cast and artwork come from TMDB. Playback links '
-            'are resolved at request time by open-source provider plugins '
-            '(TJ-Plugins) that you can see and update in Settings → Providers.',
-          ),
+          _Body('AeroFlix is a catalogue browser for movies, series and anime. '
+              'Posters, ratings, cast and artwork come from TMDB. Playback links '
+              'are resolved at request time by open-source provider plugins '
+              '(TJ-Plugins) that you can see and update in Settings → Providers.'),
           _Heading('Data we store'),
           const _Bullet(
-            'Watchlist, watch progress and settings — on this device only.',
-          ),
+              'Watchlist, watch progress and settings — on this device only.'),
           const _Bullet(
-            'Downloaded files — in app storage until you delete them.',
-          ),
+              'Downloaded files — in app storage until you delete them.'),
           const _Bullet(
-            'Provider bundles — cached from GitHub so they can auto-update.',
-          ),
+              'Provider bundles — cached from GitHub so they can auto-update.'),
           const _Body(
-            'There is no account, no analytics SDK and no server of ours in the '
-            'middle: the app talks to TMDB and to the providers directly.',
-          ),
+              'There is no account, no analytics SDK and no server of ours in the '
+              'middle: the app talks to TMDB and to the providers directly.'),
           _Heading('Attribution'),
           const _Body(
-            'This product uses the TMDB API but is not endorsed or certified by '
-            'TMDB. Provider plugins are maintained by the TJ-Plugins project '
-            '(Skywave22/Plugins-TJ) and are licensed separately.',
-          ),
+              'This product uses the TMDB API but is not endorsed or certified by '
+              'TMDB. Provider plugins are maintained by the TJ-Plugins project '
+              '(Skywave22/Plugins-TJ) and are licensed separately.'),
           _Heading('Content'),
           const _Body(
-            'AeroFlix does not host, upload or store any video. All links point to '
-            'third-party services. Availability and legality of that content varies '
-            'by region — you are responsible for what you choose to stream.',
-          ),
+              'AeroFlix does not host, upload or store any video. All links point to '
+              'third-party services. Availability and legality of that content varies '
+              'by region — you are responsible for what you choose to stream.'),
           const SizedBox(height: AppSpacing.lg),
           FilledButton(
             onPressed: () => Navigator.of(context).maybePop(),
@@ -127,9 +105,10 @@ class _Heading extends StatelessWidget {
   final String text;
   @override
   Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.only(top: AppSpacing.lg, bottom: AppSpacing.xs),
-    child: Text(text, style: AppTypography.cardTitle),
-  );
+        padding:
+            const EdgeInsets.only(top: AppSpacing.lg, bottom: AppSpacing.xs),
+        child: Text(text, style: AppTypography.cardTitle),
+      );
 }
 
 class _Body extends StatelessWidget {
@@ -137,9 +116,9 @@ class _Body extends StatelessWidget {
   final String text;
   @override
   Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.only(bottom: AppSpacing.xs),
-    child: Text(text, style: AppTypography.body.copyWith(height: 1.55)),
-  );
+        padding: const EdgeInsets.only(bottom: AppSpacing.xs),
+        child: Text(text, style: AppTypography.body.copyWith(height: 1.55)),
+      );
 }
 
 class _Bullet extends StatelessWidget {
@@ -147,18 +126,15 @@ class _Bullet extends StatelessWidget {
   final String text;
   @override
   Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.only(bottom: 6, left: 2),
-    child: Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Padding(
-          padding: EdgeInsets.only(top: 7, right: 8),
-          child: Icon(Icons.circle, size: 5, color: AppColors.accent),
-        ),
-        Expanded(
-          child: Text(text, style: AppTypography.body.copyWith(height: 1.5)),
-        ),
-      ],
-    ),
-  );
+        padding: const EdgeInsets.only(bottom: 6, left: 2),
+        child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          const Padding(
+            padding: EdgeInsets.only(top: 7, right: 8),
+            child: Icon(Icons.circle, size: 5, color: AppColors.accent),
+          ),
+          Expanded(
+              child:
+                  Text(text, style: AppTypography.body.copyWith(height: 1.5))),
+        ]),
+      );
 }

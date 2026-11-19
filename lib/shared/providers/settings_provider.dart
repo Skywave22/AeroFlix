@@ -20,13 +20,14 @@ class Settings {
     bool? cellularAllowed,
     bool? subtitlesOnByDefault,
     double? defaultSpeed,
-  }) => Settings(
-    autoPlayNext: autoPlayNext ?? this.autoPlayNext,
-    autoplayTrailers: autoplayTrailers ?? this.autoplayTrailers,
-    cellularAllowed: cellularAllowed ?? this.cellularAllowed,
-    subtitlesOnByDefault: subtitlesOnByDefault ?? this.subtitlesOnByDefault,
-    defaultSpeed: defaultSpeed ?? this.defaultSpeed,
-  );
+  }) =>
+      Settings(
+        autoPlayNext: autoPlayNext ?? this.autoPlayNext,
+        autoplayTrailers: autoplayTrailers ?? this.autoplayTrailers,
+        cellularAllowed: cellularAllowed ?? this.cellularAllowed,
+        subtitlesOnByDefault: subtitlesOnByDefault ?? this.subtitlesOnByDefault,
+        defaultSpeed: defaultSpeed ?? this.defaultSpeed,
+      );
 }
 
 class SettingsNotifier extends StateNotifier<Settings> {
@@ -89,5 +90,4 @@ class SettingsNotifier extends StateNotifier<Settings> {
 }
 
 final settingsProvider = StateNotifierProvider<SettingsNotifier, Settings>(
-  (_) => SettingsNotifier(),
-);
+    (_) => SettingsNotifier());

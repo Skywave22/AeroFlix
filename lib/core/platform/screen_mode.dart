@@ -60,9 +60,9 @@ class ScreenModeController {
   /// player land upside down.
   static const List<DeviceOrientation> _playerOrientations =
       <DeviceOrientation>[
-        DeviceOrientation.landscapeLeft,
-        DeviceOrientation.landscapeRight,
-      ];
+    DeviceOrientation.landscapeLeft,
+    DeviceOrientation.landscapeRight,
+  ];
 
   static ScreenMode? _current;
 
@@ -106,8 +106,8 @@ class ScreenModeController {
   /// Picks the mode for a router location path.
   static ScreenMode modeForLocation(String path) =>
       path == '/player' || path.startsWith('/player/')
-      ? ScreenMode.player
-      : ScreenMode.app;
+          ? ScreenMode.player
+          : ScreenMode.app;
 
   /// Applies the mode implied by a router location path.
   static Future<void> syncForLocation(String path) =>

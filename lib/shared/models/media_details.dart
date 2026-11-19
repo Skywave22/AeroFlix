@@ -1,5 +1,4 @@
 import 'package:equatable/equatable.dart';
-
 import '../../core/constants/api_constants.dart';
 
 enum MediaType { movie, tv }
@@ -9,13 +8,12 @@ class CastMember extends Equatable {
   final int id;
   final String name, character, job;
   final String? profilePath;
-  const CastMember({
-    required this.id,
-    required this.name,
-    this.character = '',
-    this.job = '',
-    this.profilePath,
-  });
+  const CastMember(
+      {required this.id,
+      required this.name,
+      this.character = '',
+      this.job = '',
+      this.profilePath});
   String get profileUrl => ApiConstants.profileUrl(profilePath);
   factory CastMember.fromJson(Map<String, dynamic> j, {bool isCrew = false}) =>
       CastMember(
@@ -36,30 +34,29 @@ class Episode extends Equatable {
   final double voteAverage;
   final String? airDate;
   final int? runtime;
-  const Episode({
-    required this.id,
-    required this.seasonNumber,
-    required this.episodeNumber,
-    required this.name,
-    this.overview = '',
-    this.stillPath,
-    this.voteAverage = 0,
-    this.airDate,
-    this.runtime,
-  });
+  const Episode(
+      {required this.id,
+      required this.seasonNumber,
+      required this.episodeNumber,
+      required this.name,
+      this.overview = '',
+      this.stillPath,
+      this.voteAverage = 0,
+      this.airDate,
+      this.runtime});
   String get stillUrl =>
       ApiConstants.backdropUrl(stillPath, size: ApiConstants.backdropSizeW780);
   factory Episode.fromJson(Map<String, dynamic> j) => Episode(
-    id: j['id'] as int? ?? 0,
-    seasonNumber: (j['season_number'] as int?) ?? 1,
-    episodeNumber: (j['episode_number'] as int?) ?? 0,
-    name: (j['name'] ?? '') as String,
-    overview: (j['overview'] ?? '') as String,
-    stillPath: j['still_path'] as String?,
-    voteAverage: ((j['vote_average'] as num?) ?? 0).toDouble(),
-    airDate: j['air_date'] as String?,
-    runtime: j['runtime'] as int?,
-  );
+        id: j['id'] as int? ?? 0,
+        seasonNumber: (j['season_number'] as int?) ?? 1,
+        episodeNumber: (j['episode_number'] as int?) ?? 0,
+        name: (j['name'] ?? '') as String,
+        overview: (j['overview'] ?? '') as String,
+        stillPath: j['still_path'] as String?,
+        voteAverage: ((j['vote_average'] as num?) ?? 0).toDouble(),
+        airDate: j['air_date'] as String?,
+        runtime: j['runtime'] as int?,
+      );
   @override
   List<Object?> get props => [id, seasonNumber, episodeNumber];
 }
@@ -68,26 +65,25 @@ class Season extends Equatable {
   final int id, seasonNumber, episodeCount;
   final String name, overview;
   final String? posterPath, airDate;
-  const Season({
-    required this.id,
-    required this.seasonNumber,
-    required this.name,
-    this.episodeCount = 0,
-    this.overview = '',
-    this.posterPath,
-    this.airDate,
-  });
+  const Season(
+      {required this.id,
+      required this.seasonNumber,
+      required this.name,
+      this.episodeCount = 0,
+      this.overview = '',
+      this.posterPath,
+      this.airDate});
   String get posterUrl =>
       ApiConstants.posterUrl(posterPath, size: ApiConstants.posterSizeW342);
   factory Season.fromJson(Map<String, dynamic> j) => Season(
-    id: j['id'] as int? ?? 0,
-    seasonNumber: (j['season_number'] as int?) ?? 0,
-    name: (j['name'] ?? '') as String,
-    episodeCount: (j['episode_count'] as int?) ?? 0,
-    overview: (j['overview'] ?? '') as String,
-    posterPath: j['poster_path'] as String?,
-    airDate: j['air_date'] as String?,
-  );
+        id: j['id'] as int? ?? 0,
+        seasonNumber: (j['season_number'] as int?) ?? 0,
+        name: (j['name'] ?? '') as String,
+        episodeCount: (j['episode_count'] as int?) ?? 0,
+        overview: (j['overview'] ?? '') as String,
+        posterPath: j['poster_path'] as String?,
+        airDate: j['air_date'] as String?,
+      );
   @override
   List<Object?> get props => [id, seasonNumber];
 }
@@ -129,22 +125,21 @@ class SimilarTitle extends Equatable {
 class VideoTrailer extends Equatable {
   final String id, key, name, site, type;
   final bool official;
-  const VideoTrailer({
-    required this.id,
-    required this.key,
-    required this.name,
-    required this.site,
-    required this.type,
-    this.official = false,
-  });
+  const VideoTrailer(
+      {required this.id,
+      required this.key,
+      required this.name,
+      required this.site,
+      required this.type,
+      this.official = false});
   factory VideoTrailer.fromJson(Map<String, dynamic> j) => VideoTrailer(
-    id: j['id'] as String? ?? '',
-    key: j['key'] as String? ?? '',
-    name: (j['name'] ?? '') as String,
-    site: (j['site'] ?? '') as String,
-    type: (j['type'] ?? '') as String,
-    official: (j['official'] as bool?) ?? false,
-  );
+        id: j['id'] as String? ?? '',
+        key: j['key'] as String? ?? '',
+        name: (j['name'] ?? '') as String,
+        site: (j['site'] ?? '') as String,
+        type: (j['type'] ?? '') as String,
+        official: (j['official'] as bool?) ?? false,
+      );
   String get youtubeUrl => 'https://www.youtube.com/watch?v=$key';
   @override
   List<Object?> get props => [id, key];

@@ -44,10 +44,9 @@ class Failure extends Equatable {
   factory Failure.cancelled() =>
       const Failure(code: 'CANCELLED', message: 'Cancelled');
   factory Failure.siteBlocked({Object? cause}) => Failure(
-    code: 'SITE_BLOCKED',
-    message: 'Source is blocked on your network',
-    cause: cause,
-  );
+      code: 'SITE_BLOCKED',
+      message: 'Source is blocked on your network',
+      cause: cause);
 
   @override
   List<Object?> get props => [code, message, cause];

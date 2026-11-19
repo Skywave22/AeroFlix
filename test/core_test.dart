@@ -52,9 +52,7 @@ void main() {
     test('isFinished within 30s of the end', () {
       const hour = 60 * 60 * 1000;
       expect(
-        item(positionMs: hour - 15000, durationMs: hour).isFinished,
-        isTrue,
-      );
+          item(positionMs: hour - 15000, durationMs: hour).isFinished, isTrue);
       expect(item(positionMs: hour ~/ 2, durationMs: hour).isFinished, isFalse);
       expect(item(positionMs: 999999, durationMs: 0).isFinished, isFalse);
     });
@@ -110,44 +108,40 @@ void main() {
           language: language,
         );
 
-    test(
-      'best quality first, Hindi before other languages at equal quality',
-      () {
-        // Mirror of StreamService's ordering contract.
-        final list = [
-          s('480p', 'Hindi'),
-          s('1080p', 'English'),
-          s('1080p', 'Hindi'),
-          s('4K', 'English'),
-        ];
-        int rank(String? q) {
-          final v = (q ?? '').toLowerCase();
-          if (v.contains('4k') || v.contains('2160')) return 5;
-          if (v.contains('1440')) return 4;
-          if (v.contains('1080')) return 3;
-          if (v.contains('720')) return 2;
-          if (v.contains('480')) return 1;
-          return 0;
-        }
+    test('best quality first, Hindi before other languages at equal quality',
+        () {
+      // Mirror of StreamService's ordering contract.
+      final list = [
+        s('480p', 'Hindi'),
+        s('1080p', 'English'),
+        s('1080p', 'Hindi'),
+        s('4K', 'English'),
+      ];
+      int rank(String? q) {
+        final v = (q ?? '').toLowerCase();
+        if (v.contains('4k') || v.contains('2160')) return 5;
+        if (v.contains('1440')) return 4;
+        if (v.contains('1080')) return 3;
+        if (v.contains('720')) return 2;
+        if (v.contains('480')) return 1;
+        return 0;
+      }
 
-        list.sort((a, b) {
-          final byQuality = rank(b.quality).compareTo(rank(a.quality));
-          if (byQuality != 0) return byQuality;
-          final aHindi = (a.language ?? '').toLowerCase().contains('hindi')
-              ? 0
-              : 1;
-          final bHindi = (b.language ?? '').toLowerCase().contains('hindi')
-              ? 0
-              : 1;
-          return aHindi.compareTo(bHindi);
-        });
+      list.sort((a, b) {
+        final byQuality = rank(b.quality).compareTo(rank(a.quality));
+        if (byQuality != 0) return byQuality;
+        final aHindi =
+            (a.language ?? '').toLowerCase().contains('hindi') ? 0 : 1;
+        final bHindi =
+            (b.language ?? '').toLowerCase().contains('hindi') ? 0 : 1;
+        return aHindi.compareTo(bHindi);
+      });
 
-        expect(list.first.quality, '4K');
-        expect(list[1].quality, '1080p');
-        expect(list[1].language, 'Hindi');
-        expect(list.last.quality, '480p');
-      },
-    );
+      expect(list.first.quality, '4K');
+      expect(list[1].quality, '1080p');
+      expect(list[1].language, 'Hindi');
+      expect(list.last.quality, '480p');
+    });
 
     test('StreamSource carries headers and subtitles through', () {
       const src = StreamSource(
@@ -159,10 +153,9 @@ void main() {
         headers: {'Referer': 'https://cinezo.gd/'},
         subtitles: [
           SubtitleTrack(
-            url: 'https://example.com/en.vtt',
-            language: 'English',
-            label: 'English',
-          ),
+              url: 'https://example.com/en.vtt',
+              language: 'English',
+              label: 'English'),
         ],
       );
       expect(src.headers['Referer'], contains('cinezo'));
@@ -172,27 +165,17 @@ void main() {
 
   group('trailerUrl', () {
     MediaDetails withTrailers(List<VideoTrailer> trailers) => MediaDetails(
-      type: MediaType.movie,
-      id: 1,
-      title: 'T',
-      trailers: trailers,
-    );
+        type: MediaType.movie, id: 1, title: 'T', trailers: trailers);
 
     const other = VideoTrailer(
-      id: '1',
-      key: 'aaa',
-      name: 'Teaser',
-      site: 'YouTube',
-      type: 'Trailer',
-    );
+        id: '1', key: 'aaa', name: 'Teaser', site: 'YouTube', type: 'Trailer');
     const official = VideoTrailer(
-      id: '2',
-      key: 'bbb',
-      name: 'Official Trailer',
-      site: 'YouTube',
-      type: 'Trailer',
-      official: true,
-    );
+        id: '2',
+        key: 'bbb',
+        name: 'Official Trailer',
+        site: 'YouTube',
+        type: 'Trailer',
+        official: true);
 
     test('prefers the entry named Official Trailer', () {
       final d = withTrailers([other, official]);
@@ -207,19 +190,13 @@ void main() {
     test('ignores non-YouTube and non-Trailer entries', () {
       final d = withTrailers([
         const VideoTrailer(
-          id: '3',
-          key: 'ccc',
-          name: 'Clip',
-          site: 'Vimeo',
-          type: 'Trailer',
-        ),
+            id: '3', key: 'ccc', name: 'Clip', site: 'Vimeo', type: 'Trailer'),
         const VideoTrailer(
-          id: '4',
-          key: 'ddd',
-          name: 'Featurette',
-          site: 'YouTube',
-          type: 'Featurette',
-        ),
+            id: '4',
+            key: 'ddd',
+            name: 'Featurette',
+            site: 'YouTube',
+            type: 'Featurette'),
       ]);
       expect(trailerUrl(d), isNull);
     });
@@ -228,11 +205,10 @@ void main() {
   group('StreamSource', () {
     test('copyWith preserves identity fields', () {
       const s = StreamSource(
-        url: 'https://x/y.mp4',
-        name: 'Test',
-        providerId: 'p',
-        quality: '720p',
-      );
+          url: 'https://x/y.mp4',
+          name: 'Test',
+          providerId: 'p',
+          quality: '720p');
       final s2 = s.copyWith(quality: '1080p');
       expect(s2.url, s.url);
       expect(s2.providerId, s.providerId);
@@ -242,33 +218,28 @@ void main() {
 
   group('source ordering', () {
     const hls = StreamSource(
-      url: 'https://cdn.example.com/film/index.m3u8',
-      name: 'Provider · Citadel',
-      providerId: 'p',
-      quality: '720p',
-      language: 'Hindi',
-    );
+        url: 'https://cdn.example.com/film/index.m3u8',
+        name: 'Provider · Citadel',
+        providerId: 'p',
+        quality: '720p',
+        language: 'Hindi');
     const packed = StreamSource(
-      url: 'https://wts.itsnitrox.tech/pitro/abc',
-      name: 'Provider · Nitro - Hindi (1080p)',
-      providerId: 'p',
-      quality: '1080p',
-      language: 'Hindi',
-    );
+        url: 'https://wts.itsnitrox.tech/pitro/abc',
+        name: 'Provider · Nitro - Hindi (1080p)',
+        providerId: 'p',
+        quality: '1080p',
+        language: 'Hindi');
     const maybe = StreamSource(
-      url: 'https://a.example.com/movies/film.mp4',
-      name: 'Provider · MovOne (1080p) (may not play)',
-      providerId: 'p',
-      quality: '1080p',
-    );
+        url: 'https://a.example.com/movies/film.mp4',
+        name: 'Provider · MovOne (1080p) (may not play)',
+        providerId: 'p',
+        quality: '1080p');
 
-    test(
-      'adaptive HLS ranks above a packed redirect even at lower quality',
-      () {
-        final list = [packed, hls]..sort(StreamService.compareSources);
-        expect(list.first.url, hls.url);
-      },
-    );
+    test('adaptive HLS ranks above a packed redirect even at lower quality',
+        () {
+      final list = [packed, hls]..sort(StreamService.compareSources);
+      expect(list.first.url, hls.url);
+    });
 
     test('links advertised as "may not play" go last', () {
       final list = [maybe, packed, hls]..sort(StreamService.compareSources);
@@ -277,17 +248,15 @@ void main() {
 
     test('quality still breaks ties between comparable links', () {
       const hd = StreamSource(
-        url: 'https://c.example.com/a/index.m3u8',
-        name: 'Provider · Citadel',
-        providerId: 'p',
-        quality: '1080p',
-      );
+          url: 'https://c.example.com/a/index.m3u8',
+          name: 'Provider · Citadel',
+          providerId: 'p',
+          quality: '1080p');
       const sd = StreamSource(
-        url: 'https://c.example.com/b/index.m3u8',
-        name: 'Provider · Citadel',
-        providerId: 'p',
-        quality: '480p',
-      );
+          url: 'https://c.example.com/b/index.m3u8',
+          name: 'Provider · Citadel',
+          providerId: 'p',
+          quality: '480p');
       final list = [sd, hd]..sort(StreamService.compareSources);
       expect(list.first.url, hd.url);
     });

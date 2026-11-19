@@ -4,10 +4,8 @@ class ApiConstants {
   // The TMDB v3 key is compiled in by default for convenience, but CI and
   // release builds can (and should) override it at compile time with
   // `--dart-define=TMDB_API_KEY=...`. Rotate the key if it ever leaks.
-  static const String tmdbApiKey = String.fromEnvironment(
-    'TMDB_API_KEY',
-    defaultValue: '439c478a771f35c05022f9feabcca01c',
-  );
+  static const String tmdbApiKey = String.fromEnvironment('TMDB_API_KEY',
+      defaultValue: '439c478a771f35c05022f9feabcca01c');
   static const String tmdbImageBase = 'https://image.tmdb.org/t/p';
   static const String posterSizeW154 = 'w154',
       posterSizeW342 = 'w342',

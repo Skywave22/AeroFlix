@@ -1,5 +1,4 @@
 import 'dart:async';
-
 import 'package:app_links/app_links.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
@@ -55,7 +54,10 @@ class _DeepLinkHandlerState extends State<DeepLinkHandler> {
       // aeroflix://movie/123 parses as host='movie', pathSegments=['123'].
       // Fold host back into the segment list so `aeroflix://movie/123`,
       // `aeroflix:///movie/123` and aeroflix:///movie/123?season=2 all work.
-      segments = [if (uri.host.isNotEmpty) uri.host, ...uri.pathSegments];
+      segments = [
+        if (uri.host.isNotEmpty) uri.host,
+        ...uri.pathSegments,
+      ];
     } else {
       // themoviedb.org URLs (shared from our share sheet, TMDB web, etc.)
       final host = uri.host.replaceAll('www.', '');

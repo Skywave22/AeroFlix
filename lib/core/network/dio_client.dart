@@ -1,7 +1,6 @@
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-
 import '../constants/api_constants.dart';
 
 /// Dio logger that never writes the TMDB API key to the console.
@@ -21,31 +20,24 @@ class _RedactingLogInterceptor extends Interceptor {
   @override
   void onError(DioException err, ErrorInterceptorHandler handler) {
     if (kDebugMode) {
-      debugPrint(
-        '[dio] error ${err.response?.statusCode} '
-        '${_redact(err.requestOptions.uri.toString())}: ${err.type}',
-      );
+      debugPrint('[dio] error ${err.response?.statusCode} '
+          '${_redact(err.requestOptions.uri.toString())}: ${err.type}');
     }
     handler.next(err);
   }
 }
 
 final dioProvider = Provider<Dio>((ref) {
-  final dio = Dio(
-    BaseOptions(
-      baseUrl: ApiConstants.tmdbBaseUrl,
-      connectTimeout: ApiConstants.connectTimeout,
-      receiveTimeout: ApiConstants.receiveTimeout,
-      queryParameters: {
-        'api_key': ApiConstants.tmdbApiKey,
-        'language': ApiConstants.defaultLanguage,
-      },
-      headers: {
-        'Accept': 'application/json',
-        'Content-Type': 'application/json',
-      },
-    ),
-  );
+  final dio = Dio(BaseOptions(
+    baseUrl: ApiConstants.tmdbBaseUrl,
+    connectTimeout: ApiConstants.connectTimeout,
+    receiveTimeout: ApiConstants.receiveTimeout,
+    queryParameters: {
+      'api_key': ApiConstants.tmdbApiKey,
+      'language': ApiConstants.defaultLanguage
+    },
+    headers: {'Accept': 'application/json', 'Content-Type': 'application/json'},
+  ));
   if (kDebugMode) {
     dio.interceptors.add(_RedactingLogInterceptor());
   }

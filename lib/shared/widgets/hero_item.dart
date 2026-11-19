@@ -25,10 +25,8 @@ class HeroItem {
     this.genreIds = const [],
   });
 
-  String get backdropUrl => ApiConstants.backdropUrl(
-    backdropPath,
-    size: ApiConstants.backdropSizeW1280,
-  );
+  String get backdropUrl => ApiConstants.backdropUrl(backdropPath,
+      size: ApiConstants.backdropSizeW1280);
   String get posterUrl =>
       ApiConstants.posterUrl(posterPath, size: ApiConstants.posterSizeW342);
   String get year => (releaseDate != null && releaseDate!.length >= 4)
@@ -36,26 +34,26 @@ class HeroItem {
       : '';
 
   factory HeroItem.fromMovie(Movie m) => HeroItem(
-    id: m.id,
-    kind: 'movie',
-    title: m.title,
-    backdropPath: m.backdropPath,
-    posterPath: m.posterPath,
-    overview: m.overview,
-    releaseDate: m.releaseDate,
-    voteAverage: m.voteAverage,
-    genreIds: m.genreIds,
-  );
+        id: m.id,
+        kind: 'movie',
+        title: m.title,
+        backdropPath: m.backdropPath,
+        posterPath: m.posterPath,
+        overview: m.overview,
+        releaseDate: m.releaseDate,
+        voteAverage: m.voteAverage,
+        genreIds: m.genreIds,
+      );
 
   factory HeroItem.fromTv(TvShow s) => HeroItem(
-    id: s.id,
-    kind: 'tv',
-    title: s.name,
-    backdropPath: s.backdropPath,
-    posterPath: s.posterPath,
-    overview: s.overview,
-    releaseDate: s.firstAirDate,
-    voteAverage: s.voteAverage,
-    genreIds: s.genreIds,
-  );
+        id: s.id,
+        kind: 'tv',
+        title: s.name,
+        backdropPath: s.backdropPath,
+        posterPath: s.posterPath,
+        overview: s.overview,
+        releaseDate: s.firstAirDate,
+        voteAverage: s.voteAverage,
+        genreIds: s.genreIds,
+      );
 }
