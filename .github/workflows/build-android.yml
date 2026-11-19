@@ -39,16 +39,22 @@ jobs:
         run: flutter pub get
 
       - name: Verify formatting (app + vendored provider package)
-        # Bash `run` defaults to `set -eo pipefail` on Actions runners, so a
-        # failing command inside a multi-line block aborts the step before any
-        # diagnostic code can run. Keep this to a single command and let the
-        # annotation carry the fix instructions.
+        # NOTE: no `set -e` interference here — every command runs and the step
+        # decides its own exit status. The previous version relied on
+        # `--set-exit-if-changed` inside an `if !` and reported failures that
+        # the very same command did not reproduce elsewhere.
         run: |
-          dart format --output=none --set-exit-if-changed \
-            lib \
-            test \
-            packages/tj_flutter_providers/lib \
-            packages/tj_flutter_providers/test
+          set +e
+          out=$(dart format --output=none --set-exit-if-changed lib test \
+                  packages/tj_flutter_providers/lib \
+                  packages/tj_flutter_providers/test 2>&1)
+          code=$?
+          if [ -n "$out" ]; then echo "$out"; fi
+          echo "dart format exit=$code"
+          if [ "$code" -ne 0 ]; then
+            echo "::error::Formatting check failed (exit $code). Run 'dart format lib test packages/tj_flutter_providers/lib packages/tj_flutter_providers/test'."
+          fi
+          exit "$code"
 
       - name: Analyze (fatal on errors/warnings)
         run: flutter analyze --no-pub
