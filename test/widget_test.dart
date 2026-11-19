@@ -38,10 +38,10 @@ void main() {
       );
     });
 
-    test('the five tabs are all shell branches, so their state is preserved', () {
-      final shell = appRouter.configuration.routes
-          .whereType<StatefulShellRoute>()
-          .single;
+    test('the five tabs are all shell branches, so their state is preserved',
+        () {
+      final shell =
+          appRouter.configuration.routes.whereType<StatefulShellRoute>().single;
       expect(shell.branches, hasLength(5));
     });
   });
