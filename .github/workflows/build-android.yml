@@ -60,14 +60,19 @@ jobs:
           set +e
           flutter analyze --no-pub 2>&1 | tee /tmp/analyze.txt
           code=${PIPESTATUS[0]}
-          if [ "$code" -ne 0 ]; then
-            # Surface the first issues as annotations so they can be read from
-            # the API without downloading logs.
-            grep -E '^\s*(error|warning|info)' /tmp/analyze.txt | head -40 | \
-              while IFS= read -r line; do
-                echo "::error title=analyzer::$line"
-              done
-          fi
+          # Record the full report in the repo: GitHub caps annotations at 10
+          # per step and job logs live on storage that may not be reachable, so
+          # a committed file is the only reliably readable channel.
+          {
+            echo "flutter analyze exit=$code"
+            echo
+            cat /tmp/analyze.txt
+          } > analyze-report.txt
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -f analyze-report.txt
+          git commit -m "chore: record flutter analyze report" || true
+          git push origin HEAD:${{ github.ref_name }} || true
           exit "$code"
 
       - name: Run app tests
