@@ -9,6 +9,7 @@ import 'package:media_kit/media_kit.dart' as mk;
 import 'package:media_kit_video/media_kit_video.dart';
 import 'package:http/http.dart' as http;
 import 'package:share_plus/share_plus.dart';
+import 'package:tj_flutter_providers/tj_providers.dart' show ProviderService;
 import 'package:wakelock_plus/wakelock_plus.dart';
 
 import '../../app/router.dart';
@@ -27,6 +28,7 @@ import '../../shared/providers/continue_watching_provider.dart';
 import '../../shared/providers/download_provider.dart';
 import '../../shared/providers/player_controller.dart';
 import '../../shared/providers/settings_provider.dart';
+
 import '../../shared/providers/stream_providers.dart';
 import '../providers/provider_diagnostics_screen.dart';
 
