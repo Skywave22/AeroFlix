@@ -158,21 +158,29 @@ jobs:
 
       # Optional real signing: android/app/build.gradle picks this up through
       # android/key.properties and falls back to the debug keystore when absent.
+      #
+      # Note the guard is a shell `if`, not `if: ${{ secrets.X != '' }}`:
+      # the `secrets` context is not available in a step-level `if`, and using
+      # it there makes GitHub reject the entire workflow file ("workflow file
+      # issue", no jobs are created).
       - name: Configure release signing (optional)
-        if: ${{ secrets.KEYSTORE_BASE64 != '' }}
         env:
           KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
           KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
           STORE_PASSWORD: ${{ secrets.STORE_PASSWORD }}
         run: |
+          if [ -z "${KEYSTORE_BASE64:-}" ]; then
+            echo "::warning::No KEYSTORE_BASE64 secret; the release APK will be           signed with the debug key. It cannot be published to Google Play or           updated in place by a properly signed build."
+            exit 0
+          fi
           echo "$KEYSTORE_BASE64" | base64 --decode > android/app/aeroflix-release.jks
-          cat > android/key.properties <<EOF
-          storeFile=aeroflix-release.jks
-          storePassword=$STORE_PASSWORD
-          keyAlias=$KEY_ALIAS
-          keyPassword=$KEY_PASSWORD
-          EOF
+          {
+            echo "storeFile=aeroflix-release.jks"
+            echo "storePassword=$STORE_PASSWORD"
+            echo "keyAlias=$KEY_ALIAS"
+            echo "keyPassword=$KEY_PASSWORD"
+          } > android/key.properties
 
       # Split per ABI: the universal APK is ~100 MB because it carries libmpv
       # and QuickJS for four architectures. Per-ABI builds are ~35-40 MB.
@@ -187,11 +195,6 @@ jobs:
           # already handled by `lint { checkReleaseBuilds = false }`, and it
           # shipped an APK several MB larger than necessary.
           flutter build apk --release --split-per-abi --no-pub $EXTRA --target-platform android-arm,android-arm64
-
-      - name: Warn about missing release keystore
-        if: ${{ secrets.KEYSTORE_BASE64 == '' }}
-        run: |
-          echo "::warning::Release APK is signed with the debug key. It cannot be published to Google Play and cannot be updated in place by a properly signed build. Set KEYSTORE_BASE64, KEY_ALIAS, KEY_PASSWORD and STORE_PASSWORD secrets to sign it."
 
       - name: Upload arm64 APK (most phones)
         uses: actions/upload-artifact@v4
