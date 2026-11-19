@@ -191,7 +191,6 @@ void main() {
         isButton: true,
         hasTapAction: true,
         hasFocusAction: true,
-        hasFocusableAction: true,
         isFocused: false,
       ),
     );
