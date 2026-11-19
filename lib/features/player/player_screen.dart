@@ -30,6 +30,7 @@ import '../../shared/providers/player_controller.dart';
 import '../../shared/providers/settings_provider.dart';
 
 import '../../shared/providers/stream_providers.dart';
+import '../../shared/widgets/player_control_strip.dart';
 import '../providers/provider_diagnostics_screen.dart';
 
 class PlayerScreen extends ConsumerStatefulWidget {
@@ -2216,25 +2217,8 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
                               // squeezed below a usable size on narrow screens;
                               // all 13 buttons used to share one spaceEvenly row
                               // and skip-previous was permanently disabled.
-                              LayoutBuilder(
-                                builder: (context, bar) =>
-                                    SingleChildScrollView(
-                                  scrollDirection: Axis.horizontal,
-                                  // Centre the strip when it fits and let it
-                                  // scroll when it does not. A plain
-                                  // SingleChildScrollView left-aligns its child
-                                  // and a bare Row jammed the strip against the
-                                  // left edge on tablets; minWidth + centre is
-                                  // what actually centres it.
-                                  child: ConstrainedBox(
-                                    constraints: BoxConstraints(
-                                      minWidth: bar.maxWidth,
-                                    ),
-                                    child: Row(
-                                      mainAxisAlignment:
-                                          MainAxisAlignment.center,
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
+                              PlayerControlStrip(
+                                children: [
                                         _ControlButton(
                                           tooltip: 'Previous episode',
                                           icon: Icons.skip_previous_rounded,
@@ -2305,10 +2289,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
                                           active: _fitIndex != 0,
                                           onPressed: _cycleFit,
                                         ),
-                                      ],
-                                    ),
-                                  ),
-                                ),
+                                ],
                               ),
                             ],
                           ),

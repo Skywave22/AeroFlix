@@ -1,5 +1,6 @@
 import 'package:aeroflix/app/theme/app_spacing.dart';
 import 'package:aeroflix/app/theme/app_theme.dart';
+import 'package:aeroflix/shared/widgets/player_control_strip.dart';
 import 'package:aeroflix/shared/widgets/poster_card.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -132,48 +133,55 @@ void main() {
     });
   });
 
-  group('player bar layout (screenshot regression)', () {
-    testWidgets('the utility strip is centred and never wider than the bar', (
-      tester,
-    ) async {
-      // The reported screenshot had the whole utility strip jammed to the left
-      // with a second (media_kit) bar underneath it. The strip is now a centred,
-      // scrollable row; this pins the centring so a future edit cannot silently
-      // push it back to the left edge on a wide screen.
+  group('player control strip (screenshot regression)', () {
+    testWidgets('centres its children when they fit', (tester) async {
+      // The reported screenshot had the whole utility strip jammed against the
+      // left edge. A bare SingleChildScrollView — the obvious-looking fix —
+      // still left-aligns its child, which is exactly what this pins down.
       await tester.pumpWidget(
         host(
-          SizedBox(
-            width: 900,
-            child: Center(
-              child: SizedBox(
-                width: double.infinity,
-                child: SingleChildScrollView(
-                  scrollDirection: Axis.horizontal,
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      for (var i = 0; i < 6; i++)
-                        const SizedBox(
-                          width: 48,
-                          height: 48,
-                          child: Icon(Icons.circle),
-                        ),
-                    ],
-                  ),
-                ),
-              ),
+          const SizedBox(
+            height: 64,
+            child: PlayerControlStrip(
+              children: [
+                SizedBox(width: 48, height: 48, child: Icon(Icons.circle)),
+                SizedBox(width: 48, height: 48, child: Icon(Icons.circle)),
+                SizedBox(width: 48, height: 48, child: Icon(Icons.circle)),
+              ],
             ),
           ),
           size: const Size(900, 400),
         ),
       );
 
+      final strip = tester.getRect(find.byType(PlayerControlStrip));
       final row = tester.getRect(find.byType(Row).last);
-      final viewport = tester.getRect(find.byType(SingleChildScrollView));
-      // Centring shows up as equal slack on both sides, within a pixel.
-      final leftSlack = row.left - viewport.left;
-      final rightSlack = viewport.right - row.right;
+      final leftSlack = row.left - strip.left;
+      final rightSlack = strip.right - row.right;
+      expect(leftSlack, greaterThan(1.0), reason: 'strip is not centred');
       expect((leftSlack - rightSlack).abs(), lessThan(1.0));
+    });
+
+    testWidgets('still scrolls when the children overflow', (tester) async {
+      await tester.pumpWidget(
+        host(
+          const SizedBox(
+            height: 64,
+            child: PlayerControlStrip(
+              children: [
+                for (var i = 0; i < 20; i++)
+                  SizedBox(width: 48, height: 48, child: Icon(Icons.circle)),
+              ],
+            ),
+          ),
+          size: const Size(360, 400),
+        ),
+      );
+
+      // 20 * 48 = 960 dp of children in a 360 dp viewport: the row must be
+      // wider than the box (so it scrolls) rather than being squeezed.
+      final row = tester.getRect(find.byType(Row).last);
+      expect(row.width, greaterThan(900));
     });
   });
 
