@@ -303,7 +303,8 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
     final pool = ref.read(providerServicePoolProvider);
     final slot = 'player:${widget.details.type.name}:${widget.details.id}:'
         '${widget.season}:${widget.episode}';
-    final service = pool.acquire(slot) ?? ref.read(providerServiceProvider);
+    final ProviderService service =
+        pool.acquire(slot) ?? ref.read(providerServiceProvider);
     _poolSlot = slot;
     _resolveSub = StreamService(service)
         .resolveStreams(
