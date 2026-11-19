@@ -165,12 +165,16 @@ void main() {
     testWidgets('still scrolls when the children overflow', (tester) async {
       await tester.pumpWidget(
         host(
-          const SizedBox(
+          SizedBox(
             height: 64,
             child: PlayerControlStrip(
               children: [
                 for (var i = 0; i < 20; i++)
-                  SizedBox(width: 48, height: 48, child: Icon(Icons.circle)),
+                  const SizedBox(
+                    width: 48,
+                    height: 48,
+                    child: Icon(Icons.circle),
+                  ),
               ],
             ),
           ),
