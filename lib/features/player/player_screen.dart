@@ -178,9 +178,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
     final posMs = _position.inMilliseconds;
     final durMs = _duration.inMilliseconds;
     if (posMs <= 0) return;
-    ref
-        .read(continueWatchingProvider.notifier)
-        .saveProgress(
+    ref.read(continueWatchingProvider.notifier).saveProgress(
           type: widget.details.type,
           id: widget.details.id,
           title: widget.details.title,
@@ -223,7 +221,8 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
         setState(() {
           _loadingSources = false;
           _stopSearchTicker();
-          _error = 'The downloaded file is missing. Remove it from Downloads and download it again.';
+          _error =
+              'The downloaded file is missing. Remove it from Downloads and download it again.';
         });
         return;
       }
@@ -256,61 +255,61 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
           episode: widget.episode,
         )
         .listen(
-          (res) {
-            if (!mounted) return;
-            setState(() => _progress[res.providerId] = res);
-            if (res.sources.isEmpty) return;
-            final merged = <StreamSource>{..._sources, ...res.sources}.toList()
-              ..sort(StreamService.compareSources);
-            setState(() => _sources = merged);
-            if (_pendingFailover) {
-              final next = merged.firstWhere(
-                (s) => !_deadUrls.contains(s.url),
-                orElse: () => res.sources.first,
-              );
-              _pendingFailover = false;
-              _play(next);
-              return;
-            }
-            if (!_startedPlayback) {
-              _startedPlayback = true;
-              final first = merged.first;
-              setState(() {
-                _selected = first;
-                _loadingSources = false;
-                _stopSearchTicker();
-              });
-              _play(first).catchError((Object e) {
-                if (mounted) setState(() => _error = 'Playback failed: $e');
-              });
-            }
-          },
-          onError: (Object e) {
-            if (!mounted) return;
-            setState(() {
-              _loadingSources = false;
-              _stopSearchTicker();
-              _error = 'Provider search failed: $e';
-            });
-          },
-          onDone: () {
-            if (!mounted) return;
-            setState(() {
-              _loadingSources = false;
-              _stopSearchTicker();
-              _pendingFailover = false;
-              if (_sources.isEmpty && _error == null) {
-                final failures = _progress.entries
-                    .where((e) => !e.value.ok)
-                    .map((e) => '${e.key}: ${e.value.error}')
-                    .toList();
-                _error = failures.isEmpty
-                    ? 'No provider has a working in-app link for this title right now.'
-                    : 'No working link right now.\n\n${failures.take(3).join('\n')}';
-              }
-            });
-          },
-        );
+      (res) {
+        if (!mounted) return;
+        setState(() => _progress[res.providerId] = res);
+        if (res.sources.isEmpty) return;
+        final merged = <StreamSource>{..._sources, ...res.sources}.toList()
+          ..sort(StreamService.compareSources);
+        setState(() => _sources = merged);
+        if (_pendingFailover) {
+          final next = merged.firstWhere(
+            (s) => !_deadUrls.contains(s.url),
+            orElse: () => res.sources.first,
+          );
+          _pendingFailover = false;
+          _play(next);
+          return;
+        }
+        if (!_startedPlayback) {
+          _startedPlayback = true;
+          final first = merged.first;
+          setState(() {
+            _selected = first;
+            _loadingSources = false;
+            _stopSearchTicker();
+          });
+          _play(first).catchError((Object e) {
+            if (mounted) setState(() => _error = 'Playback failed: $e');
+          });
+        }
+      },
+      onError: (Object e) {
+        if (!mounted) return;
+        setState(() {
+          _loadingSources = false;
+          _stopSearchTicker();
+          _error = 'Provider search failed: $e';
+        });
+      },
+      onDone: () {
+        if (!mounted) return;
+        setState(() {
+          _loadingSources = false;
+          _stopSearchTicker();
+          _pendingFailover = false;
+          if (_sources.isEmpty && _error == null) {
+            final failures = _progress.entries
+                .where((e) => !e.value.ok)
+                .map((e) => '${e.key}: ${e.value.error}')
+                .toList();
+            _error = failures.isEmpty
+                ? 'No provider has a working in-app link for this title right now.'
+                : 'No working link right now.\n\n${failures.take(3).join('\n')}';
+          }
+        });
+      },
+    );
   }
 
   String get _searchElapsed {
@@ -600,9 +599,8 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
     _seekedToResume = false;
     _subsLoaded = false;
     _tracksSub = ap.player.stream.tracks.listen((t) {
-      final subs = t.subtitle
-          .where((s) => s.id != 'no' && s.id != 'auto')
-          .toList();
+      final subs =
+          t.subtitle.where((s) => s.id != 'no' && s.id != 'auto').toList();
       final audios = t.audio.where((a) => a.id != 'auto').toList();
       if (!mounted) return;
       setState(() {
@@ -701,8 +699,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
       setState(() {
         _failingOver = false;
         _buffering = false;
-        _error =
-            'Every source failed to play.\n\n'
+        _error = 'Every source failed to play.\n\n'
             'Last error: $reason\n\nTry again, pick another source from the '
             'list, or watch the trailer.';
       });
@@ -970,27 +967,25 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
     // always claimed "Downloading…" even when nothing was queued.
     n
         .enqueue(
-          DownloadItem(
-            key: key,
-            title: title,
-            subtitle: subtitle,
-            posterPath: widget.details.posterPath,
-            kind: widget.details.type.name,
-            mediaId: widget.details.id,
-            season: widget.season,
-            episode: widget.episode,
-            url: url,
-            headers: direct.headers,
-          ),
-        )
+      DownloadItem(
+        key: key,
+        title: title,
+        subtitle: subtitle,
+        posterPath: widget.details.posterPath,
+        kind: widget.details.type.name,
+        mediaId: widget.details.id,
+        season: widget.season,
+        episode: widget.episode,
+        url: url,
+        headers: direct.headers,
+      ),
+    )
         .then((added) {
-          if (!mounted) return;
-          _showToast(
-            added
-                ? 'Downloading $title'
-                : '$title is already in your downloads',
-          );
-        });
+      if (!mounted) return;
+      _showToast(
+        added ? 'Downloading $title' : '$title is already in your downloads',
+      );
+    });
   }
 
   void _showToast(String msg) {
@@ -1132,9 +1127,8 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
                   '${r}x',
                   style: AppTypography.bodyPrimary.copyWith(
                     fontSize: 14,
-                    color: _rate == r
-                        ? AppColors.accent
-                        : AppColors.textPrimary,
+                    color:
+                        _rate == r ? AppColors.accent : AppColors.textPrimary,
                   ),
                 ),
               ),
@@ -1572,15 +1566,15 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
                       // instead of a 64 dp invisible tap target.
                       tooltip: _showControls
                           ? (_completed
-                                ? 'Replay'
-                                : (_playing ? 'Pause' : 'Play'))
+                              ? 'Replay'
+                              : (_playing ? 'Pause' : 'Play'))
                           : null,
                       icon: Icon(
                         _completed
                             ? Icons.replay_rounded
                             : _playing
-                            ? Icons.pause_rounded
-                            : Icons.play_arrow_rounded,
+                                ? Icons.pause_rounded
+                                : Icons.play_arrow_rounded,
                         size: 64,
                         color: AppColors.textPrimary.withValues(
                           alpha: _showControls ? 1 : 0,
@@ -1800,9 +1794,8 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
                               ),
                             ),
                             IconButton(
-                              tooltip: _locked
-                                  ? 'Unlock controls'
-                                  : 'Lock controls',
+                              tooltip:
+                                  _locked ? 'Unlock controls' : 'Lock controls',
                               icon: Icon(
                                 _locked
                                     ? Icons.lock_outline
@@ -1876,8 +1869,8 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
                                 value: _duration.inMilliseconds == 0
                                     ? 0
                                     : (_position.inMilliseconds /
-                                              _duration.inMilliseconds)
-                                          .clamp(0.0, 1.0),
+                                            _duration.inMilliseconds)
+                                        .clamp(0.0, 1.0),
                                 onChangeStart: (_) {
                                   setState(() => _seeking = true);
                                   _hideTimer?.cancel();
@@ -1939,14 +1932,13 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
                                     _completed
                                         ? Icons.replay_circle_filled_rounded
                                         : _playing
-                                        ? Icons.pause_circle_filled_rounded
-                                        : Icons.play_circle_fill_rounded,
+                                            ? Icons.pause_circle_filled_rounded
+                                            : Icons.play_circle_fill_rounded,
                                     color: AppColors.textPrimary,
                                     size: 56,
                                   ),
-                                  onPressed: _selected != null
-                                      ? _togglePlay
-                                      : null,
+                                  onPressed:
+                                      _selected != null ? _togglePlay : null,
                                 ),
                                 const SizedBox(width: AppSpacing.lg),
                                 _ControlButton(
@@ -2141,17 +2133,17 @@ class _ControlButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => IconButton(
-    tooltip: tooltip,
-    onPressed: enabled ? onPressed : null,
-    constraints: const BoxConstraints(minWidth: 48, minHeight: 48),
-    icon: Icon(
-      icon,
-      size: size,
-      color: !enabled
-          ? AppColors.textMuted.withValues(alpha: 0.45)
-          : (active ? activeColor : AppColors.textPrimary),
-    ),
-  );
+        tooltip: tooltip,
+        onPressed: enabled ? onPressed : null,
+        constraints: const BoxConstraints(minWidth: 48, minHeight: 48),
+        icon: Icon(
+          icon,
+          size: size,
+          color: !enabled
+              ? AppColors.textMuted.withValues(alpha: 0.45)
+              : (active ? activeColor : AppColors.textPrimary),
+        ),
+      );
 }
 
 class _NextUpCard extends StatelessWidget {
@@ -2178,8 +2170,7 @@ class _NextUpCard extends StatelessWidget {
               borderRadius: BorderRadius.circular(6),
             ),
             clipBehavior: Clip.antiAlias,
-            child:
-                (episode.details.backdropUrlW1280.isNotEmpty ||
+            child: (episode.details.backdropUrlW1280.isNotEmpty ||
                     episode.details.posterPath != null)
                 ? Image.network(
                     episode.details.backdropUrlW1280.isNotEmpty

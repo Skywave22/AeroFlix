@@ -162,8 +162,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
               subtitle: status.error != null
                   ? 'Offline copy in use — tap for details'
                   : (status.syncedAt == null
-                        ? 'Not checked yet'
-                        : 'Checked ${_ago(status.syncedAt!)}'),
+                      ? 'Not checked yet'
+                      : 'Checked ${_ago(status.syncedAt!)}'),
               onTap: () => Navigator.of(context).push(
                 MaterialPageRoute(
                   builder: (_) => const ProviderDiagnosticsScreen(),
@@ -383,12 +383,10 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                 title: Text(
                   '${s.toStringAsFixed(s.truncateToDouble() == s ? 1 : 2)}×',
                   style: AppTypography.bodyPrimary.copyWith(
-                    color: s == current
-                        ? AppColors.accent
-                        : AppColors.textPrimary,
-                    fontWeight: s == current
-                        ? FontWeight.w700
-                        : FontWeight.w500,
+                    color:
+                        s == current ? AppColors.accent : AppColors.textPrimary,
+                    fontWeight:
+                        s == current ? FontWeight.w700 : FontWeight.w500,
                   ),
                 ),
                 trailing: s == current
@@ -425,11 +423,10 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
             for (final id in ids) {
               notifier.setEnabled(id, true);
             }
-            for (final id
-                in ref
-                    .read(enabledProviderIdsProvider)
-                    .where((id) => !ids.contains(id))
-                    .toList()) {
+            for (final id in ref
+                .read(enabledProviderIdsProvider)
+                .where((id) => !ids.contains(id))
+                .toList()) {
               notifier.setEnabled(id, false);
             }
             ref.invalidate(providerServiceProvider);
@@ -497,7 +494,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
               subtitle: Text(
                 it.type == MediaType.tv
                     ? 'S${it.season.toString().padLeft(2, '0')}E${it.episode.toString().padLeft(2, '0')}'
-                          '${it.episodeTitle != null ? ' · ${it.episodeTitle}' : ''} · $pct% watched'
+                        '${it.episodeTitle != null ? ' · ${it.episodeTitle}' : ''} · $pct% watched'
                     : '$pct% watched',
                 style: AppTypography.caption,
               ),
@@ -519,15 +516,16 @@ class _SectionHeader extends StatelessWidget {
   const _SectionHeader(this.label);
   @override
   Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.only(bottom: AppSpacing.sm, top: AppSpacing.xs),
-    child: Text(
-      label,
-      style: AppTypography.sectionHeading.copyWith(
-        fontSize: 13,
-        letterSpacing: 1.2,
-      ),
-    ),
-  );
+        padding:
+            const EdgeInsets.only(bottom: AppSpacing.sm, top: AppSpacing.xs),
+        child: Text(
+          label,
+          style: AppTypography.sectionHeading.copyWith(
+            fontSize: 13,
+            letterSpacing: 1.2,
+          ),
+        ),
+      );
 }
 
 class _ListTile extends StatelessWidget {
@@ -621,19 +619,19 @@ class _SwitchTile extends StatelessWidget {
   });
   @override
   Widget build(BuildContext context) => _ListTile(
-    icon: icon,
-    title: title,
-    subtitle: subtitle,
-    trailing: Switch(
-      value: value,
-      activeThumbColor: AppColors.accent,
-      inactiveThumbColor: AppColors.textMuted,
-      inactiveTrackColor: AppColors.surfaceElevated,
-      trackOutlineWidth: const WidgetStatePropertyAll(0),
-      onChanged: onChanged,
-    ),
-    onTap: () => onChanged(!value),
-  );
+        icon: icon,
+        title: title,
+        subtitle: subtitle,
+        trailing: Switch(
+          value: value,
+          activeThumbColor: AppColors.accent,
+          inactiveThumbColor: AppColors.textMuted,
+          inactiveTrackColor: AppColors.surfaceElevated,
+          trackOutlineWidth: const WidgetStatePropertyAll(0),
+          onChanged: onChanged,
+        ),
+        onTap: () => onChanged(!value),
+      );
 }
 
 class _StatTile extends StatelessWidget {
@@ -646,50 +644,50 @@ class _StatTile extends StatelessWidget {
   });
   @override
   Widget build(BuildContext context) => Expanded(
-    child: Container(
-      padding: const EdgeInsets.symmetric(
-        vertical: AppSpacing.md,
-        horizontal: AppSpacing.md,
-      ),
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: AppRadii.mdRadius,
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 40,
-            height: 40,
-            decoration: BoxDecoration(
-              color: AppColors.accent.withValues(alpha: 0.15),
-              borderRadius: AppRadii.smRadius,
-            ),
-            child: Icon(icon, color: AppColors.accent, size: 20),
+        child: Container(
+          padding: const EdgeInsets.symmetric(
+            vertical: AppSpacing.md,
+            horizontal: AppSpacing.md,
           ),
-          const SizedBox(width: AppSpacing.sm),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  value,
-                  style: AppTypography.cardTitle.copyWith(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-                Text(
-                  label,
-                  style: AppTypography.metadata.copyWith(
-                    color: AppColors.textMuted,
-                    fontSize: 11,
-                  ),
-                ),
-              ],
-            ),
+          decoration: BoxDecoration(
+            color: AppColors.surface,
+            borderRadius: AppRadii.mdRadius,
           ),
-        ],
-      ),
-    ),
-  );
+          child: Row(
+            children: [
+              Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  color: AppColors.accent.withValues(alpha: 0.15),
+                  borderRadius: AppRadii.smRadius,
+                ),
+                child: Icon(icon, color: AppColors.accent, size: 20),
+              ),
+              const SizedBox(width: AppSpacing.sm),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      value,
+                      style: AppTypography.cardTitle.copyWith(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    Text(
+                      label,
+                      style: AppTypography.metadata.copyWith(
+                        color: AppColors.textMuted,
+                        fontSize: 11,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
 }

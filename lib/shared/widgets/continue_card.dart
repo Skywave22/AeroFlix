@@ -29,8 +29,8 @@ class ContinueCard extends StatelessWidget {
             size: ApiConstants.backdropSizeW780,
           )
         : (item.posterPath != null
-              ? ApiConstants.posterUrl(item.posterPath!)
-              : '');
+            ? ApiConstants.posterUrl(item.posterPath!)
+            : '');
     final label = item.season > 0
         ? 'S${item.season.toString().padLeft(2, '0')}E${item.episode.toString().padLeft(2, '0')}'
         : 'Movie';

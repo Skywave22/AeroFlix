@@ -154,9 +154,8 @@ class _EpisodesScreenState extends ConsumerState<EpisodesScreen> {
                           backgroundColor: sel
                               ? AppColors.accent
                               : AppColors.surfaceElevated,
-                          foregroundColor: sel
-                              ? Colors.white
-                              : AppColors.textSecondary,
+                          foregroundColor:
+                              sel ? Colors.white : AppColors.textSecondary,
                         ),
                         onPressed: () => _load(s.seasonNumber),
                         child: Text(
@@ -244,14 +243,13 @@ class _EpisodesScreenState extends ConsumerState<EpisodesScreen> {
                                             ),
                                             errorWidget: (_, __, ___) =>
                                                 Container(
-                                                  color:
-                                                      AppColors.surfaceElevated,
-                                                  child: const Icon(
-                                                    Icons.movie,
-                                                    color: AppColors.textMuted,
-                                                    size: 28,
-                                                  ),
-                                                ),
+                                              color: AppColors.surfaceElevated,
+                                              child: const Icon(
+                                                Icons.movie,
+                                                color: AppColors.textMuted,
+                                                size: 28,
+                                              ),
+                                            ),
                                           )
                                         : Container(
                                             color: AppColors.surfaceElevated,
@@ -274,8 +272,8 @@ class _EpisodesScreenState extends ConsumerState<EpisodesScreen> {
                                       backgroundColor: Colors.black38,
                                       valueColor:
                                           const AlwaysStoppedAnimation<Color>(
-                                            AppColors.accent,
-                                          ),
+                                        AppColors.accent,
+                                      ),
                                     ),
                                   ),
                                 if (progress > 0)
@@ -348,8 +346,8 @@ class _EpisodesScreenState extends ConsumerState<EpisodesScreen> {
                                               ep.airDate!.substring(0, 10),
                                               style: AppTypography.metadata
                                                   .copyWith(
-                                                    color: AppColors.textMuted,
-                                                  ),
+                                                color: AppColors.textMuted,
+                                              ),
                                             ),
                                           if ((ep.airDate != null &&
                                                   ep.airDate!.isNotEmpty) &&
@@ -375,11 +373,10 @@ class _EpisodesScreenState extends ConsumerState<EpisodesScreen> {
                                                       .toStringAsFixed(1),
                                                   style: AppTypography.metadata
                                                       .copyWith(
-                                                        color: AppColors
-                                                            .textSecondary,
-                                                        fontWeight:
-                                                            FontWeight.w600,
-                                                      ),
+                                                    color:
+                                                        AppColors.textSecondary,
+                                                    fontWeight: FontWeight.w600,
+                                                  ),
                                                 ),
                                               ],
                                             ),
@@ -411,12 +408,12 @@ class _EpisodesScreenState extends ConsumerState<EpisodesScreen> {
                                           const SizedBox(width: 4),
                                           Text(
                                             'Resume',
-                                            style: AppTypography.metadata
-                                                .copyWith(
-                                                  color: AppColors.accent,
-                                                  fontSize: 11,
-                                                  fontWeight: FontWeight.w600,
-                                                ),
+                                            style:
+                                                AppTypography.metadata.copyWith(
+                                              color: AppColors.accent,
+                                              fontSize: 11,
+                                              fontWeight: FontWeight.w600,
+                                            ),
                                           ),
                                         ],
                                       ),
@@ -473,39 +470,39 @@ class _EpisodesScreenState extends ConsumerState<EpisodesScreen> {
 class _NewBadge extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Container(
-    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-    decoration: BoxDecoration(
-      color: AppColors.accent,
-      borderRadius: BorderRadius.circular(4),
-    ),
-    child: Text(
-      'NEW',
-      style: AppTypography.metadata.copyWith(
-        color: Colors.white,
-        fontSize: 9,
-        fontWeight: FontWeight.w800,
-        letterSpacing: 0.5,
-      ),
-    ),
-  );
+        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+        decoration: BoxDecoration(
+          color: AppColors.accent,
+          borderRadius: BorderRadius.circular(4),
+        ),
+        child: Text(
+          'NEW',
+          style: AppTypography.metadata.copyWith(
+            color: Colors.white,
+            fontSize: 9,
+            fontWeight: FontWeight.w800,
+            letterSpacing: 0.5,
+          ),
+        ),
+      );
 }
 
 class _UpcomingBadge extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Container(
-    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-    decoration: BoxDecoration(
-      color: AppColors.warning,
-      borderRadius: BorderRadius.circular(4),
-    ),
-    child: Text(
-      'UPCOMING',
-      style: AppTypography.metadata.copyWith(
-        color: Colors.black,
-        fontSize: 9,
-        fontWeight: FontWeight.w800,
-        letterSpacing: 0.5,
-      ),
-    ),
-  );
+        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+        decoration: BoxDecoration(
+          color: AppColors.warning,
+          borderRadius: BorderRadius.circular(4),
+        ),
+        child: Text(
+          'UPCOMING',
+          style: AppTypography.metadata.copyWith(
+            color: Colors.black,
+            fontSize: 9,
+            fontWeight: FontWeight.w800,
+            letterSpacing: 0.5,
+          ),
+        ),
+      );
 }

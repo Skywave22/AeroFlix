@@ -106,16 +106,16 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             SliverToBoxAdapter(
               child: (trending.isLoading || trendingTv.isLoading)
                   ? Container(height: 420, color: AppColors.surface)
-                        .animate(onPlay: (c) => c.repeat())
-                        .shimmer(
-                          duration: 1500.ms,
-                          color: AppColors.surfaceElevated.withValues(
-                            alpha: 0.3,
-                          ),
-                        )
+                      .animate(onPlay: (c) => c.repeat())
+                      .shimmer(
+                        duration: 1500.ms,
+                        color: AppColors.surfaceElevated.withValues(
+                          alpha: 0.3,
+                        ),
+                      )
                   : trending.hasError && trendingTv.hasError
-                  ? const SizedBox(height: 380)
-                  : _buildHero(trending, trendingTv, watchlistKeys),
+                      ? const SizedBox(height: 380)
+                      : _buildHero(trending, trendingTv, watchlistKeys),
             ),
             const SliverToBoxAdapter(child: SizedBox(height: AppSpacing.lg)),
             if (continueList.isNotEmpty)
@@ -127,14 +127,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   itemBuilder: (_, i) => ContinueCard(
                     item: continueList[i],
                     onTap: () => _playContinue(continueList[i]),
-                    onRemove: () => ref
-                        .read(continueWatchingProvider.notifier)
-                        .remove(
-                          continueList[i].type,
-                          continueList[i].id,
-                          season: continueList[i].season,
-                          episode: continueList[i].episode,
-                        ),
+                    onRemove: () =>
+                        ref.read(continueWatchingProvider.notifier).remove(
+                              continueList[i].type,
+                              continueList[i].id,
+                              season: continueList[i].season,
+                              episode: continueList[i].episode,
+                            ),
                   ),
                 ),
               ),
@@ -181,11 +180,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   }
 
   void _openMovie(Movie m) => context.push(
-    '/details/movie/${m.id}?poster=${Uri.encodeComponent(m.posterUrlW342)}',
-  );
+        '/details/movie/${m.id}?poster=${Uri.encodeComponent(m.posterUrlW342)}',
+      );
   void _openTv(TvShow s) => context.push(
-    '/details/tv/${s.id}?poster=${Uri.encodeComponent(s.posterUrlW342)}',
-  );
+        '/details/tv/${s.id}?poster=${Uri.encodeComponent(s.posterUrlW342)}',
+      );
 
   Widget _buildHero(
     AsyncValue<List<Movie>> movies,
@@ -266,101 +265,103 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     String title, {
     bool rating = false,
     ProviderListenable<Object?>? source,
-  }) => SliverToBoxAdapter(
-    child: prov.when(
-      data: (ms) => HorizontalCarousel(
-        title: title,
-        itemCount: ms.length,
-        height: AppSpacing.posterRowFor(context),
-        itemBuilder: (_, i) => PosterCard(
-          imageUrl: ms[i].posterUrlW342,
-          title: ms[i].title,
-          metadata: rating ? _metaRating(ms[i]) : ms[i].year,
-          onTap: () => _openMovie(ms[i]),
+  }) =>
+      SliverToBoxAdapter(
+        child: prov.when(
+          data: (ms) => HorizontalCarousel(
+            title: title,
+            itemCount: ms.length,
+            height: AppSpacing.posterRowFor(context),
+            itemBuilder: (_, i) => PosterCard(
+              imageUrl: ms[i].posterUrlW342,
+              title: ms[i].title,
+              metadata: rating ? _metaRating(ms[i]) : ms[i].year,
+              onTap: () => _openMovie(ms[i]),
+            ),
+          ),
+          loading: () => const SectionLoadingPlaceholder(),
+          error: (_, __) => InlineErrorRow(
+            message: 'Could not load “$title”',
+            onRetry: source == null ? null : () => ref.invalidate(source),
+          ),
         ),
-      ),
-      loading: () => const SectionLoadingPlaceholder(),
-      error: (_, __) => InlineErrorRow(
-        message: 'Could not load “$title”',
-        onRetry: source == null ? null : () => ref.invalidate(source),
-      ),
-    ),
-  );
+      );
 
   Widget _sliverTv(
     AsyncValue<List<TvShow>> prov,
     String title, {
     ProviderListenable<Object?>? source,
-  }) => SliverToBoxAdapter(
-    child: prov.when(
-      data: (shows) => HorizontalCarousel(
-        title: title,
-        itemCount: shows.length,
-        height: AppSpacing.posterRowFor(context),
-        itemBuilder: (_, i) => PosterCard(
-          imageUrl: shows[i].posterUrlW342,
-          title: shows[i].name,
-          metadata: shows[i].year,
-          onTap: () => _openTv(shows[i]),
+  }) =>
+      SliverToBoxAdapter(
+        child: prov.when(
+          data: (shows) => HorizontalCarousel(
+            title: title,
+            itemCount: shows.length,
+            height: AppSpacing.posterRowFor(context),
+            itemBuilder: (_, i) => PosterCard(
+              imageUrl: shows[i].posterUrlW342,
+              title: shows[i].name,
+              metadata: shows[i].year,
+              onTap: () => _openTv(shows[i]),
+            ),
+          ),
+          loading: () => const SectionLoadingPlaceholder(),
+          error: (_, __) => InlineErrorRow(
+            message: 'Could not load “$title”',
+            onRetry: source == null ? null : () => ref.invalidate(source),
+          ),
         ),
-      ),
-      loading: () => const SectionLoadingPlaceholder(),
-      error: (_, __) => InlineErrorRow(
-        message: 'Could not load “$title”',
-        onRetry: source == null ? null : () => ref.invalidate(source),
-      ),
-    ),
-  );
+      );
 
   Widget _continueEmpty() => Padding(
-    padding: AppSpacing.screenHorizontal,
-    child: Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text('Continue Watching', style: AppTypography.sectionHeading),
-        const SizedBox(height: AppSpacing.sm),
-        Container(
-          width: double.infinity,
-          padding: const EdgeInsets.all(AppSpacing.lg),
-          decoration: BoxDecoration(
-            color: AppColors.surface,
-            borderRadius: BorderRadius.circular(AppSpacing.lg),
-          ),
-          child: Row(
-            children: [
-              Container(
-                width: 44,
-                height: 44,
-                decoration: BoxDecoration(
-                  color: AppColors.surfaceElevated,
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: const Icon(
-                  Icons.play_circle_outline_rounded,
-                  color: AppColors.textMuted,
-                ),
+        padding: AppSpacing.screenHorizontal,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Continue Watching', style: AppTypography.sectionHeading),
+            const SizedBox(height: AppSpacing.sm),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(AppSpacing.lg),
+              decoration: BoxDecoration(
+                color: AppColors.surface,
+                borderRadius: BorderRadius.circular(AppSpacing.lg),
               ),
-              const SizedBox(width: AppSpacing.md),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Pick up where you left off',
-                      style: AppTypography.cardTitle.copyWith(fontSize: 14),
+              child: Row(
+                children: [
+                  Container(
+                    width: 44,
+                    height: 44,
+                    decoration: BoxDecoration(
+                      color: AppColors.surfaceElevated,
+                      borderRadius: BorderRadius.circular(10),
                     ),
-                    const SizedBox(height: 2),
-                    Text(
-                      'Titles you start watching will appear here.',
-                      style: AppTypography.metadata,
+                    child: const Icon(
+                      Icons.play_circle_outline_rounded,
+                      color: AppColors.textMuted,
                     ),
-                  ],
-                ),
+                  ),
+                  const SizedBox(width: AppSpacing.md),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Pick up where you left off',
+                          style: AppTypography.cardTitle.copyWith(fontSize: 14),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          'Titles you start watching will appear here.',
+                          style: AppTypography.metadata,
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
               ),
-            ],
-          ),
+            ),
+          ],
         ),
-      ],
-    ),
-  );
+      );
 }

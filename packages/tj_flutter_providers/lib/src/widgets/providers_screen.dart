@@ -83,8 +83,9 @@ class _ProvidersScreenState extends State<ProvidersScreen> {
       await widget.service.checkAndUpdate();
       await _load();
       if (mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(const SnackBar(content: Text('Providers updated')));
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('Providers updated')));
       }
     } catch (e) {
       setState(() => _error = e.toString());
@@ -227,8 +228,9 @@ class _ProvidersScreenState extends State<ProvidersScreen> {
             await _load();
           } catch (e) {
             if (mounted) {
-              ScaffoldMessenger.of(context)
-                  .showSnackBar(SnackBar(content: Text(e.toString())));
+              ScaffoldMessenger.of(
+                context,
+              ).showSnackBar(SnackBar(content: Text(e.toString())));
             }
           }
           if (mounted) setState(() => _updating = false);

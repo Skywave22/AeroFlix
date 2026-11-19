@@ -83,24 +83,25 @@ class SectionErrorState extends StatelessWidget {
   const SectionErrorState({super.key, required this.message, this.onRetry});
   @override
   Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.all(AppSpacing.lg),
-    child: Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        const Icon(Icons.error_outline, color: AppColors.error, size: 32),
-        const SizedBox(height: AppSpacing.sm),
-        Text(message, style: AppTypography.body, textAlign: TextAlign.center),
-        if (onRetry != null) ...[
-          const SizedBox(height: AppSpacing.md),
-          TextButton.icon(
-            onPressed: onRetry,
-            icon: const Icon(Icons.refresh, size: 18),
-            label: const Text('Retry'),
-          ),
-        ],
-      ],
-    ),
-  );
+        padding: const EdgeInsets.all(AppSpacing.lg),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.error_outline, color: AppColors.error, size: 32),
+            const SizedBox(height: AppSpacing.sm),
+            Text(message,
+                style: AppTypography.body, textAlign: TextAlign.center),
+            if (onRetry != null) ...[
+              const SizedBox(height: AppSpacing.md),
+              TextButton.icon(
+                onPressed: onRetry,
+                icon: const Icon(Icons.refresh, size: 18),
+                label: const Text('Retry'),
+              ),
+            ],
+          ],
+        ),
+      );
 }
 
 class SectionEmptyState extends StatelessWidget {
@@ -113,16 +114,17 @@ class SectionEmptyState extends StatelessWidget {
   });
   @override
   Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.symmetric(vertical: AppSpacing.xl),
-    child: Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Icon(icon, color: AppColors.textMuted, size: 40),
-        const SizedBox(height: AppSpacing.sm),
-        Text(message, style: AppTypography.body, textAlign: TextAlign.center),
-      ],
-    ),
-  );
+        padding: const EdgeInsets.symmetric(vertical: AppSpacing.xl),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, color: AppColors.textMuted, size: 40),
+            const SizedBox(height: AppSpacing.sm),
+            Text(message,
+                style: AppTypography.body, textAlign: TextAlign.center),
+          ],
+        ),
+      );
 }
 
 /// One-line failure notice for a single row/section.
@@ -137,50 +139,50 @@ class InlineErrorRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.symmetric(
-      horizontal: AppSpacing.horizontalPadding,
-      vertical: AppSpacing.md,
-    ),
-    child: Container(
-      padding: const EdgeInsets.symmetric(
-        horizontal: AppSpacing.md,
-        vertical: AppSpacing.sm,
-      ),
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: AppRadii.mdRadius,
-      ),
-      child: Row(
-        children: [
-          const Icon(
-            Icons.cloud_off_rounded,
-            color: AppColors.textMuted,
-            size: 18,
+        padding: const EdgeInsets.symmetric(
+          horizontal: AppSpacing.horizontalPadding,
+          vertical: AppSpacing.md,
+        ),
+        child: Container(
+          padding: const EdgeInsets.symmetric(
+            horizontal: AppSpacing.md,
+            vertical: AppSpacing.sm,
           ),
-          const SizedBox(width: AppSpacing.sm),
-          Expanded(
-            child: Text(
-              message,
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-              style: AppTypography.metadata,
-            ),
+          decoration: BoxDecoration(
+            color: AppColors.surface,
+            borderRadius: AppRadii.mdRadius,
           ),
-          if (onRetry != null)
-            TextButton(
-              onPressed: onRetry,
-              style: TextButton.styleFrom(
-                minimumSize: Size.zero,
-                padding: const EdgeInsets.symmetric(
-                  horizontal: AppSpacing.xs,
-                  vertical: 4,
-                ),
-                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+          child: Row(
+            children: [
+              const Icon(
+                Icons.cloud_off_rounded,
+                color: AppColors.textMuted,
+                size: 18,
               ),
-              child: const Text('Retry'),
-            ),
-        ],
-      ),
-    ),
-  );
+              const SizedBox(width: AppSpacing.sm),
+              Expanded(
+                child: Text(
+                  message,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: AppTypography.metadata,
+                ),
+              ),
+              if (onRetry != null)
+                TextButton(
+                  onPressed: onRetry,
+                  style: TextButton.styleFrom(
+                    minimumSize: Size.zero,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: AppSpacing.xs,
+                      vertical: 4,
+                    ),
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  ),
+                  child: const Text('Retry'),
+                ),
+            ],
+          ),
+        ),
+      );
 }

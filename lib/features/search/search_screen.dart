@@ -137,75 +137,75 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
   }
 
   void _openMovie(Movie m) => context.push(
-    '/details/movie/${m.id}?poster=${Uri.encodeComponent(m.posterUrlW342)}',
-  );
+        '/details/movie/${m.id}?poster=${Uri.encodeComponent(m.posterUrlW342)}',
+      );
   void _openTv(TvShow s) => context.push(
-    '/details/tv/${s.id}?poster=${Uri.encodeComponent(s.posterUrlW342)}',
-  );
+        '/details/tv/${s.id}?poster=${Uri.encodeComponent(s.posterUrlW342)}',
+      );
   void _openPerson(PersonSearchResult p) => context.push(
-    '/person/${p.id}?name=${Uri.encodeComponent(p.name)}&profile=${Uri.encodeComponent(p.profilePath ?? '')}',
-  );
+        '/person/${p.id}?name=${Uri.encodeComponent(p.name)}&profile=${Uri.encodeComponent(p.profilePath ?? '')}',
+      );
 
   @override
   Widget build(BuildContext context) => Scaffold(
-    backgroundColor: AppColors.background,
-    body: SafeArea(
-      child: Padding(
-        padding: const EdgeInsets.symmetric(
-          horizontal: AppSpacing.horizontalPadding,
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const SizedBox(height: AppSpacing.md),
-            Text('Search', style: AppTypography.screenHeading),
-            const SizedBox(height: AppSpacing.md),
-            TextField(
-              controller: _c,
-              style: AppTypography.bodyPrimary,
-              textInputAction: TextInputAction.search,
-              onSubmitted: (v) {
-                if (v.trim().length >= 2) {
-                  _doSearch(v.trim(), remember: true);
-                }
-              },
-              decoration: InputDecoration(
-                hintText: 'Movies, shows, actors…',
-                prefixIcon: const Icon(
-                  Icons.search_rounded,
-                  color: AppColors.textMuted,
-                ),
-                suffixIcon: _c.text.isNotEmpty
-                    ? IconButton(
-                        tooltip: 'Clear search',
-                        icon: const Icon(
-                          Icons.clear,
-                          color: AppColors.textMuted,
-                          size: 20,
-                        ),
-                        onPressed: () {
-                          _c.clear();
-                          setState(() {
-                            _future = null;
-                            _window = null;
-                            _page = 1;
-                            _totalPages = 1;
-                            _appended.clear();
-                            _appendedTv.clear();
-                            _appendedPeople.clear();
-                          });
-                        },
-                      )
-                    : null,
-              ),
+        backgroundColor: AppColors.background,
+        body: SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(
+              horizontal: AppSpacing.horizontalPadding,
             ),
-            const SizedBox(height: AppSpacing.lg),
-            Expanded(child: _buildResults()),
-          ],
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const SizedBox(height: AppSpacing.md),
+                Text('Search', style: AppTypography.screenHeading),
+                const SizedBox(height: AppSpacing.md),
+                TextField(
+                  controller: _c,
+                  style: AppTypography.bodyPrimary,
+                  textInputAction: TextInputAction.search,
+                  onSubmitted: (v) {
+                    if (v.trim().length >= 2) {
+                      _doSearch(v.trim(), remember: true);
+                    }
+                  },
+                  decoration: InputDecoration(
+                    hintText: 'Movies, shows, actors…',
+                    prefixIcon: const Icon(
+                      Icons.search_rounded,
+                      color: AppColors.textMuted,
+                    ),
+                    suffixIcon: _c.text.isNotEmpty
+                        ? IconButton(
+                            tooltip: 'Clear search',
+                            icon: const Icon(
+                              Icons.clear,
+                              color: AppColors.textMuted,
+                              size: 20,
+                            ),
+                            onPressed: () {
+                              _c.clear();
+                              setState(() {
+                                _future = null;
+                                _window = null;
+                                _page = 1;
+                                _totalPages = 1;
+                                _appended.clear();
+                                _appendedTv.clear();
+                                _appendedPeople.clear();
+                              });
+                            },
+                          )
+                        : null,
+                  ),
+                ),
+                const SizedBox(height: AppSpacing.lg),
+                Expanded(child: _buildResults()),
+              ],
+            ),
+          ),
         ),
-      ),
-    ),
-  );
+      );
 
   Widget _buildResults() {
     final query = _c.text.trim();
@@ -377,94 +377,96 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
   }
 
   Widget _buildIdle() => SingleChildScrollView(
-    child: Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        if (_recent.isNotEmpty) ...[
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                'Recent searches',
-                style: AppTypography.sectionHeading.copyWith(fontSize: 16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            if (_recent.isNotEmpty) ...[
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    'Recent searches',
+                    style: AppTypography.sectionHeading.copyWith(fontSize: 16),
+                  ),
+                  TextButton(
+                    onPressed: () async {
+                      final prefs = await SharedPreferences.getInstance();
+                      await prefs.remove(AppConstants.prefRecentSearches);
+                      setState(() => _recent = const []);
+                    },
+                    child: Text(
+                      'Clear',
+                      style: AppTypography.metadata.copyWith(
+                        color: AppColors.accent,
+                      ),
+                    ),
+                  ),
+                ],
               ),
-              TextButton(
-                onPressed: () async {
-                  final prefs = await SharedPreferences.getInstance();
-                  await prefs.remove(AppConstants.prefRecentSearches);
-                  setState(() => _recent = const []);
-                },
-                child: Text(
-                  'Clear',
-                  style: AppTypography.metadata.copyWith(
+              const SizedBox(height: AppSpacing.sm),
+              Wrap(
+                spacing: AppSpacing.xs,
+                runSpacing: AppSpacing.xs,
+                children: [
+                  for (final t in _recent)
+                    ActionChip(
+                      label: Text(t),
+                      backgroundColor: AppColors.surface,
+                      labelStyle: AppTypography.metadata.copyWith(
+                        color: AppColors.textSecondary,
+                      ),
+                      side: BorderSide.none,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: AppRadii.smRadius,
+                      ),
+                      onPressed: () {
+                        _c.text = t;
+                        _c.selection = TextSelection.fromPosition(
+                          TextPosition(offset: t.length),
+                        );
+                        _doSearch(t);
+                      },
+                    ),
+                ],
+              ),
+              const SizedBox(height: AppSpacing.xl),
+            ],
+            Text(
+              'Browse by genre',
+              style: AppTypography.sectionHeading.copyWith(fontSize: 16),
+            ),
+            const SizedBox(height: AppSpacing.sm),
+            Text(
+              'Keyword search is above; Explore has real TMDB genre filters.',
+              style:
+                  AppTypography.metadata.copyWith(color: AppColors.textMuted),
+            ),
+            const SizedBox(height: AppSpacing.sm),
+            Wrap(
+              spacing: AppSpacing.xs,
+              runSpacing: AppSpacing.xs,
+              children: [
+                ActionChip(
+                  label: const Text('Open Explore'),
+                  avatar: const Icon(
+                    Icons.explore_outlined,
+                    size: 16,
                     color: AppColors.accent,
                   ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: AppSpacing.sm),
-          Wrap(
-            spacing: AppSpacing.xs,
-            runSpacing: AppSpacing.xs,
-            children: [
-              for (final t in _recent)
-                ActionChip(
-                  label: Text(t),
                   backgroundColor: AppColors.surface,
                   labelStyle: AppTypography.metadata.copyWith(
                     color: AppColors.textSecondary,
                   ),
                   side: BorderSide.none,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: AppRadii.smRadius,
-                  ),
-                  onPressed: () {
-                    _c.text = t;
-                    _c.selection = TextSelection.fromPosition(
-                      TextPosition(offset: t.length),
-                    );
-                    _doSearch(t);
-                  },
+                  shape:
+                      RoundedRectangleBorder(borderRadius: AppRadii.smRadius),
+                  onPressed: () => context.go('/explore'),
                 ),
-            ],
-          ),
-          const SizedBox(height: AppSpacing.xl),
-        ],
-        Text(
-          'Browse by genre',
-          style: AppTypography.sectionHeading.copyWith(fontSize: 16),
-        ),
-        const SizedBox(height: AppSpacing.sm),
-        Text(
-          'Keyword search is above; Explore has real TMDB genre filters.',
-          style: AppTypography.metadata.copyWith(color: AppColors.textMuted),
-        ),
-        const SizedBox(height: AppSpacing.sm),
-        Wrap(
-          spacing: AppSpacing.xs,
-          runSpacing: AppSpacing.xs,
-          children: [
-            ActionChip(
-              label: const Text('Open Explore'),
-              avatar: const Icon(
-                Icons.explore_outlined,
-                size: 16,
-                color: AppColors.accent,
-              ),
-              backgroundColor: AppColors.surface,
-              labelStyle: AppTypography.metadata.copyWith(
-                color: AppColors.textSecondary,
-              ),
-              side: BorderSide.none,
-              shape: RoundedRectangleBorder(borderRadius: AppRadii.smRadius),
-              onPressed: () => context.go('/explore'),
+              ],
             ),
           ],
         ),
-      ],
-    ),
-  );
+      );
 }
 
 /// The first-page result set a search's paging state belongs to.

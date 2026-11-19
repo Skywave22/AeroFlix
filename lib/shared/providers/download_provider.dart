@@ -64,41 +64,42 @@ class DownloadItem {
     double? progress,
     String? error,
     bool clearError = false,
-  }) => DownloadItem(
-    key: key,
-    title: title ?? this.title,
-    subtitle: subtitle ?? this.subtitle,
-    posterPath: posterPath ?? this.posterPath,
-    kind: kind,
-    mediaId: mediaId,
-    season: season,
-    episode: episode,
-    url: url ?? this.url,
-    headers: headers.isEmpty ? this.headers : headers,
-    filePath: filePath ?? this.filePath,
-    sizeBytes: sizeBytes ?? this.sizeBytes,
-    status: status ?? this.status,
-    progress: progress ?? this.progress,
-    error: clearError ? null : (error ?? this.error),
-  );
+  }) =>
+      DownloadItem(
+        key: key,
+        title: title ?? this.title,
+        subtitle: subtitle ?? this.subtitle,
+        posterPath: posterPath ?? this.posterPath,
+        kind: kind,
+        mediaId: mediaId,
+        season: season,
+        episode: episode,
+        url: url ?? this.url,
+        headers: headers.isEmpty ? this.headers : headers,
+        filePath: filePath ?? this.filePath,
+        sizeBytes: sizeBytes ?? this.sizeBytes,
+        status: status ?? this.status,
+        progress: progress ?? this.progress,
+        error: clearError ? null : (error ?? this.error),
+      );
 
   Map<String, dynamic> toJson() => {
-    'key': key,
-    'title': title,
-    'subtitle': subtitle,
-    'posterPath': posterPath,
-    'kind': kind,
-    'mediaId': mediaId,
-    'season': season,
-    'episode': episode,
-    'url': url,
-    'headers': headers,
-    'filePath': filePath,
-    'sizeBytes': sizeBytes,
-    'status': status.name,
-    'progress': progress,
-    'error': error,
-  };
+        'key': key,
+        'title': title,
+        'subtitle': subtitle,
+        'posterPath': posterPath,
+        'kind': kind,
+        'mediaId': mediaId,
+        'season': season,
+        'episode': episode,
+        'url': url,
+        'headers': headers,
+        'filePath': filePath,
+        'sizeBytes': sizeBytes,
+        'status': status.name,
+        'progress': progress,
+        'error': error,
+      };
 
   factory DownloadItem.fromJson(Map<String, dynamic> j) {
     final statusName = (j['status'] as String?) ?? 'queued';
@@ -112,8 +113,7 @@ class DownloadItem {
       season: (j['season'] as int?) ?? 0,
       episode: (j['episode'] as int?) ?? 0,
       url: j['url'] as String?,
-      headers:
-          (j['headers'] as Map?)?.map(
+      headers: (j['headers'] as Map?)?.map(
             (k, v) => MapEntry(k.toString(), v.toString()),
           ) ??
           const {},
@@ -218,10 +218,10 @@ class DownloadNotifier extends StateNotifier<List<DownloadItem>> {
 
   /// True while at least one download is running or queued.
   bool get isBusy => state.any(
-    (d) =>
-        d.status == DownloadStatus.downloading ||
-        d.status == DownloadStatus.queued,
-  );
+        (d) =>
+            d.status == DownloadStatus.downloading ||
+            d.status == DownloadStatus.queued,
+      );
 
   /// Re-point a failed item at a fresh URL + headers and retry it.
   Future<void> rearm(
@@ -487,5 +487,5 @@ class DownloadNotifier extends StateNotifier<List<DownloadItem>> {
 
 final downloadProvider =
     StateNotifierProvider<DownloadNotifier, List<DownloadItem>>(
-      (_) => DownloadNotifier(),
-    );
+  (_) => DownloadNotifier(),
+);

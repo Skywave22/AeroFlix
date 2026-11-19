@@ -116,17 +116,17 @@ class _DetailsScreenState extends ConsumerState<DetailsScreen> {
   }
 
   SliverAppBar _appBar(BuildContext context) => SliverAppBar(
-    pinned: true,
-    leading: IconButton(
-      tooltip: 'Back',
-      icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 20),
-      onPressed: () => context.pop(),
-      splashRadius: 20,
-    ),
-    backgroundColor: AppColors.background,
-    elevation: 0,
-    foregroundColor: AppColors.textPrimary,
-  );
+        pinned: true,
+        leading: IconButton(
+          tooltip: 'Back',
+          icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 20),
+          onPressed: () => context.pop(),
+          splashRadius: 20,
+        ),
+        backgroundColor: AppColors.background,
+        elevation: 0,
+        foregroundColor: AppColors.textPrimary,
+      );
 }
 
 void _toggleDownload(
@@ -258,8 +258,7 @@ class _DetailsContent extends ConsumerWidget {
     final downloadedKey = details.type == MediaType.tv
         ? null // a series is downloaded per episode
         : '${details.type.name}:${details.id}';
-    final downloaded =
-        downloadedKey != null &&
+    final downloaded = downloadedKey != null &&
         downloads.any(
           (d) => d.key == downloadedKey && d.status == DownloadStatus.completed,
         );
@@ -297,9 +296,8 @@ class _DetailsContent extends ConsumerWidget {
           ),
           actions: [
             IconButton(
-              tooltip: inWatchlist
-                  ? 'Remove from watchlist'
-                  : 'Add to watchlist',
+              tooltip:
+                  inWatchlist ? 'Remove from watchlist' : 'Add to watchlist',
               icon: Icon(inWatchlist ? Icons.bookmark : Icons.bookmark_border),
               color: inWatchlist ? AppColors.accent : AppColors.textPrimary,
               onPressed: () => ref
@@ -424,8 +422,7 @@ class _DetailsContent extends ConsumerWidget {
                                   ),
                                 );
                               } else if (isTv) {
-                                final sorted = [...details.seasons]
-                                  ..sort(
+                                final sorted = [...details.seasons]..sort(
                                     (a, b) => a.seasonNumber.compareTo(
                                       b.seasonNumber,
                                     ),
@@ -458,9 +455,8 @@ class _DetailsContent extends ConsumerWidget {
                     ),
                     const SizedBox(width: AppSpacing.sm),
                     _IconPill(
-                      icon: inWatchlist
-                          ? Icons.bookmark
-                          : Icons.bookmark_border,
+                      icon:
+                          inWatchlist ? Icons.bookmark : Icons.bookmark_border,
                       active: inWatchlist,
                       onTap: () => ref
                           .read(watchlistProvider.notifier)
@@ -759,9 +755,8 @@ class _IconPill extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final pill = Material(
-      color: active
-          ? AppColors.accent.withValues(alpha: 0.16)
-          : AppColors.surface,
+      color:
+          active ? AppColors.accent.withValues(alpha: 0.16) : AppColors.surface,
       borderRadius: AppRadii.lgRadius,
       clipBehavior: Clip.antiAlias,
       child: InkWell(

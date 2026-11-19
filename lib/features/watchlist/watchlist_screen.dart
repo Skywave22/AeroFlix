@@ -179,14 +179,13 @@ class _WatchlistScreenState extends ConsumerState<WatchlistScreen> {
                           key: ValueKey(items[i]),
                           wlKey: items[i],
                           loader: _load,
-                          onRemove: () => ref
-                              .read(watchlistProvider.notifier)
-                              .toggle(
-                                items[i].startsWith('tv:')
-                                    ? MediaType.tv
-                                    : MediaType.movie,
-                                int.parse(items[i].split(':')[1]),
-                              ),
+                          onRemove: () =>
+                              ref.read(watchlistProvider.notifier).toggle(
+                                    items[i].startsWith('tv:')
+                                        ? MediaType.tv
+                                        : MediaType.movie,
+                                    int.parse(items[i].split(':')[1]),
+                                  ),
                         ),
                         childCount: items.length,
                       ),

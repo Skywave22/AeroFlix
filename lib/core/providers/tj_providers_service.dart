@@ -44,8 +44,8 @@ final providerManagerProvider = Provider<ProviderManager>((ref) {
 /// watched by [providerServiceProvider] so a toggle takes effect immediately.
 final enabledProviderIdsProvider =
     NotifierProvider<EnabledProviderIdsNotifier, Set<String>>(
-      EnabledProviderIdsNotifier.new,
-    );
+  EnabledProviderIdsNotifier.new,
+);
 
 class EnabledProviderIdsNotifier extends Notifier<Set<String>> {
   static const _prefKey = 'enabled_provider_ids';
@@ -282,8 +282,8 @@ class ProviderStatusNotifier extends Notifier<ProviderStatus> {
 
 final providerStatusProvider =
     NotifierProvider<ProviderStatusNotifier, ProviderStatus>(
-      ProviderStatusNotifier.new,
-    );
+  ProviderStatusNotifier.new,
+);
 
 /// Manual "check for updates" used by the Providers screen.
 Future<UpdateCheckResult> refreshProviders(WidgetRef ref) async {

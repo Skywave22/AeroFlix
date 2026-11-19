@@ -92,9 +92,8 @@ class _ProviderDiagnosticsScreenState
                   child: FilledButton.icon(
                     onPressed: status.busy
                         ? null
-                        : () => ref
-                              .read(providerStatusProvider.notifier)
-                              .refresh(),
+                        : () =>
+                            ref.read(providerStatusProvider.notifier).refresh(),
                     icon: const Icon(Icons.sync_rounded, size: 18),
                     label: Text(status.busy ? 'Checking…' : 'Check GitHub now'),
                   ),
@@ -131,11 +130,10 @@ class _ProviderDiagnosticsScreenState
                             for (final id in ids) {
                               await notifier.setEnabled(id, true);
                             }
-                            for (final id
-                                in ref
-                                    .read(enabledProviderIdsProvider)
-                                    .where((id) => !ids.contains(id))
-                                    .toList()) {
+                            for (final id in ref
+                                .read(enabledProviderIdsProvider)
+                                .where((id) => !ids.contains(id))
+                                .toList()) {
                               await notifier.setEnabled(id, false);
                             }
                             ref.invalidate(providerServiceProvider);
@@ -186,9 +184,9 @@ class _ProviderDiagnosticsScreenState
                   _results[id] == null
                       ? (_runningId == id ? 'running…' : '—')
                       : _results[id]!.ok
-                      ? '${_results[id]!.count} links in '
-                            '${_results[id]!.elapsed.inSeconds}s'
-                      : 'failed: ${_results[id]!.error}',
+                          ? '${_results[id]!.count} links in '
+                              '${_results[id]!.elapsed.inSeconds}s'
+                          : 'failed: ${_results[id]!.error}',
                 ),
             ],
             action: FilledButton.icon(

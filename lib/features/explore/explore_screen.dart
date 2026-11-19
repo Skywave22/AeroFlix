@@ -51,11 +51,11 @@ class _ExploreScreenState extends ConsumerState<ExploreScreen> {
   ];
 
   void _openMovie(Movie m) => context.push(
-    '/details/movie/${m.id}?poster=${Uri.encodeComponent(m.posterUrlW342)}',
-  );
+        '/details/movie/${m.id}?poster=${Uri.encodeComponent(m.posterUrlW342)}',
+      );
   void _openTv(TvShow s) => context.push(
-    '/details/tv/${s.id}?poster=${Uri.encodeComponent(s.posterUrlW342)}',
-  );
+        '/details/tv/${s.id}?poster=${Uri.encodeComponent(s.posterUrlW342)}',
+      );
 
   @override
   Widget build(BuildContext context) {
@@ -186,11 +186,11 @@ class _ExploreScreenState extends ConsumerState<ExploreScreen> {
   }
 
   Widget _sectionTitle(String t) => Padding(
-    padding: const EdgeInsets.symmetric(
-      horizontal: AppSpacing.horizontalPadding,
-    ),
-    child: Text(t, style: AppTypography.sectionHeading),
-  );
+        padding: const EdgeInsets.symmetric(
+          horizontal: AppSpacing.horizontalPadding,
+        ),
+        child: Text(t, style: AppTypography.sectionHeading),
+      );
 
   Widget _horizontal(AsyncValue<List<dynamic>> async, bool isTv) {
     return SizedBox(
@@ -314,17 +314,17 @@ class _ExploreFooter extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.symmetric(
-      horizontal: AppSpacing.horizontalPadding,
-      vertical: AppSpacing.lg,
-    ),
-    child: OutlinedButton.icon(
-      onPressed: () => context.go('/search'),
-      icon: const Icon(Icons.search_rounded, size: 18),
-      label: const Text('Search the full catalogue'),
-      style: OutlinedButton.styleFrom(
-        minimumSize: const Size(double.infinity, 48),
-      ),
-    ),
-  );
+        padding: const EdgeInsets.symmetric(
+          horizontal: AppSpacing.horizontalPadding,
+          vertical: AppSpacing.lg,
+        ),
+        child: OutlinedButton.icon(
+          onPressed: () => context.go('/search'),
+          icon: const Icon(Icons.search_rounded, size: 18),
+          label: const Text('Search the full catalogue'),
+          style: OutlinedButton.styleFrom(
+            minimumSize: const Size(double.infinity, 48),
+          ),
+        ),
+      );
 }

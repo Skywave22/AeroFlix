@@ -74,9 +74,8 @@ class _PosterCardState extends State<PosterCard> {
                       decoration: BoxDecoration(
                         borderRadius: AppRadii.mdRadius,
                         border: Border.all(
-                          color: _focused
-                              ? AppColors.accent
-                              : Colors.transparent,
+                          color:
+                              _focused ? AppColors.accent : Colors.transparent,
                           width: 2,
                         ),
                       ),

@@ -26,13 +26,13 @@ class _DownloadsScreenState extends ConsumerState<DownloadsScreen> {
   final Set<String> _selected = {};
 
   void _exitEdit() => setState(() {
-    _editing = false;
-    _selected.clear();
-  });
+        _editing = false;
+        _selected.clear();
+      });
 
   void _toggle(String key) => setState(() {
-    if (!_selected.remove(key)) _selected.add(key);
-  });
+        if (!_selected.remove(key)) _selected.add(key);
+      });
 
   Future<void> _deleteSelected() async {
     final keys = _selected.toList();
@@ -54,7 +54,8 @@ class _DownloadsScreenState extends ConsumerState<DownloadsScreen> {
   Future<void> _clearCompleted() async {
     final ok = await _confirm(
       title: 'Clear finished downloads?',
-      body: 'Completed downloads will be removed. In-progress downloads are kept.',
+      body:
+          'Completed downloads will be removed. In-progress downloads are kept.',
       action: 'Clear',
     );
     if (!ok || !mounted) return;
@@ -167,9 +168,8 @@ class _DownloadsScreenState extends ConsumerState<DownloadsScreen> {
               tooltip: 'Delete selected',
               icon: Icon(
                 Icons.delete_outline,
-                color: _selected.isEmpty
-                    ? AppColors.textMuted
-                    : AppColors.error,
+                color:
+                    _selected.isEmpty ? AppColors.textMuted : AppColors.error,
               ),
               onPressed: _selected.isEmpty ? null : _deleteSelected,
             ),
@@ -198,45 +198,45 @@ class _DownloadsScreenState extends ConsumerState<DownloadsScreen> {
   }
 
   Widget _emptyState() => Center(
-    child: Padding(
-      padding: const EdgeInsets.all(AppSpacing.horizontalPadding),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(
-            width: 100,
-            height: 100,
-            decoration: const BoxDecoration(
-              color: AppColors.surface,
-              shape: BoxShape.circle,
-            ),
-            child: const Icon(
-              Icons.download_outlined,
-              color: AppColors.textMuted,
-              size: 48,
-            ),
+        child: Padding(
+          padding: const EdgeInsets.all(AppSpacing.horizontalPadding),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 100,
+                height: 100,
+                decoration: const BoxDecoration(
+                  color: AppColors.surface,
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.download_outlined,
+                  color: AppColors.textMuted,
+                  size: 48,
+                ),
+              ),
+              const SizedBox(height: AppSpacing.lg),
+              Text(
+                'No downloads yet',
+                style: AppTypography.cardTitle.copyWith(fontSize: 18),
+              ),
+              const SizedBox(height: AppSpacing.xs),
+              Text(
+                'Tap the download icon on any movie or episode to save it for offline viewing.',
+                textAlign: TextAlign.center,
+                style: AppTypography.body.copyWith(color: AppColors.textMuted),
+              ),
+              const SizedBox(height: AppSpacing.lg),
+              OutlinedButton.icon(
+                onPressed: () => context.go('/explore'),
+                icon: const Icon(Icons.explore_outlined, size: 18),
+                label: const Text('Browse titles'),
+              ),
+            ],
           ),
-          const SizedBox(height: AppSpacing.lg),
-          Text(
-            'No downloads yet',
-            style: AppTypography.cardTitle.copyWith(fontSize: 18),
-          ),
-          const SizedBox(height: AppSpacing.xs),
-          Text(
-            'Tap the download icon on any movie or episode to save it for offline viewing.',
-            textAlign: TextAlign.center,
-            style: AppTypography.body.copyWith(color: AppColors.textMuted),
-          ),
-          const SizedBox(height: AppSpacing.lg),
-          OutlinedButton.icon(
-            onPressed: () => context.go('/explore'),
-            icon: const Icon(Icons.explore_outlined, size: 18),
-            label: const Text('Browse titles'),
-          ),
-        ],
-      ),
-    ),
-  );
+        ),
+      );
 }
 
 class _DownloadRow extends ConsumerWidget {
@@ -252,9 +252,8 @@ class _DownloadRow extends ConsumerWidget {
   });
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final poster = item.posterPath != null
-        ? ApiConstants.posterUrl(item.posterPath)
-        : '';
+    final poster =
+        item.posterPath != null ? ApiConstants.posterUrl(item.posterPath) : '';
     final isDone = item.status == DownloadStatus.completed;
     final isActive = item.status == DownloadStatus.downloading;
     final row = _row(context, ref, poster, isDone, isActive);
@@ -313,98 +312,101 @@ class _DownloadRow extends ConsumerWidget {
       String poster,
       bool isDone,
       bool isActive,
-    ) => Container(
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: AppRadii.mdRadius,
-      ),
-      padding: const EdgeInsets.all(AppSpacing.sm),
-      child: Row(
-        children: [
-          ClipRRect(
-            borderRadius: AppRadii.smRadius,
-            child: SizedBox(
-              width: 88,
-              height: 56,
-              child: poster.isNotEmpty
-                  ? CachedNetworkImage(
-                      imageUrl: poster,
-                      fit: BoxFit.cover,
-                      placeholder: (_, __) =>
-                          Container(color: AppColors.surfaceElevated),
-                      errorWidget: (_, __, ___) => Container(
-                        color: AppColors.surfaceElevated,
-                        child: const Icon(
-                          Icons.movie,
-                          color: AppColors.textMuted,
-                          size: 22,
+    ) =>
+        Container(
+          decoration: BoxDecoration(
+            color: AppColors.surface,
+            borderRadius: AppRadii.mdRadius,
+          ),
+          padding: const EdgeInsets.all(AppSpacing.sm),
+          child: Row(
+            children: [
+              ClipRRect(
+                borderRadius: AppRadii.smRadius,
+                child: SizedBox(
+                  width: 88,
+                  height: 56,
+                  child: poster.isNotEmpty
+                      ? CachedNetworkImage(
+                          imageUrl: poster,
+                          fit: BoxFit.cover,
+                          placeholder: (_, __) =>
+                              Container(color: AppColors.surfaceElevated),
+                          errorWidget: (_, __, ___) => Container(
+                            color: AppColors.surfaceElevated,
+                            child: const Icon(
+                              Icons.movie,
+                              color: AppColors.textMuted,
+                              size: 22,
+                            ),
+                          ),
+                        )
+                      : Container(
+                          color: AppColors.surfaceElevated,
+                          child: const Icon(
+                            Icons.movie,
+                            color: AppColors.textMuted,
+                            size: 22,
+                          ),
+                        ),
+                ),
+              ),
+              const SizedBox(width: AppSpacing.md),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      item.title,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: AppTypography.bodyPrimary.copyWith(
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      _subtitle(),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: AppTypography.metadata.copyWith(
+                        color: isDone
+                            ? AppColors.success
+                            : (isActive
+                                ? AppColors.accent
+                                : AppColors.textMuted),
+                        fontSize: 11,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(2),
+                      child: LinearProgressIndicator(
+                        value: isDone
+                            ? 1
+                            : (item.status == DownloadStatus.paused ||
+                                    item.status == DownloadStatus.failed
+                                ? item.progress
+                                : null),
+                        minHeight: 3,
+                        backgroundColor: AppColors.surfaceElevated,
+                        valueColor: AlwaysStoppedAnimation<Color>(
+                          isDone
+                              ? AppColors.success
+                              : (item.status == DownloadStatus.failed
+                                  ? AppColors.error
+                                  : AppColors.accent),
                         ),
                       ),
-                    )
-                  : Container(
-                      color: AppColors.surfaceElevated,
-                      child: const Icon(
-                        Icons.movie,
-                        color: AppColors.textMuted,
-                        size: 22,
-                      ),
                     ),
-            ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: AppSpacing.sm),
+              _trailing(context, ref),
+            ],
           ),
-          const SizedBox(width: AppSpacing.md),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  item.title,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: AppTypography.bodyPrimary.copyWith(
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  _subtitle(),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: AppTypography.metadata.copyWith(
-                    color: isDone
-                        ? AppColors.success
-                        : (isActive ? AppColors.accent : AppColors.textMuted),
-                    fontSize: 11,
-                  ),
-                ),
-                const SizedBox(height: 6),
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(2),
-                  child: LinearProgressIndicator(
-                    value: isDone
-                        ? 1
-                        : (item.status == DownloadStatus.paused ||
-                                  item.status == DownloadStatus.failed
-                              ? item.progress
-                              : null),
-                    minHeight: 3,
-                    backgroundColor: AppColors.surfaceElevated,
-                    valueColor: AlwaysStoppedAnimation<Color>(
-                      isDone
-                          ? AppColors.success
-                          : (item.status == DownloadStatus.failed
-                                ? AppColors.error
-                                : AppColors.accent),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(width: AppSpacing.sm),
-          _trailing(context, ref),
-        ],
-      ),
-    );
+        );
   }
 
   String _subtitle() {
