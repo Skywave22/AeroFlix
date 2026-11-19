@@ -49,11 +49,11 @@ jobs:
             packages/tj_flutter_providers/lib \
             packages/tj_flutter_providers/test
 
-      # `flutter analyze` exits non-zero for infos as well, so the one
-      # intentional deprecation (the flutter/material import) is muted in
-      # analysis_options.yaml. Everything else is a gate.
+      # Errors and warnings are fatal; info-level lints are reported but do not
+      # fail the build. Without `--no-fatal-infos`, `flutter analyze` exits
+      # non-zero for style hints too, which makes the gate unactionable.
       - name: Analyze (fatal on errors/warnings)
-        run: flutter analyze --no-pub
+        run: flutter analyze --no-pub --no-fatal-infos
 
       - name: Run app tests
         run: flutter test --no-pub --timeout 120s
