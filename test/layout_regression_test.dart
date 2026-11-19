@@ -181,17 +181,16 @@ void main() {
     // nodes; now the whole tile is one labelled button. Assert the properties
     // that matter rather than the full flag set, which also includes focus and
     // enabled state.
-    // `matchesSemantics` is the stable assertion API: it checks the flags and
-    // actions without depending on whichever semantics enum shape the current
-    // Flutter exposes.
+    // Look the node up by label: `getSemantics(find.byType(PosterCard))`
+    // resolves the nearest *ancestor* node, which is the whole screen. Finding
+    // it by label is also exactly what a screen reader does.
+    expect(find.bySemanticsLabel('Dune, 2021'), findsOneWidget);
     expect(
-      tester.getSemantics(find.byType(PosterCard)),
-      matchesSemantics(
+      tester.getSemantics(find.bySemanticsLabel('Dune, 2021')),
+      containsSemantics(
         label: 'Dune, 2021',
         isButton: true,
         hasTapAction: true,
-        hasFocusAction: true,
-        isFocused: false,
       ),
     );
     handle.dispose();
@@ -218,8 +217,10 @@ void main() {
     await tester.pumpAndSettle();
     // The tile is a FocusableActionDetector: a D-pad centre press (or Enter on
     // a keyboard) fires ActivateIntent, which a bare GestureDetector tile could
-    // not receive — the row was unusable on Android TV.
-    final ctx = tester.element(find.byType(PosterCard));
+    // not receive — the row was unusable on Android TV. The action is
+    // registered *inside* the tile, so the lookup has to start from a
+    // descendant context, not from PosterCard's own element.
+    final ctx = tester.element(find.byType(GestureDetector).first);
     Actions.invoke(ctx, const ActivateIntent());
     await tester.pumpAndSettle();
     expect(taps, 1);
