@@ -53,9 +53,22 @@ void main() {
       }
     });
 
-    test('recommended starter pack exists in the manifest', () {
+    test('recommended starter pack exists in the real manifest', () {
+      // The fixture above is deliberately a *real* snapshot, which ships a
+      // single scraper — but `recommendedIds` is the set the app seeds on first
+      // launch, so it has to be checked against the seed asset the app actually
+      // bundles. Readers here also pinned `tjaio`, which the fixture predates.
+      final seed = File('../../assets/providers/manifest.json');
+      expect(seed.existsSync(), isTrue, reason: 'seed manifest is missing');
+      final seeded = Manifest.fromJson(
+        jsonDecode(seed.readAsStringSync()) as Map<String, dynamic>,
+      );
       for (final id in ProviderManager.recommendedIds) {
-        expect(manifest.byId(id), isNotNull, reason: 'missing provider: $id');
+        expect(seeded.byId(id), isNotNull, reason: 'missing provider: $id');
+      }
+      // Every recommended provider must also be one the app can play.
+      for (final id in ProviderManager.recommendedIds) {
+        expect(seeded.byId(id)!.supportedTypes, isNotEmpty, reason: id);
       }
     });
 

@@ -51,14 +51,23 @@ class StreamService {
       '$id|$type|$season|$episode';
 
   /// Cached links for a title, or null when there is nothing fresh.
-  List<StreamSource>? cachedStreams(MediaDetails media,
-      {int season = 0, int episode = 0}) {
+  ///
+  /// `maxAge` lets a caller accept older links: playback prefers a 40-minute-old
+  /// `tjaio` result that is known to play over a fresh scrape that takes a
+  /// minute and may return the same URLs anyway. Signed CDN links do expire, so
+  /// the player still fails over to a fresh scrape if the old ones are dead.
+  List<StreamSource>? cachedStreams(
+    MediaDetails media, {
+    int season = 0,
+    int episode = 0,
+    Duration maxAge = _cacheTtl,
+  }) {
     final key = _key('${media.id}', media.type == MediaType.tv ? 'tv' : 'movie',
         season, episode);
     final hit = _cache[key];
     if (hit == null) return null;
-    if (DateTime.now().difference(hit.at) > _cacheTtl) {
-      _cache.remove(key);
+    if (DateTime.now().difference(hit.at) > maxAge) {
+      if (DateTime.now().difference(hit.at) > _cacheTtl) _cache.remove(key);
       return null;
     }
     return hit.sources;
@@ -96,6 +105,7 @@ class StreamService {
       );
       return;
     }
+    final seen = <StreamSource>{};
     await for (final outcome in _providers.streamStreams(
       tmdbId: '${media.id}',
       mediaType: isTv ? 'tv' : 'movie',
@@ -104,13 +114,17 @@ class StreamService {
       onlyProviderIds: onlyProviderIds,
     )) {
       final mapped = _map(outcome.streams);
+      // Remember the merged set after every provider, not just the last one:
+      // if the user leaves after the first provider answered, the links they
+      // already saw are still cached for the next open.
       if (mapped.isNotEmpty) {
+        seen.addAll(mapped);
         _remember(
             '${media.id}',
             isTv ? 'tv' : 'movie',
             isTv && season > 0 ? season : 0,
             isTv && episode > 0 ? episode : 0,
-            mapped);
+            (seen.toList()..sort(compareSources)));
       }
       yield ProviderResolution(
         providerId: outcome.providerId,

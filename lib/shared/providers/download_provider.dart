@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path_provider/path_provider.dart';
@@ -21,6 +22,11 @@ class DownloadItem {
   /// AeroFlix never fakes a download.
   final String? url;
 
+  /// HTTP headers the provider said this stream needs (`Referer`, `Origin`,
+  /// `User-Agent`…). Dropping them made every header-gated CDN answer 403 even
+  /// though the same link played fine in the player.
+  final Map<String, String> headers;
+
   /// Local file path, set once the download completes.
   final String? filePath;
   final int sizeBytes;
@@ -38,6 +44,7 @@ class DownloadItem {
     required this.season,
     required this.episode,
     this.url,
+    this.headers = const {},
     this.filePath,
     this.sizeBytes = 0,
     this.status = DownloadStatus.queued,
@@ -50,6 +57,7 @@ class DownloadItem {
     String? subtitle,
     String? posterPath,
     String? url,
+    Map<String, String>? headers,
     String? filePath,
     int? sizeBytes,
     DownloadStatus? status,
@@ -67,6 +75,7 @@ class DownloadItem {
         season: season,
         episode: episode,
         url: url ?? this.url,
+        headers: (headers == null || headers.isEmpty) ? this.headers : headers,
         filePath: filePath ?? this.filePath,
         sizeBytes: sizeBytes ?? this.sizeBytes,
         status: status ?? this.status,
@@ -84,6 +93,7 @@ class DownloadItem {
         'season': season,
         'episode': episode,
         'url': url,
+        'headers': headers,
         'filePath': filePath,
         'sizeBytes': sizeBytes,
         'status': status.name,
@@ -103,10 +113,16 @@ class DownloadItem {
       season: (j['season'] as int?) ?? 0,
       episode: (j['episode'] as int?) ?? 0,
       url: j['url'] as String?,
+      headers: (j['headers'] as Map?)?.map(
+            (k, v) => MapEntry(k.toString(), v.toString()),
+          ) ??
+          const {},
       filePath: j['filePath'] as String?,
       sizeBytes: (j['sizeBytes'] as int?) ?? 0,
-      status: DownloadStatus.values.firstWhere((s) => s.name == statusName,
-          orElse: () => DownloadStatus.queued),
+      status: DownloadStatus.values.firstWhere(
+        (s) => s.name == statusName,
+        orElse: () => DownloadStatus.queued,
+      ),
       progress: ((j['progress'] as num?) ?? 0).toDouble().clamp(0.0, 1.0),
       error: j['error'] as String?,
     );
@@ -136,12 +152,14 @@ class DownloadItem {
 class DownloadNotifier extends StateNotifier<List<DownloadItem>> {
   static const _kKey = 'aeroflix.downloads.v2';
 
-  final Dio _dio = Dio(BaseOptions(
-    connectTimeout: const Duration(seconds: 20),
-    receiveTimeout: const Duration(minutes: 10),
-    followRedirects: true,
-    validateStatus: (s) => s != null && s < 400,
-  ));
+  final Dio _dio = Dio(
+    BaseOptions(
+      connectTimeout: const Duration(seconds: 20),
+      receiveTimeout: const Duration(minutes: 10),
+      followRedirects: true,
+      validateStatus: (s) => s != null && s < 400,
+    ),
+  );
   final Map<String, CancelToken> _tokens = {};
   final Map<String, double> _lastReported = {};
 
@@ -188,18 +206,43 @@ class DownloadNotifier extends StateNotifier<List<DownloadItem>> {
   Future<void> _persist() async {
     final prefs = await SharedPreferences.getInstance();
     final list = state
-        .map((d) => d.status == DownloadStatus.downloading
-            ? d.copyWith(status: DownloadStatus.paused)
-            : d)
+        .map(
+          (d) => d.status == DownloadStatus.downloading
+              ? d.copyWith(status: DownloadStatus.paused)
+              : d,
+        )
         .map((e) => e.toJson())
         .toList();
     await prefs.setString(_kKey, jsonEncode(list));
   }
 
   /// True while at least one download is running or queued.
-  bool get isBusy => state.any((d) =>
-      d.status == DownloadStatus.downloading ||
-      d.status == DownloadStatus.queued);
+  bool get isBusy => state.any(
+        (d) =>
+            d.status == DownloadStatus.downloading ||
+            d.status == DownloadStatus.queued,
+      );
+
+  /// Re-point a failed item at a fresh URL + headers and retry it.
+  Future<void> rearm(
+    String key,
+    String url, {
+    Map<String, String> headers = const {},
+  }) async {
+    final i = state.indexWhere((d) => d.key == key);
+    if (i < 0) return;
+    state = _replace(
+      state[i].copyWith(
+        url: url,
+        headers: headers,
+        status: DownloadStatus.queued,
+        progress: 0,
+        clearError: true,
+      ),
+    );
+    await _persist();
+    _kickOff();
+  }
 
   Future<bool> enqueue(DownloadItem item) async {
     await _ready;
@@ -208,7 +251,10 @@ class DownloadNotifier extends StateNotifier<List<DownloadItem>> {
     if (state.any((d) => d.key == item.key)) return false;
     state = [
       item.copyWith(
-          status: DownloadStatus.queued, progress: 0, clearError: true),
+        status: DownloadStatus.queued,
+        progress: 0,
+        clearError: true,
+      ),
       ...state,
     ];
     await _persist();
@@ -233,10 +279,9 @@ class DownloadNotifier extends StateNotifier<List<DownloadItem>> {
   void _setProgress(String key, {double? progress, int? sizeBytes}) {
     final i = state.indexWhere((d) => d.key == key);
     if (i < 0) return;
-    state = _replace(state[i].copyWith(
-      progress: progress,
-      sizeBytes: sizeBytes,
-    ));
+    state = _replace(
+      state[i].copyWith(progress: progress, sizeBytes: sizeBytes),
+    );
   }
 
   Future<void> _start(int index) async {
@@ -244,15 +289,21 @@ class DownloadNotifier extends StateNotifier<List<DownloadItem>> {
     final url = item.url;
     if (url == null || url.isEmpty) {
       state = _replace(
-          item.copyWith(status: DownloadStatus.failed, error: 'No source URL'));
+        item.copyWith(status: DownloadStatus.failed, error: 'No source URL'),
+      );
       await _persist();
       _kickOff();
       return;
     }
     final token = CancelToken();
     _tokens[item.key] = token;
-    state = _replace(item.copyWith(
-        status: DownloadStatus.downloading, progress: 0, clearError: true));
+    state = _replace(
+      item.copyWith(
+        status: DownloadStatus.downloading,
+        progress: 0,
+        clearError: true,
+      ),
+    );
     try {
       final docs = await getApplicationDocumentsDirectory();
       final dir = Directory('${docs.path}/downloads');
@@ -262,6 +313,9 @@ class DownloadNotifier extends StateNotifier<List<DownloadItem>> {
         url,
         file.path,
         cancelToken: token,
+        // The provider's headers are part of the request, not decoration:
+        // without Referer/Origin these hosts 403.
+        options: Options(headers: item.headers.isEmpty ? null : item.headers),
         onReceiveProgress: (received, total) {
           if (total <= 0) return;
           final p = (received / total).clamp(0.0, 1.0);
@@ -274,26 +328,32 @@ class DownloadNotifier extends StateNotifier<List<DownloadItem>> {
         },
       );
       final len = await file.length();
-      state = _replace(item.copyWith(
-        status: DownloadStatus.completed,
-        progress: 1,
-        filePath: file.path,
-        sizeBytes: len,
-      ));
+      state = _replace(
+        item.copyWith(
+          status: DownloadStatus.completed,
+          progress: 1,
+          filePath: file.path,
+          sizeBytes: len,
+        ),
+      );
       await _persist();
     } on DioException catch (e) {
       if (CancelToken.isCancel(e)) {
         // Paused or removed by the user — state already updated by caller.
       } else {
-        state = _replace(state
-            .firstWhere((d) => d.key == item.key, orElse: () => item)
-            .copyWith(status: DownloadStatus.failed, error: _dioError(e)));
+        state = _replace(
+          state
+              .firstWhere((d) => d.key == item.key, orElse: () => item)
+              .copyWith(status: DownloadStatus.failed, error: _dioError(e)),
+        );
         await _persist();
       }
     } catch (e) {
-      state = _replace(state
-          .firstWhere((d) => d.key == item.key, orElse: () => item)
-          .copyWith(status: DownloadStatus.failed, error: e.toString()));
+      state = _replace(
+        state
+            .firstWhere((d) => d.key == item.key, orElse: () => item)
+            .copyWith(status: DownloadStatus.failed, error: e.toString()),
+      );
       await _persist();
     } finally {
       _tokens.remove(item.key);
@@ -349,8 +409,13 @@ class DownloadNotifier extends StateNotifier<List<DownloadItem>> {
     final i = state.indexWhere((d) => d.key == key);
     if (i < 0) return;
     final item = state[i];
-    state = _replace(item.copyWith(
-        status: DownloadStatus.queued, progress: 0, clearError: true));
+    state = _replace(
+      item.copyWith(
+        status: DownloadStatus.queued,
+        progress: 0,
+        clearError: true,
+      ),
+    );
     await _persist();
     _kickOff();
   }
@@ -361,22 +426,26 @@ class DownloadNotifier extends StateNotifier<List<DownloadItem>> {
     await _ready;
     _tokens[key]?.cancel('removed');
     _tokens.remove(key);
-    final item = state.firstWhere((d) => d.key == key,
-        orElse: () => DownloadItem(
-            key: '',
-            title: '',
-            subtitle: '',
-            posterPath: null,
-            kind: 'movie',
-            mediaId: 0,
-            season: 0,
-            episode: 0));
+    final item = state.firstWhere(
+      (d) => d.key == key,
+      orElse: () => DownloadItem(
+        key: '',
+        title: '',
+        subtitle: '',
+        posterPath: null,
+        kind: 'movie',
+        mediaId: 0,
+        season: 0,
+        episode: 0,
+      ),
+    );
     // Delete the file (and any partial leftovers) from disk.
     final paths = <String>{
       if (item.filePath != null) item.filePath!,
       if (item.url != null)
-        await getApplicationDocumentsDirectory()
-            .then((d) => '${d.path}/downloads/${_fileNameFor(item)}'),
+        await getApplicationDocumentsDirectory().then(
+          (d) => '${d.path}/downloads/${_fileNameFor(item)}',
+        ),
     };
     for (final path in paths) {
       try {
@@ -418,4 +487,5 @@ class DownloadNotifier extends StateNotifier<List<DownloadItem>> {
 
 final downloadProvider =
     StateNotifierProvider<DownloadNotifier, List<DownloadItem>>(
-        (_) => DownloadNotifier());
+  (_) => DownloadNotifier(),
+);

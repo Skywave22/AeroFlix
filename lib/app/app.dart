@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+
 import '../core/navigation/deep_link_handler.dart';
 import '../core/platform/screen_mode.dart';
 import '../core/providers/tj_providers_service.dart';
@@ -47,31 +48,38 @@ class _AeroFlixAppState extends State<AeroFlixApp> {
   @override
   Widget build(BuildContext context) {
     return ProviderScope(
-        // Kicks off the provider download/update pass at startup; the app is
-        // usable immediately with whatever is already cached.
-        child: _ProviderBootstrap(
-            child: DeepLinkHandler(
-                router: appRouter,
-                child: MaterialApp.router(
-                    title: 'AeroFlix',
-                    debugShowCheckedModeBanner: false,
-                    theme: AppTheme.dark(),
-                    // Never let an extreme system font scale make the UI unreadable
-                    // (0.9x) or break layouts (1.35x). The base type scale is already
-                    // larger than Material defaults after the legibility pass.
-                    builder: (context, child) {
-                      final mq = MediaQuery.of(context);
-                      return MediaQuery(
-                        data: mq.copyWith(
-                          textScaler: mq.textScaler.clamp(
-                            minScaleFactor: 0.9,
-                            maxScaleFactor: 1.35,
-                          ),
-                        ),
-                        child: child ?? const SizedBox.shrink(),
-                      );
-                    },
-                    routerConfig: appRouter))));
+      // Kicks off the provider download/update pass at startup; the app is
+      // usable immediately with whatever is already cached.
+      child: _ProviderBootstrap(
+        child: DeepLinkHandler(
+          router: appRouter,
+          child: MaterialApp.router(
+            title: 'AeroFlix',
+            debugShowCheckedModeBanner: false,
+            theme: AppTheme.dark(),
+            // System font scaling is honoured (clamped only at the very
+            // top of the accessibility range, where the layout would
+            // become unusable). Rows and cards size themselves from
+            // MediaQuery.textScalerOf instead of assuming 1.0x, so
+            // raising the scale grows the text block rather than
+            // clipping it.
+            builder: (context, child) {
+              final mq = MediaQuery.of(context);
+              return MediaQuery(
+                data: mq.copyWith(
+                  textScaler: mq.textScaler.clamp(
+                    minScaleFactor: 0.8,
+                    maxScaleFactor: 2.0,
+                  ),
+                ),
+                child: child ?? const SizedBox.shrink(),
+              );
+            },
+            routerConfig: appRouter,
+          ),
+        ),
+      ),
+    );
   }
 }
 
@@ -92,7 +100,8 @@ class _ProviderBootstrapState extends ConsumerState<_ProviderBootstrap> {
     // Copy the bundled providers into app storage, then check GitHub — once,
     // in the background. The app is usable the whole time.
     Future.microtask(
-        () => ref.read(providerStatusProvider.notifier).bootstrap());
+      () => ref.read(providerStatusProvider.notifier).bootstrap(),
+    );
   }
 
   @override

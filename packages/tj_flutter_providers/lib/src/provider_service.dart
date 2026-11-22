@@ -25,9 +25,20 @@ class ProviderService {
   final ProviderManager manager;
   final String tmdbApiKey;
 
-  /// Provider ids to use by default. Defaults to recommended starter pack.
-  /// Change to all 25 ids from manifest if you want everything.
-  final List<String> enabledIds;
+  /// Provider ids currently active. Defaults to the recommended starter pack.
+  ///
+  /// Mutable through [setEnabledIds] because the Providers screen can switch
+  /// providers at runtime; previously this was a plain `final` list, so every
+  /// toggle in that screen was silently discarded and all calls kept using the
+  /// constructor value.
+  List<String> _enabledIds;
+  List<String> get enabledIds => _enabledIds;
+
+  /// Replace the active provider set (takes effect on the next call).
+  void setEnabledIds(Iterable<String> ids) {
+    final list = ids.toList();
+    if (list.isNotEmpty) _enabledIds = List.unmodifiable(list);
+  }
 
   /// Per-provider settings exposed to the JS bundle as `globalThis.SCRAPER_SETTINGS`
   /// and via `getPreference(key)`. The all-in-one provider needs its unlock code
@@ -49,11 +60,13 @@ class ProviderService {
   ProviderService({
     required this.manager,
     this.tmdbApiKey = '',
-    this.enabledIds = ProviderManager.recommendedIds,
+    List<String>? enabledIds,
     this.useIsolate = true,
     this.scraperSettings = const {},
     this.timeout = const Duration(seconds: 105),
-  });
+  }) : _enabledIds = List.unmodifiable(
+         enabledIds ?? ProviderManager.recommendedIds,
+       );
 
   /// Call on app start: fetch manifest, download new providers,
   /// auto-update changed ones. Safe to call every launch (fast if up-to-date).

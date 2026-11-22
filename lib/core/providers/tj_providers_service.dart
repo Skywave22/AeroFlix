@@ -3,6 +3,7 @@ import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:tj_flutter_providers/tj_providers.dart';
 
@@ -34,20 +35,149 @@ final providerManagerProvider = Provider<ProviderManager>((ref) {
   return manager;
 });
 
+/// Provider ids the user has switched on.
+///
+/// The Providers screen used to keep its switches in local widget state: the
+/// toggles looked interactive, changed nothing, and reset on every visit, while
+/// every stream request still ran the hard-coded `recommendedIds`. This
+/// provider is the single source of truth, persisted to SharedPreferences and
+/// watched by [providerServiceProvider] so a toggle takes effect immediately.
+final enabledProviderIdsProvider =
+    NotifierProvider<EnabledProviderIdsNotifier, Set<String>>(
+  EnabledProviderIdsNotifier.new,
+);
+
+class EnabledProviderIdsNotifier extends Notifier<Set<String>> {
+  static const _prefKey = 'enabled_provider_ids';
+
+  @override
+  Set<String> build() {
+    _restore();
+    return ProviderManager.recommendedIds.toSet();
+  }
+
+  Future<void> _restore() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final saved = prefs.getStringList(_prefKey);
+      if (saved == null) return;
+      // Never restore an empty set: that would make the app unplayable with no
+      // explanation if the manifest ever contained only unknown ids.
+      if (saved.isEmpty) return;
+      state = saved.toSet();
+    } catch (_) {
+      // Corrupt or unavailable prefs: keep the recommended defaults.
+    }
+  }
+
+  Future<void> setEnabled(String id, bool enabled) async {
+    final next = {...state};
+    if (enabled) {
+      next.add(id);
+    } else {
+      next.remove(id);
+    }
+    if (next.isEmpty) return; // keep at least one provider resolvable
+    state = next;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setStringList(_prefKey, next.toList());
+    } catch (_) {
+      // Persistence is best-effort; the in-memory toggle still applies.
+    }
+  }
+
+  Future<void> reset() async {
+    state = ProviderManager.recommendedIds.toSet();
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove(_prefKey);
+    } catch (_) {}
+  }
+}
+
+/// Builds a `ProviderService` bound to the current enabled-id set.
+///
+/// Both the shared instance below and the per-title instances in
+/// [ProviderServicePool] are built here, so they can never disagree about the
+/// API key, the enabled providers or the time budget.
+ProviderService buildProviderService(
+  ProviderManager manager, {
+  required List<String> enabledIds,
+}) =>
+    ProviderService(
+      manager: manager,
+      tmdbApiKey: ApiConstants.tmdbApiKey,
+      enabledIds: enabledIds,
+      // TJ All-in-one fans out to every site itself, so a single title takes
+      // ~40 s on a cold run. Give it room instead of cutting it off mid-flight.
+      timeout: const Duration(seconds: 105),
+    );
+
+/// How many provider searches may run at the same time.
+///
+/// QuickJS is synchronous: while a scrape is running it occupies the thread it
+/// was started on. Provider bundles do their network calls inside that isolate,
+/// so two searches on one isolate serialise anyway — running each search on its
+/// own service keeps a title you are opening now from queueing behind the one
+/// you opened thirty seconds ago (and still want the rest of the results of).
+const int kMaxConcurrentProviderSearches = 3;
+
+/// One [ProviderService] per in-flight search, keyed by an opaque caller token.
+///
+/// The previous code shared a single service, so a second search could only
+/// start after the first one had been fully scraped — every cached-miss
+/// navigation paid the first title's remaining budget. Services are created on
+/// demand, released as soon as a search finishes, and each one gets its own
+/// budget so a slow provider set cannot silently pin a slot forever.
+class ProviderServicePool {
+  ProviderServicePool(this._manager, this._enabledIds);
+
+  final ProviderManager _manager;
+  final List<String> _enabledIds;
+  final Map<String, ProviderService> _active = {};
+
+  /// A service for [token], or null when every slot is busy.
+  ///
+  /// Null is a soft outcome, not a failure: the caller falls back to the shared
+  /// [providerServiceProvider] and its search still runs, it just queues behind
+  /// the other in-flight ones the way the old single-service code always did.
+  ProviderService? acquire(String token) {
+    final existing = _active[token];
+    if (existing != null) return existing;
+    if (_active.length >= kMaxConcurrentProviderSearches) return null;
+    final service = buildProviderService(_manager, enabledIds: _enabledIds);
+    _active[token] = service;
+    return service;
+  }
+
+  void release(String token) => _active.remove(token);
+
+  void releaseAll() => _active.clear();
+}
+
 final providerServiceProvider = Provider<ProviderService>((ref) {
-  return ProviderService(
-    manager: ref.watch(providerManagerProvider),
-    tmdbApiKey: ApiConstants.tmdbApiKey,
-    enabledIds: ProviderManager.recommendedIds,
-    // TJ All-in-one fans out to every site itself, so a single title takes
-    // ~40 s on a cold run. Give it room instead of cutting it off mid-flight.
-    timeout: const Duration(seconds: 105),
+  return buildProviderService(
+    ref.watch(providerManagerProvider),
+    enabledIds: ref.watch(enabledProviderIdsProvider).toList(),
   );
 });
 
+/// Searches run here instead of on [providerServiceProvider], so two screens
+/// (or a re-open of the same title) never share one scrape queue.
+final providerServicePoolProvider = Provider<ProviderServicePool>((ref) {
+  final pool = ProviderServicePool(
+    ref.watch(providerManagerProvider),
+    ref.watch(enabledProviderIdsProvider).toList(),
+  );
+  ref.onDispose(pool.releaseAll);
+  return pool;
+});
+
 /// Providers currently cached on disk (id -> cached info).
-final installedProvidersProvider =
-    FutureProvider<Map<String, CachedProvider>>((ref) {
+final installedProvidersProvider = FutureProvider<Map<String, CachedProvider>>((
+  ref,
+) {
   return ref.watch(providerManagerProvider).getCached();
 });
 
@@ -182,18 +312,22 @@ class ProviderStatusNotifier extends Notifier<ProviderStatus> {
     try {
       final before = await manager.getCached();
       final result = await manager
-          .syncProviders(onlyIds: ProviderManager.recommendedIds)
+          .syncProviders(onlyIds: ref.read(enabledProviderIdsProvider).toList())
           .timeout(const Duration(seconds: 60));
       final after = await manager.getCached();
       updated = after.entries
-          .where((e) =>
-              before[e.key]?.version != e.value.version ||
-              before[e.key]?.sizeBytes != e.value.sizeBytes)
+          .where(
+            (e) =>
+                before[e.key]?.version != e.value.version ||
+                before[e.key]?.sizeBytes != e.value.sizeBytes,
+          )
           .length;
       installed = after.keys.length;
       if (kDebugMode) {
-        debugPrint('[providers] manifest v${result.manifest.version} · '
-            'seeded $seeded · updated $updated · installed $installed');
+        debugPrint(
+          '[providers] manifest v${result.manifest.version} · '
+          'seeded $seeded · updated $updated · installed $installed',
+        );
       }
     } catch (e) {
       error = e.toString();
@@ -222,7 +356,7 @@ final providerStatusProvider =
 Future<UpdateCheckResult> refreshProviders(WidgetRef ref) async {
   final manager = ref.read(providerManagerProvider);
   final result = await manager.syncProviders(
-    onlyIds: ProviderManager.recommendedIds,
+    onlyIds: ref.read(enabledProviderIdsProvider).toList(),
   );
   ref.invalidate(installedProvidersProvider);
   await ref.read(providerStatusProvider.notifier).refresh();

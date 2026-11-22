@@ -38,14 +38,90 @@ jobs:
       - name: Install dependencies
         run: flutter pub get
 
+      # Keep this a single command: the runner shell uses `set -eo pipefail`,
+      # so any diagnostic block after a failing `dart format` never runs.
+      # `dart format` prints "Changed <path>" itself, which is the useful part.
       - name: Verify formatting (app + vendored provider package)
-        run: dart format --output=none --set-exit-if-changed lib test packages/tj_flutter_providers/lib packages/tj_flutter_providers/test
+        run: |
+          dart format --output=none --set-exit-if-changed \
+            lib \
+            test \
+            packages/tj_flutter_providers/lib \
+            packages/tj_flutter_providers/test
 
+      # Errors and warnings are fatal; info-level lints are reported but do not
+      # fail the build. Without `--no-fatal-infos`, `flutter analyze` exits
+      # non-zero for style hints too, which makes the gate unactionable.
       - name: Analyze (fatal on errors/warnings)
-        run: flutter analyze --no-pub
+        # One annotation with the first few errors: the step log is the primary
+        # channel, but the annotation makes the failure visible from the API and
+        # the PR checks UI as well.
+        run: |
+          set +e
+          flutter analyze --no-pub --no-fatal-infos > /tmp/analyze.txt 2>&1
+          code=$?
+          cat /tmp/analyze.txt
+          if [ "$code" -ne 0 ]; then
+            echo "::error title=flutter analyze::$(grep -E '^\s*(error|warning)' /tmp/analyze.txt | head -5 | tr '\n' ';' | cut -c1-900)"
+          fi
+          exit "$code"
 
-      - name: Run tests
+      - name: Run app tests
         run: flutter test --no-pub --timeout 120s
+
+      # packages/tj_flutter_providers has its own offline
+      # (provider_manager_test.dart) tests. They were never executed in CI, so
+      # a change that broke manifest parsing or version comparison could merge
+      # green.
+      - name: Run provider package tests
+        working-directory: packages/tj_flutter_providers
+        run: |
+          flutter pub get
+          flutter test --timeout 120s
+
+
+  format-apply:
+    # On-demand maintenance job: formats the tree with the exact SDK the verify
+    # gate uses, and pushes the result. Useful when a change was written on a
+    # machine without a local Flutter SDK. Never runs automatically.
+    #
+    # `flutter pub get` MUST run first: `dart format` picks its style from the
+    # package's resolved language version, and without it the formatter silently
+    # applies the legacy short style to the whole tree.
+    name: Format apply
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+
+      - name: Install dependencies
+        run: |
+          flutter pub get
+          (cd packages/tj_flutter_providers && flutter pub get)
+
+      - name: Format and commit
+        run: |
+          dart format lib test packages/tj_flutter_providers/lib \
+            packages/tj_flutter_providers/test
+          if git diff --quiet; then
+            echo "Already formatted; nothing to commit."
+            exit 0
+          fi
+          git diff --stat
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -am "style: dart format (applied by CI)"
+          git push origin HEAD:${{ github.ref_name }}
 
   build-debug:
     name: Build debug APK
@@ -108,7 +184,14 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 45
     needs: verify
-    if: github.ref == 'refs/heads/main'
+    # Also build on PRs: R8/minification and the release-only signing path fail
+    # in ways a debug build never surfaces. Without a keystore the build falls
+    # back to the debug key (see android/app/build.gradle), so this is only a
+    # compile+package check — real signing stays on main.
+    if: >-
+      github.ref == 'refs/heads/main' ||
+      github.event_name == 'pull_request' ||
+      github.event_name == 'workflow_dispatch'
     steps:
       - uses: actions/checkout@v4
 
@@ -145,15 +228,45 @@ jobs:
       - name: Install dependencies
         run: flutter pub get
 
+      # Optional real signing: android/app/build.gradle picks this up through
+      # android/key.properties and falls back to the debug keystore when absent.
+      #
+      # Note the guard is a shell `if`, not `if: ${{ secrets.X != '' }}`:
+      # the `secrets` context is not available in a step-level `if`, and using
+      # it there makes GitHub reject the entire workflow file ("workflow file
+      # issue", no jobs are created).
+      - name: Configure release signing (optional)
+        env:
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+          STORE_PASSWORD: ${{ secrets.STORE_PASSWORD }}
+        run: |
+          if [ -z "${KEYSTORE_BASE64:-}" ]; then
+            echo "::warning::No KEYSTORE_BASE64 secret; the release APK will be           signed with the debug key. It cannot be published to Google Play or           updated in place by a properly signed build."
+            exit 0
+          fi
+          echo "$KEYSTORE_BASE64" | base64 --decode > android/app/aeroflix-release.jks
+          {
+            echo "storeFile=aeroflix-release.jks"
+            echo "storePassword=$STORE_PASSWORD"
+            echo "keyAlias=$KEY_ALIAS"
+            echo "keyPassword=$KEY_PASSWORD"
+          } > android/key.properties
+
       # Split per ABI: the universal APK is ~100 MB because it carries libmpv
       # and QuickJS for four architectures. Per-ABI builds are ~35-40 MB.
-      - name: Build APK (release, per-ABI, debug-signed for sideloading)
+      - name: Build APK (release, per-ABI)
         env:
           TMDB_API_KEY: ${{ secrets.TMDB_API_KEY }}
         run: |
           EXTRA=""
           if [ -n "${TMDB_API_KEY:-}" ]; then EXTRA="--dart-define=TMDB_API_KEY=$TMDB_API_KEY"; fi
-          flutter build apk --release --split-per-abi --no-shrink --no-pub $EXTRA --target-platform android-arm,android-arm64
+          # Note: no --no-shrink. The flag disabled R8/tree-shaking for the
+          # whole release build purely to work around the lint/analyzer issue
+          # already handled by `lint { checkReleaseBuilds = false }`, and it
+          # shipped an APK several MB larger than necessary.
+          flutter build apk --release --split-per-abi --no-pub $EXTRA --target-platform android-arm,android-arm64
 
       - name: Upload arm64 APK (most phones)
         uses: actions/upload-artifact@v4

@@ -3,9 +3,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
+
 import '../../app/theme/app_colors.dart';
 import '../../app/theme/app_spacing.dart';
 import '../../app/theme/app_typography.dart';
+import '../../shared/widgets/section_placeholder.dart';
 import '../../core/constants/api_constants.dart';
 import '../../core/network/tmdb_service.dart';
 import '../../shared/models/person.dart';
@@ -45,43 +47,66 @@ class _PersonScreenState extends ConsumerState<PersonScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-        backgroundColor: AppColors.background,
-        body: FutureBuilder<_PersonData>(
-            future: _future,
-            builder: (c, snap) {
-              if (snap.connectionState != ConnectionState.done) {
-                return CustomScrollView(slivers: [
-                  SliverAppBar(
-                      pinned: true,
-                      leading: IconButton(
-                          icon: const Icon(Icons.arrow_back_ios_new_rounded,
-                              size: 20),
-                          onPressed: () => context.pop())),
-                  const SliverFillRemaining(
-                      child: Center(
-                          child: CircularProgressIndicator(
-                              color: AppColors.accent, strokeWidth: 2))),
-                ]);
-              }
-              if (snap.hasError || !snap.hasData) {
-                return CustomScrollView(slivers: [
-                  SliverAppBar(
-                      pinned: true,
-                      leading: IconButton(
-                          icon: const Icon(Icons.arrow_back_ios_new_rounded,
-                              size: 20),
-                          onPressed: () => context.pop())),
-                  SliverFillRemaining(
-                      child: Center(
-                          child: FilledButton.tonal(
-                              onPressed: () =>
-                                  setState(() => _future = _load()),
-                              child: const Text('Retry')))),
-                ]);
-              }
-              final d = snap.data!;
-              return _Content(data: d, initialName: widget.args.name);
-            }));
+      backgroundColor: AppColors.background,
+      body: FutureBuilder<_PersonData>(
+        future: _future,
+        builder: (c, snap) {
+          if (snap.connectionState != ConnectionState.done) {
+            return CustomScrollView(
+              slivers: [
+                SliverAppBar(
+                  pinned: true,
+                  leading: IconButton(
+                    tooltip: 'Back',
+                    icon: const Icon(
+                      Icons.arrow_back_ios_new_rounded,
+                      size: 20,
+                    ),
+                    onPressed: () => context.pop(),
+                  ),
+                ),
+                const SliverFillRemaining(
+                  child: Center(
+                    child: CircularProgressIndicator(
+                      color: AppColors.accent,
+                      strokeWidth: 2,
+                    ),
+                  ),
+                ),
+              ],
+            );
+          }
+          if (snap.hasError || !snap.hasData) {
+            return CustomScrollView(
+              slivers: [
+                SliverAppBar(
+                  pinned: true,
+                  leading: IconButton(
+                    tooltip: 'Back',
+                    icon: const Icon(
+                      Icons.arrow_back_ios_new_rounded,
+                      size: 20,
+                    ),
+                    onPressed: () => context.pop(),
+                  ),
+                ),
+                SliverFillRemaining(
+                  child: Center(
+                    // Bare "Retry" with no explanation: say what failed.
+                    child: SectionErrorState(
+                      message: 'Could not load this person',
+                      onRetry: () => setState(() => _future = _load()),
+                    ),
+                  ),
+                ),
+              ],
+            );
+          }
+          final d = snap.data!;
+          return _Content(data: d, initialName: widget.args.name);
+        },
+      ),
+    );
   }
 }
 
@@ -119,110 +144,147 @@ class _Content extends StatelessWidget {
       meta.add(info.placeOfBirth!);
     }
 
-    return CustomScrollView(physics: const BouncingScrollPhysics(), slivers: [
-      SliverAppBar(
+    return CustomScrollView(
+      physics: const BouncingScrollPhysics(),
+      slivers: [
+        SliverAppBar(
           pinned: true,
           expandedHeight: 300,
           backgroundColor: AppColors.background,
           leading: IconButton(
-              icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 20),
-              onPressed: () => Navigator.of(context).pop(),
-              splashRadius: 20),
+            tooltip: 'Back',
+            icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 20),
+            onPressed: () => Navigator.of(context).pop(),
+            splashRadius: 20,
+          ),
           flexibleSpace: FlexibleSpaceBar(
-              background: Stack(fit: StackFit.expand, children: [
-            if (info.profilePath != null)
-              CachedNetworkImage(
-                  imageUrl:
-                      ApiConstants.profileUrl(info.profilePath, size: 'h632'),
-                  fit: BoxFit.cover,
-                  alignment: Alignment.topCenter)
-            else
-              Container(color: AppColors.surface),
-            const DecoratedBox(
-                decoration: BoxDecoration(
+            background: Stack(
+              fit: StackFit.expand,
+              children: [
+                if (info.profilePath != null)
+                  CachedNetworkImage(
+                    imageUrl: ApiConstants.profileUrl(
+                      info.profilePath,
+                      size: 'h632',
+                    ),
+                    fit: BoxFit.cover,
+                    alignment: Alignment.topCenter,
+                  )
+                else
+                  Container(color: AppColors.surface),
+                const DecoratedBox(
+                  decoration: BoxDecoration(
                     gradient: LinearGradient(
-                        begin: Alignment.topCenter,
-                        end: Alignment.bottomCenter,
-                        colors: [Color(0x6606070C), AppColors.background],
-                        stops: [0.0, 1.0]))),
-          ]))),
-      SliverToBoxAdapter(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: [Color(0x6606070C), AppColors.background],
+                      stops: [0.0, 1.0],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+        SliverToBoxAdapter(
           child: Padding(
+            padding: AppSpacing.screenHorizontal,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(name, style: AppTypography.display.copyWith(fontSize: 26)),
+                if (meta.isNotEmpty) ...[
+                  const SizedBox(height: AppSpacing.sm),
+                  Text(
+                    meta.join('  ·  '),
+                    style: AppTypography.metadata.copyWith(
+                      color: AppColors.textSecondary,
+                    ),
+                  ),
+                ],
+                if (info.biography.isNotEmpty) ...[
+                  const SizedBox(height: AppSpacing.lg),
+                  Text('Biography', style: AppTypography.sectionHeading),
+                  const SizedBox(height: AppSpacing.sm),
+                  Text(
+                    info.biography,
+                    style: AppTypography.body.copyWith(height: 1.6),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ),
+        if (credits.movies.isNotEmpty) ...[
+          const SliverToBoxAdapter(child: SizedBox(height: AppSpacing.xl)),
+          SliverToBoxAdapter(
+            child: Padding(
               padding: AppSpacing.screenHorizontal,
-              child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(name,
-                        style: AppTypography.display.copyWith(fontSize: 26)),
-                    if (meta.isNotEmpty) ...[
-                      const SizedBox(height: AppSpacing.sm),
-                      Text(meta.join('  ·  '),
-                          style: AppTypography.metadata
-                              .copyWith(color: AppColors.textSecondary)),
-                    ],
-                    if (info.biography.isNotEmpty) ...[
-                      const SizedBox(height: AppSpacing.lg),
-                      Text('Biography', style: AppTypography.sectionHeading),
-                      const SizedBox(height: AppSpacing.sm),
-                      Text(info.biography,
-                          style: AppTypography.body.copyWith(height: 1.6)),
-                    ],
-                  ]))),
-      if (credits.movies.isNotEmpty) ...[
-        const SliverToBoxAdapter(child: SizedBox(height: AppSpacing.xl)),
-        SliverToBoxAdapter(
-            child: Padding(
-                padding: AppSpacing.screenHorizontal,
-                child: Text('Movies', style: AppTypography.sectionHeading))),
-        const SliverToBoxAdapter(child: SizedBox(height: AppSpacing.sm)),
-        SliverToBoxAdapter(
+              child: Text('Movies', style: AppTypography.sectionHeading),
+            ),
+          ),
+          const SliverToBoxAdapter(child: SizedBox(height: AppSpacing.sm)),
+          SliverToBoxAdapter(
             child: SizedBox(
-                height: AppSpacing.posterHeight + 56,
-                child: ListView.separated(
-                    scrollDirection: Axis.horizontal,
-                    padding: AppSpacing.screenHorizontal,
-                    physics: const BouncingScrollPhysics(),
-                    itemCount: credits.movies.length,
-                    separatorBuilder: (_, __) =>
-                        const SizedBox(width: AppSpacing.md),
-                    itemBuilder: (_, i) {
-                      final m = credits.movies[i];
-                      return PosterCard(
-                          imageUrl: m.posterUrlW342,
-                          title: m.title,
-                          metadata: m.year,
-                          onTap: () => context.push(
-                              '/details/movie/${m.id}?poster=${Uri.encodeComponent(m.posterUrlW342)}'));
-                    }))),
-      ],
-      if (credits.tv.isNotEmpty) ...[
-        const SliverToBoxAdapter(child: SizedBox(height: AppSpacing.xl)),
-        SliverToBoxAdapter(
-            child: Padding(
+              height: AppSpacing.posterRowFor(context),
+              child: ListView.separated(
+                scrollDirection: Axis.horizontal,
                 padding: AppSpacing.screenHorizontal,
-                child: Text('TV Shows', style: AppTypography.sectionHeading))),
-        const SliverToBoxAdapter(child: SizedBox(height: AppSpacing.sm)),
-        SliverToBoxAdapter(
+                physics: const BouncingScrollPhysics(),
+                itemCount: credits.movies.length,
+                separatorBuilder: (_, __) =>
+                    const SizedBox(width: AppSpacing.md),
+                itemBuilder: (_, i) {
+                  final m = credits.movies[i];
+                  return PosterCard(
+                    imageUrl: m.posterUrlW342,
+                    title: m.title,
+                    metadata: m.year,
+                    onTap: () => context.push(
+                      '/details/movie/${m.id}?poster=${Uri.encodeComponent(m.posterUrlW342)}',
+                    ),
+                  );
+                },
+              ),
+            ),
+          ),
+        ],
+        if (credits.tv.isNotEmpty) ...[
+          const SliverToBoxAdapter(child: SizedBox(height: AppSpacing.xl)),
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: AppSpacing.screenHorizontal,
+              child: Text('TV Shows', style: AppTypography.sectionHeading),
+            ),
+          ),
+          const SliverToBoxAdapter(child: SizedBox(height: AppSpacing.sm)),
+          SliverToBoxAdapter(
             child: SizedBox(
-                height: AppSpacing.posterHeight + 56,
-                child: ListView.separated(
-                    scrollDirection: Axis.horizontal,
-                    padding: AppSpacing.screenHorizontal,
-                    physics: const BouncingScrollPhysics(),
-                    itemCount: credits.tv.length,
-                    separatorBuilder: (_, __) =>
-                        const SizedBox(width: AppSpacing.md),
-                    itemBuilder: (_, i) {
-                      final s = credits.tv[i];
-                      return PosterCard(
-                          imageUrl: s.posterUrlW342,
-                          title: s.name,
-                          metadata: s.year,
-                          onTap: () => context.push(
-                              '/details/tv/${s.id}?poster=${Uri.encodeComponent(s.posterUrlW342)}'));
-                    }))),
+              height: AppSpacing.posterRowFor(context),
+              child: ListView.separated(
+                scrollDirection: Axis.horizontal,
+                padding: AppSpacing.screenHorizontal,
+                physics: const BouncingScrollPhysics(),
+                itemCount: credits.tv.length,
+                separatorBuilder: (_, __) =>
+                    const SizedBox(width: AppSpacing.md),
+                itemBuilder: (_, i) {
+                  final s = credits.tv[i];
+                  return PosterCard(
+                    imageUrl: s.posterUrlW342,
+                    title: s.name,
+                    metadata: s.year,
+                    onTap: () => context.push(
+                      '/details/tv/${s.id}?poster=${Uri.encodeComponent(s.posterUrlW342)}',
+                    ),
+                  );
+                },
+              ),
+            ),
+          ),
+        ],
+        const SliverToBoxAdapter(child: SizedBox(height: 100)),
       ],
-      const SliverToBoxAdapter(child: SizedBox(height: 100)),
-    ]);
+    );
   }
 }

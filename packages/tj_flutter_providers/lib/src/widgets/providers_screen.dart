@@ -13,7 +13,23 @@ import '../provider_service.dart';
 /// ```
 class ProvidersScreen extends StatefulWidget {
   final ProviderService service;
-  const ProvidersScreen({super.key, required this.service});
+
+  /// Called with the new enabled set whenever a switch changes.
+  ///
+  /// The widget used to hold the set in local state only: the switches looked
+  /// live but the service kept its constructor list, so toggling a provider
+  /// had no effect on playback and the selection was lost on the next visit.
+  final ValueChanged<Set<String>>? onEnabledChanged;
+
+  /// Seed for the switches. Defaults to `service.enabledIds`.
+  final Set<String>? initialEnabled;
+
+  const ProvidersScreen({
+    super.key,
+    required this.service,
+    this.onEnabledChanged,
+    this.initialEnabled,
+  });
 
   @override
   State<ProvidersScreen> createState() => _ProvidersScreenState();
@@ -30,7 +46,7 @@ class _ProvidersScreenState extends State<ProvidersScreen> {
   @override
   void initState() {
     super.initState();
-    _enabled = widget.service.enabledIds.toSet();
+    _enabled = (widget.initialEnabled ?? widget.service.enabledIds).toSet();
     _load();
   }
 
@@ -135,6 +151,14 @@ class _ProvidersScreenState extends State<ProvidersScreen> {
                             )
                           : const Chip(label: Text('Up to date')),
                     ),
+                  if (providers.isEmpty && _error == null)
+                    const Padding(
+                      padding: EdgeInsets.all(24),
+                      child: Text(
+                        'No providers in the manifest yet. Pull down to retry.',
+                        textAlign: TextAlign.center,
+                      ),
+                    ),
                   const Divider(),
                   ...providers.map(
                     (p) => _tile(
@@ -175,10 +199,26 @@ class _ProvidersScreenState extends State<ProvidersScreen> {
         overflow: TextOverflow.ellipsis,
       ),
       isThreeLine: true,
-      trailing: Switch(
-        value: isEnabled,
-        onChanged: (v) =>
-            setState(() => v ? _enabled.add(p.id) : _enabled.remove(p.id)),
+      trailing: Semantics(
+        label: '${p.name} enabled',
+        child: Switch(
+          value: isEnabled,
+          // The last enabled provider cannot be switched off: with none left,
+          // every title would fail to resolve with no explanation.
+          onChanged: (_enabled.length == 1 && isEnabled)
+              ? null
+              : (v) {
+                  setState(() {
+                    if (v) {
+                      _enabled.add(p.id);
+                    } else {
+                      _enabled.remove(p.id);
+                    }
+                  });
+                  widget.service.setEnabledIds(_enabled);
+                  widget.onEnabledChanged?.call(Set.unmodifiable(_enabled));
+                },
+        ),
       ),
       onTap: () async {
         if (notDownloaded || hasUpdate) {

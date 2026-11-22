@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+
 import 'app_colors.dart';
 import 'app_radii.dart';
 import 'app_typography.dart';
@@ -39,8 +40,9 @@ class AppTheme {
       ),
       snackBarTheme: SnackBarThemeData(
         backgroundColor: AppColors.surfaceElevated,
-        contentTextStyle:
-            AppTypography.body.copyWith(color: AppColors.textPrimary),
+        contentTextStyle: AppTypography.body.copyWith(
+          color: AppColors.textPrimary,
+        ),
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(borderRadius: AppRadii.mdRadius),
       ),
@@ -54,57 +56,98 @@ class AppTheme {
         showUnselectedLabels: true,
       ),
       filledButtonTheme: FilledButtonThemeData(
-          style: FilledButton.styleFrom(
-        backgroundColor: AppColors.accent,
-        foregroundColor: Colors.white,
-        textStyle: AppTypography.button,
-        minimumSize: const Size(double.infinity, 52),
-        padding: const EdgeInsets.symmetric(horizontal: 24),
-        shape: RoundedRectangleBorder(borderRadius: AppRadii.lgRadius),
-        elevation: 0,
-      )),
+        style: FilledButton.styleFrom(
+          backgroundColor: AppColors.accent,
+          foregroundColor: Colors.white,
+          textStyle: AppTypography.button,
+          minimumSize: const Size(double.infinity, 52),
+          padding: const EdgeInsets.symmetric(horizontal: 24),
+          shape: RoundedRectangleBorder(borderRadius: AppRadii.lgRadius),
+          elevation: 0,
+        ),
+      ),
       outlinedButtonTheme: OutlinedButtonThemeData(
-          style: OutlinedButton.styleFrom(
-        foregroundColor: AppColors.textPrimary,
-        textStyle: AppTypography.button,
-        minimumSize: const Size(double.infinity, 52),
-        padding: const EdgeInsets.symmetric(horizontal: 24),
-        shape: RoundedRectangleBorder(borderRadius: AppRadii.lgRadius),
-        side: const BorderSide(color: AppColors.outline, width: 1),
-      )),
+        style: OutlinedButton.styleFrom(
+          foregroundColor: AppColors.textPrimary,
+          textStyle: AppTypography.button,
+          minimumSize: const Size(double.infinity, 52),
+          padding: const EdgeInsets.symmetric(horizontal: 24),
+          shape: RoundedRectangleBorder(borderRadius: AppRadii.lgRadius),
+          side: const BorderSide(color: AppColors.outline, width: 1),
+        ),
+      ),
       textButtonTheme: TextButtonThemeData(
-          style: TextButton.styleFrom(
-        foregroundColor: AppColors.accent,
-        textStyle: AppTypography.button.copyWith(color: AppColors.accent),
-      )),
+        style: TextButton.styleFrom(
+          foregroundColor: AppColors.accent,
+          textStyle: AppTypography.button.copyWith(color: AppColors.accent),
+        ),
+      ),
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
         fillColor: AppColors.surface,
         hintStyle: AppTypography.body.copyWith(color: AppColors.textMuted),
-        contentPadding:
-            const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 16,
+          vertical: 14,
+        ),
         border: OutlineInputBorder(
-            borderRadius: AppRadii.lgRadius, borderSide: BorderSide.none),
+          borderRadius: AppRadii.lgRadius,
+          borderSide: BorderSide.none,
+        ),
         enabledBorder: OutlineInputBorder(
-            borderRadius: AppRadii.lgRadius, borderSide: BorderSide.none),
+          borderRadius: AppRadii.lgRadius,
+          borderSide: BorderSide.none,
+        ),
         focusedBorder: OutlineInputBorder(
-            borderRadius: AppRadii.lgRadius,
-            borderSide: const BorderSide(color: AppColors.accent, width: 1.5)),
+          borderRadius: AppRadii.lgRadius,
+          borderSide: const BorderSide(color: AppColors.accent, width: 1.5),
+        ),
       ),
       cardTheme: CardThemeData(
-          color: AppColors.surface,
-          elevation: 0,
-          margin: EdgeInsets.zero,
-          shape: RoundedRectangleBorder(borderRadius: AppRadii.mdRadius),
-          clipBehavior: Clip.antiAlias),
+        color: AppColors.surface,
+        elevation: 0,
+        margin: EdgeInsets.zero,
+        shape: RoundedRectangleBorder(borderRadius: AppRadii.mdRadius),
+        clipBehavior: Clip.antiAlias,
+      ),
+      // One sheet shape for every modal in the app (was 14/16/18/20 mixed).
+      bottomSheetTheme: const BottomSheetThemeData(
+        backgroundColor: AppColors.surface,
+        surfaceTintColor: Colors.transparent,
+        modalBackgroundColor: AppColors.surface,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(
+            top: Radius.circular(AppRadii.lg),
+          ),
+        ),
+      ),
+      dialogTheme: DialogThemeData(
+        backgroundColor: AppColors.surface,
+        surfaceTintColor: Colors.transparent,
+        shape: RoundedRectangleBorder(borderRadius: AppRadii.lgRadius),
+      ),
+      segmentedButtonTheme: SegmentedButtonThemeData(
+        style: SegmentedButton.styleFrom(
+          backgroundColor: AppColors.surface,
+          foregroundColor: AppColors.textSecondary,
+          selectedBackgroundColor: AppColors.accent,
+          selectedForegroundColor: Colors.white,
+          side: BorderSide.none,
+          textStyle: AppTypography.button.copyWith(fontSize: 13),
+        ),
+      ),
       dividerTheme: const DividerThemeData(
-          color: AppColors.outline, thickness: 1, space: 1),
+        color: AppColors.outline,
+        thickness: 1,
+        space: 1,
+      ),
       chipTheme: ChipThemeData(
         backgroundColor: AppColors.surface,
         selectedColor: AppColors.accent,
         disabledColor: AppColors.surface,
-        labelStyle:
-            AppTypography.metadata.copyWith(color: AppColors.textPrimary),
+        labelStyle: AppTypography.metadata.copyWith(
+          color: AppColors.textPrimary,
+        ),
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         side: BorderSide.none,
         shape: RoundedRectangleBorder(borderRadius: AppRadii.smRadius),
@@ -120,8 +163,10 @@ class AppTheme {
         labelColor: AppColors.textPrimary,
         unselectedLabelColor: AppColors.textMuted,
         labelStyle: AppTypography.button.copyWith(fontSize: 14),
-        unselectedLabelStyle: AppTypography.button
-            .copyWith(fontSize: 14, color: AppColors.textMuted),
+        unselectedLabelStyle: AppTypography.button.copyWith(
+          fontSize: 14,
+          color: AppColors.textMuted,
+        ),
         indicatorColor: AppColors.accent,
         indicatorSize: TabBarIndicatorSize.label,
         dividerColor: Colors.transparent,
